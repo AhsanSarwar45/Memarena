@@ -1,12 +1,8 @@
-#include <catch2/catch_session.hpp>
+#include <gtest/gtest.h>
 
-int main(int argc, char* argv[])
+int main(int argc, char** argv)
 {
-    // global setup...
+    ::testing::InitGoogleTest(&argc, argv);
 
-    int result = Catch::Session().run(argc, argv);
-
-    // global clean-up...
-
-    return result;
+    return RUN_ALL_TESTS();
 }

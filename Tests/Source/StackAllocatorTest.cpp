@@ -1,111 +1,154 @@
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
-#include <MemoryManager/MemoryManager.hpp>
 #include <MemoryManager/StackAllocator.hpp>
 
 #include "MemoryTestObjects.hpp"
 
 using namespace Memory;
 
-TEST_CASE("StackAllocator", "[Memory]")
+class StackAllocatorTest : public ::testing::Test
 {
+  protected:
+    void SetUp() override {}
+    void TearDown() override {}
+
     StackAllocator stackAllocator = StackAllocator(10_MB);
+};
 
-    SECTION("Initialization")
+TestObject* CheckTestObjectNew(StackAllocator& stackAllocator, int a, float b, char c, bool d, float e)
+{
+    TestObject* object = stackAllocator.New<TestObject>(a, b, c, d, e);
+
+    EXPECT_EQ(object->a, a);
+    EXPECT_EQ(object->b, b);
+    EXPECT_EQ(object->c, c);
+    EXPECT_EQ(object->d, d);
+    EXPECT_EQ(object->e, e);
+
+    return object;
+}
+
+TestObject2* CheckTestObjectNew2(StackAllocator& stackAllocator, int a, double b, double c, bool d, std::vector<int> e)
+{
+    TestObject2* object = stackAllocator.New<TestObject2>(a, b, c, d, e);
+
+    EXPECT_EQ(object->a, a);
+    EXPECT_EQ(object->b, b);
+    EXPECT_EQ(object->c, c);
+    EXPECT_EQ(object->d, d);
+    EXPECT_EQ(object->e.size(), e.size());
+
+    return object;
+}
+
+TEST_F(StackAllocatorTest, Initialize) { EXPECT_EQ(stackAllocator.GetUsedSize(), 0); }
+
+TEST_F(StackAllocatorTest, NewSingleObject) { CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
+
+TEST_F(StackAllocatorTest, NewMultipleSameObjects)
+{
+    for (size_t i = 0; i < 10; i++)
     {
-        REQUIRE(stackAllocator.GetUsedSize() == 0);
-        REQUIRE(stackAllocator.GetTotalSize() == 10_MB);
+        CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
-    SECTION("New")
+}
+
+TEST_F(StackAllocatorTest, NewMultipleDifferentObjects)
+{
+    for (size_t i = 0; i < 10; i++)
     {
-        SECTION("Single Object")
-        {
-            TestObject* object = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+        CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+    }
+    for (size_t i = 0; i < 10; i++)
+    {
+        CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
+    }
+}
 
-            REQUIRE(object->a == 1);
-            REQUIRE(object->b == 2.1f);
-            REQUIRE(object->c == 'a');
-            REQUIRE(object->d == false);
-            REQUIRE(object->e == 10.6f);
-        }
+TEST_F(StackAllocatorTest, NewThenDeleteSingleObject)
+{
+    TestObject* object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
-        SECTION("Multiple Objects")
-        {
-            TestObject*  object  = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-            TestObject2* object2 = stackAllocator.New<TestObject2>(2, 5.4, 8.2, false, std::vector<int>(6));
+    stackAllocator.Delete(object);
+}
 
-            REQUIRE(object->a == 1);
-            REQUIRE(object->b == 2.1f);
-            REQUIRE(object->c == 'a');
-            REQUIRE(object->d == false);
-            REQUIRE(object->e == 10.6f);
+TEST_F(StackAllocatorTest, NewThenDeleteMultipleSameObjects)
+{
+    std::vector<TestObject*> objects;
 
-            REQUIRE(object2->a == 2);
-            REQUIRE(object2->b == 5.4);
-            REQUIRE(object2->c == 8.2);
-            REQUIRE(object2->d == false);
-            REQUIRE(object2->e.size() == 6);
-        }
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+
+        objects.push_back(object);
     }
 
-    SECTION("New - Delete")
+    // Remember to delete in reverse order
+    for (int i = objects.size() - 1; i >= 0; i--)
     {
-        SECTION("Single Object")
-        {
-            TestObject* object = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+        stackAllocator.Delete(objects[i]);
+    }
+}
 
-            stackAllocator.Delete(object);
-        }
+TEST_F(StackAllocatorTest, NewThenDeleteMultipleDifferentObjects)
+{
+    std::vector<TestObject*>  objects1;
+    std::vector<TestObject2*> objects2;
 
-        SECTION("Multiple Objects")
-        {
-            TestObject*  object  = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-            TestObject2* object2 = stackAllocator.New<TestObject2>(2, 5.4, 8.2, false, std::vector<int>(6));
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
 
-            stackAllocator.Delete(object2);
-            stackAllocator.Delete(object);
-        }
+        objects1.push_back(object);
+    }
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject2* object = CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
+
+        objects2.push_back(object);
     }
 
-    SECTION("New - Delete - New")
+    for (int i = objects2.size() - 1; i >= 0; i--)
     {
-        SECTION("Single Object")
-        {
-            TestObject* object = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+        stackAllocator.Delete(objects2[i]);
+    }
+    for (int i = objects1.size() - 1; i >= 0; i--)
+    {
+        stackAllocator.Delete(objects1[i]);
+    }
+}
 
-            stackAllocator.Delete(object);
+TEST_F(StackAllocatorTest, NewThenDeleteThenNewSingleObject)
+{
+    TestObject* object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
-            TestObject* objectNew = stackAllocator.New<TestObject>(2, 2.1f, 'a', false, 10.6f);
+    stackAllocator.Delete(object);
 
-            REQUIRE(objectNew->a == 2);
-            REQUIRE(objectNew->b == 2.1f);
-            REQUIRE(objectNew->c == 'a');
-            REQUIRE(objectNew->d == false);
-            REQUIRE(objectNew->e == 10.6f);
-        }
+    TestObject* object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+}
 
-        SECTION("Multiple Objects")
-        {
-            TestObject*  object  = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-            TestObject2* object2 = stackAllocator.New<TestObject2>(2, 5.4, 8.2, false, std::vector<int>(6));
+TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleSameObjects)
+{
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
 
-            stackAllocator.Delete(object2);
-            stackAllocator.Delete(object);
+        stackAllocator.Delete(object);
+    }
+}
 
-            TestObject*  objectNew  = stackAllocator.New<TestObject>(2, 2.1f, 'a', false, 10.6f);
-            TestObject2* object2New = stackAllocator.New<TestObject2>(3, 5.4, 8.2, false, std::vector<int>(6));
+TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleDifferentObjects)
+{
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
 
-            REQUIRE(objectNew->a == 2);
-            REQUIRE(objectNew->b == 2.1f);
-            REQUIRE(objectNew->c == 'a');
-            REQUIRE(objectNew->d == false);
-            REQUIRE(objectNew->e == 10.6f);
+        stackAllocator.Delete(object);
+    }
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject2* object = CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
 
-            REQUIRE(object2New->a == 3);
-            REQUIRE(object2New->b == 5.4);
-            REQUIRE(object2New->c == 8.2);
-            REQUIRE(object2New->d == false);
-            REQUIRE(object2New->e.size() == 6);
-        }
+        stackAllocator.Delete(object);
     }
 }
