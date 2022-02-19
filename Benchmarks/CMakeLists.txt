@@ -15,7 +15,7 @@ add_executable(${PROJECT_NAME}
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC "Source")
-target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/Include")
+target_include_directories(${PROJECT_NAME} PUBLIC "../Include")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${BENCHMARK_CPP_LINKER_FLAGS}")
 target_link_libraries(${PROJECT_NAME} PRIVATE MemoryManager)
