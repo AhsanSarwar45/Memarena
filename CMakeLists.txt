@@ -42,6 +42,12 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/V
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${CPP_LINKER_FLAGS}")
 
+
 enable_testing()
-add_subdirectory(Tests)
+add_subdirectory("${CMAKE_SOURCE_DIR}/Vendor/googletest")
+add_subdirectory("${CMAKE_SOURCE_DIR}/Vendor/benchmark")
+
+add_subdirectory("${CMAKE_SOURCE_DIR}/Tests")
+add_subdirectory("${CMAKE_SOURCE_DIR}/Benchmarks")
+# add_subdirectory("${CMAKE_SOURCE_DIR}/Benchmarks")
 
