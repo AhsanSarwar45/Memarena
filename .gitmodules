@@ -1,3 +1,6 @@
-[submodule "Tests/Vendor/Catch2"]
-	path = Tests/Vendor/Catch2
-	url = https://github.com/catchorg/Catch2
+[submodule "Vendor/googletest"]
+	path = Vendor/googletest
+	url = https://github.com/google/googletest
+[submodule "Vendor/benchmark"]
+	path = Vendor/benchmark
+	url = https://github.com/google/benchmark

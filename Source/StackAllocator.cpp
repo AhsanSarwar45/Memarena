@@ -31,33 +31,41 @@ StackAllocator::~StackAllocator()
 
 void* StackAllocator::Allocate(const Size size, const Size alignment)
 {
-    const Size currentAddress = (Size)m_HeadPtr + m_Offset;
+    const UIntPtr currentAddress = reinterpret_cast<UIntPtr>(m_HeadPtr) + m_Offset;
 
-    Size padding = CalculatePaddingWithHeader(currentAddress, alignment, sizeof(AllocationHeader));
+    // The padding includes alignment as well as the header
+    const UInt8 padding = CalculatePaddingWithHeader(currentAddress, alignment, sizeof(AllocationHeader));
 
-    if (m_Offset + padding + size > m_Data->totalSize)
+    const Size totalSizeAfterAllocation = m_Offset + padding + size;
+    if (totalSizeAfterAllocation > m_Data->totalSize) // Check if this allocation will overflow the stack allocator
     {
-        return nullptr;
+        return nullptr; // Not enough space in the stack allocator, so return nullptr
     }
-    m_Offset += padding;
 
-    const Size nextAddress = currentAddress + padding;
+    const UIntPtr nextAddress   = currentAddress + padding;
+    const UIntPtr headerAddress = nextAddress - sizeof(AllocationHeader);
+    // Construct the header at 'headerAdress' using placement new operator
+    const AllocationHeader* headerPtr = new (reinterpret_cast<void*>(headerAddress)) AllocationHeader(padding);
 
-    m_Offset += size;
+    m_Offset = totalSizeAfterAllocation;
 
-    m_Data->usedSize = m_Offset;
+    m_Data->usedSize  = m_Offset;
+    m_Data->peakUsage = std::max(m_Data->peakUsage, m_Data->usedSize);
+
     return reinterpret_cast<void*>(nextAddress);
 }
 
-void StackAllocator::Deallocate(const Size ptr)
+void StackAllocator::Deallocate(void* ptr)
 {
-    const Size initialOffset = m_Offset;
 
-    // Move offset back to clear address
-    const Size              headerAddress = ptr - sizeof(AllocationHeader);
-    const AllocationHeader* allocationHeader{reinterpret_cast<AllocationHeader*>(headerAddress)};
+    const UIntPtr           currentAddress   = reinterpret_cast<UIntPtr>(ptr);
+    const UIntPtr           headerAddress    = currentAddress - sizeof(AllocationHeader);
+    const AllocationHeader* allocationHeader = reinterpret_cast<AllocationHeader*>(headerAddress);
 
-    m_Offset         = ptr - allocationHeader->padding - (Size)m_HeadPtr;
+    const Size currentOffset = currentAddress - reinterpret_cast<UIntPtr>(m_HeadPtr);
+
+    // Move offset back by removing the padding and the header
+    m_Offset         = currentOffset - allocationHeader->padding;
     m_Data->usedSize = m_Offset;
 }
 

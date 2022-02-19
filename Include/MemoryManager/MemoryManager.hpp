@@ -11,7 +11,7 @@ using AllocatorVector = std::vector<std::shared_ptr<AllocatorData>>;
 class MemoryManager
 {
   public:
-    explicit MemoryManager(Size applicationBudget);
+    explicit MemoryManager(Size applicationBudget = 0);
     ~MemoryManager();
 
     void RegisterAllocator(std::shared_ptr<AllocatorData> allocatorData);
@@ -27,7 +27,7 @@ class MemoryManager
   private:
     AllocatorVector m_Allocators;
 
-    Size m_ApplicationBudget;
+    Size m_ApplicationBudget; // if 0, means no budget limit
     Size m_TotalAllocatedSize;
 };
 } // namespace Memory

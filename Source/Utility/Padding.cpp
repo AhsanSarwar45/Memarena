@@ -2,18 +2,18 @@
 
 namespace Memory
 {
-const Size CalculatePadding(const Size baseAddress, const Size alignment)
+const UInt8 CalculatePadding(const Size baseAddress, const Size alignment)
 {
-    const Size multiplier     = (baseAddress / alignment) + 1;
-    const Size alignedAddress = multiplier * alignment;
-    const Size padding        = alignedAddress - baseAddress;
+    const Size  multiplier     = (baseAddress / alignment) + 1;
+    const Size  alignedAddress = multiplier * alignment;
+    const UInt8 padding        = alignedAddress - baseAddress;
     return padding;
 }
 
-const Size CalculatePaddingWithHeader(const Size baseAddress, const Size alignment, const Size headerSize)
+const UInt8 CalculatePaddingWithHeader(const Size baseAddress, const Size alignment, const Size headerSize)
 {
-    Size padding     = CalculatePadding(baseAddress, alignment);
-    Size neededSpace = headerSize;
+    UInt8 padding     = CalculatePadding(baseAddress, alignment);
+    Size  neededSpace = headerSize;
 
     if (padding < neededSpace)
     {
