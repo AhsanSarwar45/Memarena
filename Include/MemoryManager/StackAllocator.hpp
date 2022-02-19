@@ -111,6 +111,15 @@ class StackAllocator
      */
     void Deallocate(void* ptr);
 
+    /**
+     * @brief Resets the allocator to its initial state. Any further allocations
+     * will possibly overwrite all object allocated prior to calling this method.
+     * So make sure to only call this when you don't need any objects previously
+     * allocated by this allocator.
+     *
+     */
+    void Clear();
+
     Size GetUsedSize() const;
     Size GetTotalSize() const;
 

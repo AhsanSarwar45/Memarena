@@ -69,6 +69,12 @@ void StackAllocator::Deallocate(void* ptr)
     m_Data->usedSize = m_Offset;
 }
 
+void StackAllocator::Clear()
+{
+    m_Offset         = 0;
+    m_Data->usedSize = 0;
+}
+
 Size StackAllocator::GetUsedSize() const { return m_Data->usedSize; }
 Size StackAllocator::GetTotalSize() const { return m_Data->totalSize; }
 } // namespace Memory

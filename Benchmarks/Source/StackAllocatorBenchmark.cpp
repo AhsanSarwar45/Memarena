@@ -10,7 +10,7 @@ static void DefaultNewDelete(benchmark::State& state)
 {
     for (auto _ : state)
     {
-        for (size_t i = 0; i < 10000; i++)
+        for (size_t i = 0; i < 100; i++)
         {
             TestObject* object = new TestObject(1, 1.5f, 2.5f, false, 10.5f);
             benchmark::ClobberMemory();
@@ -22,15 +22,16 @@ BENCHMARK(DefaultNewDelete);
 
 static void StackAllocatorNewDelete(benchmark::State& state)
 {
-    StackAllocator stackAllocator = StackAllocator(1_KB);
+    StackAllocator stackAllocator = StackAllocator(100 * (8 + sizeof(TestObject)));
 
     for (auto _ : state)
     {
-        for (size_t i = 0; i < 10000; i++)
+        for (size_t i = 0; i < 100; i++)
         {
             TestObject* object = stackAllocator.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
-            stackAllocator.Delete(object);
         }
+
+        stackAllocator.Clear();
     }
 }
 // Register the function as a benchmark
