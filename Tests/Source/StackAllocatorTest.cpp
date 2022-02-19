@@ -152,3 +152,10 @@ TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleDifferentObjects)
         stackAllocator.Delete(object);
     }
 }
+
+TEST_F(StackAllocatorTest, NewOutOfMemory)
+{
+    StackAllocator stackAllocator2 = StackAllocator(10);
+    TestObject*    object          = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    EXPECT_EQ(object, nullptr);
+}

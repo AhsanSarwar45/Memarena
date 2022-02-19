@@ -37,7 +37,9 @@ class StackAllocator
     StackAllocator& operator=(StackAllocator&&) = delete;
 
     /**
-     * @brief Construct a new Stack Allocator object.
+     * @brief Constructs a new Stack Allocator object. This is where the entire memory of the allocator
+     * is allocated. If a MemoryManager instance is provided, it registers itself to the manager to
+     * allow memory tracking.
      *
      * @param totalSize This will be allocated up-front. Even if the stack allocator is empty, it will
      * consume this amount of memory.
@@ -47,6 +49,10 @@ class StackAllocator
      */
     StackAllocator(const Size totalSize, std::shared_ptr<MemoryManager> memoryManager = nullptr, const char* debugName = "Allocator");
 
+    /**
+     * @brief Destroys the Stack Allocator object. Also frees up all the memory. If a MemoryManager instance
+     * is provided, it un-registers itself from the manager.
+     */
     ~StackAllocator();
 
     /**
@@ -132,11 +138,11 @@ class StackAllocator
     void*                          m_HeadPtr{nullptr}; // Points to the start of the stack allocator
     Size                           m_Offset{0};        // Points to the first available location
 
-    struct AllocationHeader
+    struct Header
     {
         UInt8 padding;
 
-        AllocationHeader(UInt8 _padding) : padding(_padding) {}
+        Header(UInt8 _padding) : padding(_padding) {}
     };
 };
 
@@ -144,7 +150,14 @@ template <typename Object, typename... Args>
 Object* StackAllocator::New(Args... argList)
 {
     void* address = Allocate(sizeof(Object)); // Allocate the raw memory and get a pointer to it
-    return new (address) Object(argList...);  // Call the placement new operator, which constructs the Object
+    if (address != nullptr)
+    {
+        return new (address) Object(argList...); // Call the placement new operator, which constructs the Object
+    }
+    else
+    {
+        return nullptr;
+    }
 }
 
 template <typename Object>
