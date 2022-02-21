@@ -1,5 +1,10 @@
 #include <gtest/gtest.h>
 
+#ifdef MEMORY_MANAGER_DEBUG
+    #define MEMORY_MANAGER_ENABLE_ASSERTS
+    #define MEMORY_MANAGER_DEBUG_BREAK
+#endif
+
 #include <MemoryManager/StackAllocator.hpp>
 
 #include "MemoryTestObjects.hpp"
@@ -153,9 +158,38 @@ TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewOutOfMemory)
+TEST_F(StackAllocatorTest, Clear)
+{
+    StackAllocator stackAllocator2 = StackAllocator(10 * (sizeof(TestObject) + 8), nullptr, 8);
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+    }
+
+    stackAllocator2.Reset();
+
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+    }
+}
+
+#ifdef MEMORY_MANAGER_ENABLE_ASSERTS
+
+TEST(StackAllocatorDeathTest, NewOutOfMemory)
 {
     StackAllocator stackAllocator2 = StackAllocator(10);
-    TestObject*    object          = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-    EXPECT_EQ(object, nullptr);
+
+    ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); },
+                 "Error: The allocator StackAllocator is out of memory!");
 }
+
+#endif
+
+// TEST_F(StackAllocatorTest, NullPtrDeallocate)
+// {
+
+//     TestObject* object  = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+//     TestObject* object2 = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+//     TestObject* object3 = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+// }

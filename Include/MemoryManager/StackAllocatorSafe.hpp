@@ -7,6 +7,17 @@
 namespace Memory
 {
 
+template <typename T>
+struct StackPtr
+{
+    T*     ptr;
+    UInt32 startOffset;
+    UInt32 endOffset;
+
+    T*       operator->() const { return ptr; }
+    explicit operator bool() const noexcept { return (ptr != nullptr); }
+};
+
 /**
  * @brief A custom memory allocator which allocates in a stack-like manner.
  * All the memory will be allocated up-front. This means it will have
@@ -21,18 +32,18 @@ namespace Memory
  * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
  * Allocation and deallocation complexity: O(1)
  */
-class StackAllocator : public StackAllocatorBase
+class StackAllocatorSafe : public StackAllocatorBase
 {
   public:
     // Prohibit default construction, moving and assignment
-    StackAllocator()                      = delete;
-    StackAllocator(const StackAllocator&) = delete;
-    StackAllocator(StackAllocator&&)      = delete;
-    StackAllocator& operator=(const StackAllocator&) = delete;
-    StackAllocator& operator=(StackAllocator&&) = delete;
+    StackAllocatorSafe()                          = delete;
+    StackAllocatorSafe(const StackAllocatorSafe&) = delete;
+    StackAllocatorSafe(StackAllocatorSafe&&)      = delete;
+    StackAllocatorSafe& operator=(const StackAllocatorSafe&) = delete;
+    StackAllocatorSafe& operator=(StackAllocatorSafe&&) = delete;
 
-    StackAllocator(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr, const Size defaultAlignment = 8,
-                   const char* debugName = "StackAllocator");
+    StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr, const Size defaultAlignment = 8,
+                       const char* debugName = "StackAllocatorSafe");
 
     /**
      * @brief Allocates a new block of memory and calls the constructor
@@ -44,7 +55,7 @@ class StackAllocator : public StackAllocatorBase
      * @return Object* The pointer to the newly allocated and created object
      */
     template <typename Object, typename... Args>
-    Object* New(Args... argList);
+    StackPtr<Object> New(Args... argList);
 
     /**
      * @brief Deallocates a pointer and calls the destructor
@@ -54,7 +65,7 @@ class StackAllocator : public StackAllocatorBase
      * @param ptr The pointer to the memory to be deallocated
      */
     template <typename Object>
-    void Delete(Object* ptr);
+    void Delete(StackPtr<Object> ptr);
 
     /**
      * @brief Allocates raw memory without calling any constructor
@@ -75,7 +86,7 @@ class StackAllocator : public StackAllocatorBase
      * @param alignment The alignment of the memory to be allocated in bytes
      * @return void* The pointer to the newly allocated memory
      */
-    void* Allocate(const Size size, const Size alignment = 8);
+    StackPtr<void> Allocate(const Size size, const Size alignment = 8);
 
     /**
      * @brief Deallocates raw memory without calling any destructor. It also deallocates
@@ -95,31 +106,31 @@ class StackAllocator : public StackAllocatorBase
      *
      * @param ptr The pointer to the memory to be deallocated
      */
-    void Deallocate(void* ptr);
+    void Deallocate(StackPtr<void> ptr);
 
   private:
-    StackAllocator(StackAllocator& stackAllocator); // Restrict copying
-
-    struct Header
-    {
-        UInt8 padding;
-
-        Header(UInt8 _padding) : padding(_padding) {}
-    };
+    StackAllocatorSafe(StackAllocatorSafe& stackAllocator); // Restrict copying
 };
 
 template <typename Object, typename... Args>
-Object* StackAllocator::New(Args... argList)
+StackPtr<Object> StackAllocatorSafe::New(Args... argList)
 {
-    void* rawPtr = Allocate(sizeof(Object), m_DefaultAlignment); // Allocate the raw memory and get a pointer to it
-    return new (rawPtr) Object(argList...);                      // Call the placement new operator, which constructs the Object
+    StackPtr<void>   rawPtr    = Allocate(sizeof(Object), m_DefaultAlignment); // Allocate the raw memory and get a pointer to it
+    StackPtr<Object> objectPtr = {.ptr = nullptr, .startOffset = rawPtr.startOffset, .endOffset = rawPtr.endOffset};
+    if (rawPtr)
+    {
+        objectPtr.ptr = new (rawPtr.ptr) Object(argList...); // Call the placement new operator, which constructs the Object
+    }
+
+    return objectPtr;
 }
 
 template <typename Object>
-void StackAllocator::Delete(Object* ptr)
+void StackAllocatorSafe::Delete(StackPtr<Object> ptr)
 {
-    ptr->~Object();  // Call the destructor on the object
-    Deallocate(ptr); // Deallocate the pointer
+
+    ptr.ptr->~Object(); // Call the destructor on the object
+    Deallocate(ptr);    // Deallocate the pointer
 }
 
 } // namespace Memory

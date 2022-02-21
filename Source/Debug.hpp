@@ -2,6 +2,8 @@
 
 #include <PCH.hpp>
 
+namespace Memory
+{
 #define STRINGIZE(arg)  STRINGIZE1(arg)
 #define STRINGIZE1(arg) STRINGIZE2(arg)
 #define STRINGIZE2(arg) #arg
@@ -55,3 +57,4 @@
     printf("%s: %d\n", #structure, sizeof(structure));                                               \
     PRN_STRUCT_OFFSETS_(PRN_STRUCT_OFFSETS_NARG(field, __VA_ARGS__), structure, field, __VA_ARGS__); \
     printf("---------------------------------------------\n")
+} // namespace Memory

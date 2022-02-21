@@ -29,4 +29,5 @@ BraceWrapping:
 ColumnLimit: 140
 DerivePointerAlignment: false
 IncludeBlocks: Preserve
+IndentPPDirectives: BeforeHash
 PointerAlignment: Left

@@ -9,12 +9,18 @@ cmake_minimum_required(VERSION 3.16)
 
 project(MemoryManager)
 
+option(MEMORY_MANAGER_BUILD_TEST "Build the tests of the MemoryManager library." ON)
+option(MEMORY_MANAGER_BUILD_BENCHMARKS "Build the benchmarks of the MemoryManager library." ON)
+# option(MEMORY_MANAGER_BUILD_EXAMPLE "Build the example project that showcases how to use this library." ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CPP_LINKER_FLAGS "-loleaut32 -limm32 -lversion -lole32")
 
 
 add_library(${PROJECT_NAME} STATIC
-"Source/StackAllocator.cpp"
+"Source/StackAllocator/StackAllocatorSafe.cpp"
+"Source/StackAllocator/StackAllocator.cpp"
+"Source/StackAllocator/StackAllocatorBase.cpp"
 "Source/MemoryManager.cpp"
 "Source/Utility/Padding.cpp"
 )
@@ -29,11 +35,15 @@ target_compile_definitions(${PROJECT_NAME}
       _CRT_SECURE_NO_WARNINGS
       GLFW_INCLUDE_NONE
     PUBLIC
-      $<$<CONFIG:Debug>:DEBUG>
-      $<$<CONFIG:RelWithDebInfo>:DEBUG>
-      $<$<CONFIG:Release>:RELEASE>
-      $<$<CONFIG:MinSizeRel>:RELEASE>
+      $<$<CONFIG:Debug>:MEMORY_MANAGER_DEBUG>
+      $<$<CONFIG:RelWithDebInfo>:MEMORY_MANAGER_DEBUG>
+      $<$<CONFIG:Release>:MEMORY_MANAGER_RELEASE>
+      $<$<CONFIG:MinSizeRel>:MEMORY_MANAGER_RELEASE>
 )
+
+set(MEMORY_MANAGER_INCLUDE_DIRS
+  "${CMAKE_CURRENT_SOURCE_DIR}/Include/MemoryManager")
+include_directories(${MEMORY_MANAGER_INCLUDE_DIRS})
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source")
@@ -42,12 +52,21 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/V
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${CPP_LINKER_FLAGS}")
 
+if (MEMORY_MANAGER_BUILD_TEST OR MEMORY_MANAGER_BUILD_BENCHMARKS)
+  enable_testing()
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/googletest")
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Tests")
+endif()
 
-enable_testing()
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/googletest")
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/benchmark")
+if(MEMORY_MANAGER_BUILD_BENCHMARKS)
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/benchmark")
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Benchmarks")
+endif()
 
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Tests")
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Benchmarks")
+# if (MEMORY_MANAGER_BUILD_EXAMPLE)
+#   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/benchmark")
+# endif()
+
+
 # add_subdirectory("${CMAKE_SOURCE_DIR}/Benchmarks")
 
