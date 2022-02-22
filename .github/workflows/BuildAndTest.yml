@@ -36,6 +36,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install Conan
+        run: pip install conan
+
       - name: Install Ninja
         if: startsWith(matrix.os,'ubuntu')
         run: sudo apt-get install ninja-build
