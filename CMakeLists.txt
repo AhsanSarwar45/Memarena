@@ -14,7 +14,6 @@ option(MEMORY_MANAGER_BUILD_BENCHMARKS "Build the benchmarks of the MemoryManage
 # option(MEMORY_MANAGER_BUILD_EXAMPLE "Build the example project that showcases how to use this library." ON)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CPP_LINKER_FLAGS "-loleaut32 -limm32 -lversion -lole32")
 
 
 add_library(${PROJECT_NAME} STATIC
