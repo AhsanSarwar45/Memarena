@@ -36,7 +36,7 @@ add_executable(${PROJECT_NAME}
 "Source/StackAllocatorBenchmark.cpp"
 )
 
-include("${CMAKE_BINARY_DIR}/${PROJECT_NAME}/conan_paths.cmake")
+include("${CMAKE_CURRENT_BINARY_DIR}/conan_paths.cmake")
 find_package(benchmark REQUIRED)
 add_dependencies(${PROJECT_NAME} benchmark::benchmark)
 
