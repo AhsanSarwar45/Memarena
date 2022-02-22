@@ -27,6 +27,11 @@ jobs:
           - compiler: clang
             cxx_compiler: clang++
             compiler_name: Clang
+        exclude:
+          - os: windows-latest
+            compiler: gcc
+          - os: ubuntu-latest
+            compiler: clang
 
     steps:
       - uses: actions/checkout@v2
