@@ -13,9 +13,18 @@ option(MEMORY_MANAGER_BUILD_TEST "Build the tests of the MemoryManager library."
 option(MEMORY_MANAGER_BUILD_BENCHMARKS "Build the benchmarks of the MemoryManager library." ON)
 # option(MEMORY_MANAGER_BUILD_EXAMPLE "Build the example project that showcases how to use this library." ON)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CPP_LINKER_FLAGS "-loleaut32 -limm32 -lversion -lole32")
 
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
+  message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
+  file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/v0.16.1/conan.cmake"
+                "${CMAKE_BINARY_DIR}/conan.cmake"
+                EXPECTED_HASH SHA256=396e16d0f5eabdc6a14afddbcfff62a54a7ee75c6da23f32f7a31bc85db23484
+                TLS_VERIFY ON)
+endif()
+
+include(${CMAKE_BINARY_DIR}/conan.cmake)
 
 add_library(${PROJECT_NAME} STATIC
 "Source/StackAllocator/StackAllocatorSafe.cpp"
@@ -41,32 +50,27 @@ target_compile_definitions(${PROJECT_NAME}
       $<$<CONFIG:MinSizeRel>:MEMORY_MANAGER_RELEASE>
 )
 
-set(MEMORY_MANAGER_INCLUDE_DIRS
-  "${CMAKE_CURRENT_SOURCE_DIR}/Include/MemoryManager")
-include_directories(${MEMORY_MANAGER_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} INTERFACE 
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Include>
+    $<INSTALL_INTERFACE:Include>
+)
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source")
-target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include/MemoryManager")
-target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Vendor")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Source")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/MemoryManager")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Vendor")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${CPP_LINKER_FLAGS}")
 
 if (MEMORY_MANAGER_BUILD_TEST OR MEMORY_MANAGER_BUILD_BENCHMARKS)
   enable_testing()
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/googletest")
   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Tests")
 endif()
 
 if(MEMORY_MANAGER_BUILD_BENCHMARKS)
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/benchmark")
   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Benchmarks")
 endif()
 
 # if (MEMORY_MANAGER_BUILD_EXAMPLE)
 #   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/benchmark")
 # endif()
-
-
-# add_subdirectory("${CMAKE_SOURCE_DIR}/Benchmarks")
-

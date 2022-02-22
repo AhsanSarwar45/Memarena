@@ -22,7 +22,7 @@ BENCHMARK(DefaultNewDelete);
 
 static void StackAllocatorNewDelete(benchmark::State& state)
 {
-    StackAllocator stackAllocator = StackAllocator(100 * (8 + sizeof(TestObject)));
+    StackAllocator stackAllocator = StackAllocator(1000 * (8 + sizeof(TestObject)));
 
     for (auto _ : state)
     {
