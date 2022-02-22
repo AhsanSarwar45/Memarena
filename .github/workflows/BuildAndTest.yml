@@ -41,12 +41,14 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
 
-      - name: Install Conan
+      - name: Setup Conan
         run: pip install conan
 
-      - name: Install Ninja
-        if: startsWith(matrix.os,'ubuntu')
-        run: sudo apt-get install ninja-build
+      - name: Setup Ninja
+        uses: ashutoshvarma/setup-ninja@master
+        with:
+          version: 1.10.0
+
 
       - name: Configure CMake
         env:
