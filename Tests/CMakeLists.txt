@@ -36,7 +36,7 @@ add_executable(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE "Source")
 
-include("${CMAKE_BINARY_DIR}/${PROJECT_NAME}/conan_paths.cmake")
+include("${CMAKE_CURRENT_BINARY_DIR}/conan_paths.cmake")
 find_package(GTest REQUIRED)
 add_dependencies(${PROJECT_NAME} GTest::gtest)
 
