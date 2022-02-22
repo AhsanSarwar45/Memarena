@@ -1,0 +1,50 @@
+name: Build And Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: ${{ matrix.os_name }} ${{ matrix.compiler_name }} ${{ matrix.build_type }} Build
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Debug, Release]
+        compiler: [gcc, clang]
+        include:
+          - os: ubuntu-latest
+            os_name: Linux
+          - os: windows-latest
+            os_name: Windows
+          - compiler: gcc
+            cxx_compiler: g++
+            compiler_name: GCC
+          - compiler: clang
+            cxx_compiler: clang++
+            compiler_name: Clang
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Ninja
+        if: startsWith(matrix.os,'ubuntu')
+        run: sudo apt-get install ninja-build
+
+      - name: Configure CMake
+        env:
+          CC: ${{ matrix.compiler }}
+          CXX: ${{ matrix.cxx_compiler }}
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_STANDARD=20 -G Ninja
+
+      - name: Build
+        # Build your program with the given configuration
+        run: cmake --build ${{github.workspace}}/build --config ${{ matrix.build_type }}
+
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        run: ctest -C ${{ matrix.build_type}}
