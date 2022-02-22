@@ -41,8 +41,8 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
 
-      - name: Setup Conan
-        run: pip install conan
+      - name: Setup Python Dependencies
+        run: pip install -r requirements.txt
 
       - name: Setup Ninja
         uses: ashutoshvarma/setup-ninja@master
