@@ -20,15 +20,6 @@ class StackAllocatorSafeTest : public ::testing::Test
     StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(10_MB);
 };
 
-class StackAllocatorSafeDeathTest : public ::testing::Test
-{
-  protected:
-    void SetUp() override {}
-    void TearDown() override {}
-
-    StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(10_MB);
-};
-
 StackPtr<TestObject> CheckTestObjectNew(StackAllocatorSafe& stackAllocatorSafe, int a, float b, char c, bool d, float e)
 {
     StackPtr<TestObject> object = stackAllocatorSafe.New<TestObject>(a, b, c, d, e);
@@ -184,6 +175,15 @@ TEST_F(StackAllocatorSafeTest, Clear)
 }
 
 #ifdef MEMORY_MANAGER_ENABLE_ASSERTS
+
+class StackAllocatorSafeDeathTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override {}
+    void TearDown() override {}
+
+    StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(10_MB);
+};
 
 TEST_F(StackAllocatorSafeDeathTest, NewOutOfMemory)
 {

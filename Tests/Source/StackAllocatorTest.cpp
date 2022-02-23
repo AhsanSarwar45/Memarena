@@ -20,15 +20,6 @@ class StackAllocatorTest : public ::testing::Test
     StackAllocator stackAllocator = StackAllocator(10_MB);
 };
 
-class StackAllocatorDeathTest : public ::testing::Test
-{
-  protected:
-    void SetUp() override {}
-    void TearDown() override {}
-
-    StackAllocator stackAllocator = StackAllocator(10_MB);
-};
-
 TestObject* CheckTestObjectNew(StackAllocator& stackAllocator, int a, float b, char c, bool d, float e)
 {
     TestObject* object = stackAllocator.New<TestObject>(a, b, c, d, e);
@@ -185,7 +176,16 @@ TEST_F(StackAllocatorTest, Clear)
 
 #ifdef MEMORY_MANAGER_ENABLE_ASSERTS
 
-TEST(StackAllocatorDeathTest, NewOutOfMemory)
+class StackAllocatorDeathTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override {}
+    void TearDown() override {}
+
+    StackAllocator stackAllocator = StackAllocator(10_MB);
+};
+
+TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
 {
     StackAllocator stackAllocator2 = StackAllocator(10);
 
@@ -193,7 +193,7 @@ TEST(StackAllocatorDeathTest, NewOutOfMemory)
     ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); }, ".*");
 }
 
-TEST(StackAllocatorDeathTest, DeleteNullPointer)
+TEST_F(StackAllocatorDeathTest, DeleteNullPointer)
 {
     int* nullPointer = nullptr;
 
@@ -201,7 +201,7 @@ TEST(StackAllocatorDeathTest, DeleteNullPointer)
     ASSERT_DEATH({ stackAllocator.Delete(nullPointer); }, ".*");
 }
 
-TEST(StackAllocatorDeathTest, DeleteNotOwnedPointer)
+TEST_F(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 {
     int* pointer = new int(10);
 
