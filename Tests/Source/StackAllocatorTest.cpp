@@ -180,8 +180,29 @@ TEST(StackAllocatorDeathTest, NewOutOfMemory)
 {
     StackAllocator stackAllocator2 = StackAllocator(10);
 
+    // TODO Write proper exit messages
     ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); },
-                 "Error: The allocator StackAllocator is out of memory!");
+                 ".*");
+}
+
+TEST(StackAllocatorDeathTest, DeleteNullPointer)
+{
+    StackAllocator stackAllocator2 = StackAllocator(100);
+
+    int* nullPointer = nullptr;
+
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ stackAllocator2.Delete(nullPointer); }, ".*");
+}
+
+TEST(StackAllocatorDeathTest, DeleteNotOwnedPointer)
+{
+    StackAllocator stackAllocator2 = StackAllocator(100);
+
+    int* pointer = new int(10);
+
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ stackAllocator2.Delete(pointer); }, ".*");
 }
 
 #endif
