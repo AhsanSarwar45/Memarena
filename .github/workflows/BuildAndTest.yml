@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: ${{ runner.os }} ${{ matrix.compiler_name }} ${{ matrix.build_type }} Build
+    name: ${{ matrix.os_name }} ${{ matrix.compiler_name }} ${{ matrix.build_type }} Build
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -17,6 +17,10 @@ jobs:
         build_type: [Debug, Release]
         compiler: [gcc, clang]
         include:
+          - os: ubuntu-latest
+            os_name: Linux
+          - os: windows-latest
+            os_name: Windows
           - compiler: gcc
             cxx_compiler: g++
             compiler_name: GCC
@@ -45,10 +49,11 @@ jobs:
         with:
           version: 1.10.0
 
-      - name: Add clang path to $PATH env on Windows
+      - name: Add Mingw64 to path on Windows
         shell: bash
-        if: ${{ (runner.os == 'Windows') && (matrix.compiler == 'clang') }}
+        if: matrix.os_name == 'Windows'
         run: echo "PATH=$PATH:C:\msys64\mingw64\bin" >> $GITHUB_ENV
+
 
       - name: Configure CMake
         env:
