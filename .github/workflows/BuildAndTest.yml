@@ -52,7 +52,7 @@ jobs:
       - name: Add Mingw64 to path on Windows
         shell: bash
         if: matrix.os_name == 'Windows'
-        run: echo "PATH=$PATH:C:\msys64\mingw64\bin" >> $GITHUB_ENV
+        run: echo "::add-path::C:\msys64\mingw64\bin"
 
 
       - name: Configure CMake
