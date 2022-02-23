@@ -13,25 +13,25 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         build_type: [Debug, Release]
         compiler: [gcc, clang]
         include:
           - os: ubuntu-latest
             os_name: Linux
-          - os: windows-latest
-            os_name: Windows
+          # - os: windows-latest
+          #   os_name: Windows
           - compiler: gcc
             cxx_compiler: g++
             compiler_name: GCC
           - compiler: clang
             cxx_compiler: clang++
             compiler_name: Clang
-        exclude:
-          - os: windows-latest
-            compiler: gcc
-          - os: ubuntu-latest
-            compiler: clang
+        # exclude:
+        #   - os: windows-latest
+        #     compiler: gcc
+        #   - os: ubuntu-latest
+        #     compiler: clang
 
     steps:
       - uses: actions/checkout@v2
@@ -49,11 +49,11 @@ jobs:
         with:
           version: 1.10.0
 
-      - name: Setup Clang
-        uses: egor-tensin/setup-clang@v1
-        with:
-          version: latest
-          platform: x64
+      # - name: Setup Clang
+      #   uses: egor-tensin/setup-clang@v1
+      #   with:
+      #     version: latest
+      #     platform: x64
 
       - name: Configure CMake
         env:
