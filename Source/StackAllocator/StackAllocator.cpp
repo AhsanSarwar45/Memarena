@@ -24,7 +24,8 @@ void* StackAllocator::Allocate(const Size size, const Size alignment)
     const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
     // Check if this allocation will overflow the stack allocator
-    MEMORY_MANAGER_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n", m_Data->debugName);
+    MEMORY_MANAGER_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
+                          m_Data->debugName.c_str());
 
     const UIntPtr nextAddress   = currentAddress + padding;
     const UIntPtr headerAddress = nextAddress - sizeof(Header);
@@ -45,7 +46,7 @@ void StackAllocator::Deallocate(void* ptr)
     const UIntPtr currentAddress = reinterpret_cast<UIntPtr>(ptr);
 
     // Check if this allocator owns the pointer
-    MEMORY_MANAGER_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName,
+    MEMORY_MANAGER_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
                           currentAddress);
 
     const UIntPtr headerAddress = currentAddress - sizeof(Header);
