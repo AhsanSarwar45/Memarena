@@ -31,6 +31,7 @@ conan_cmake_install(PATH_OR_REFERENCE .
 add_executable(${PROJECT_NAME} 
 "Source/Main.cpp"
 "Source/StackAllocatorTest.cpp"
+"Source/StackAllocatorSafeTest.cpp"
 "Source/MemoryManagerTest.cpp"
 )
 

@@ -16,6 +16,7 @@ struct StackPtr
 
     T*       operator->() const { return ptr; }
     explicit operator bool() const noexcept { return (ptr != nullptr); }
+             operator StackPtr<void>() const noexcept { return {.ptr = ptr, .startOffset = startOffset, .endOffset = endOffset}; }
 };
 
 /**
@@ -115,14 +116,8 @@ class StackAllocatorSafe : public StackAllocatorBase
 template <typename Object, typename... Args>
 StackPtr<Object> StackAllocatorSafe::New(Args... argList)
 {
-    StackPtr<void>   rawPtr    = Allocate(sizeof(Object), m_DefaultAlignment); // Allocate the raw memory and get a pointer to it
-    StackPtr<Object> objectPtr = {.ptr = nullptr, .startOffset = rawPtr.startOffset, .endOffset = rawPtr.endOffset};
-    if (rawPtr)
-    {
-        objectPtr.ptr = new (rawPtr.ptr) Object(argList...); // Call the placement new operator, which constructs the Object
-    }
-
-    return objectPtr;
+    StackPtr<void> rawPtr = Allocate(sizeof(Object), m_DefaultAlignment); // Allocate the raw memory and get a pointer to it
+    return {.ptr = new (rawPtr.ptr) Object(argList...), .startOffset = rawPtr.startOffset, .endOffset = rawPtr.endOffset};
 }
 
 template <typename Object>

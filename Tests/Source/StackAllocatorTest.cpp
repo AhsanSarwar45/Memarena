@@ -20,6 +20,15 @@ class StackAllocatorTest : public ::testing::Test
     StackAllocator stackAllocator = StackAllocator(10_MB);
 };
 
+class StackAllocatorDeathTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override {}
+    void TearDown() override {}
+
+    StackAllocator stackAllocator = StackAllocator(10_MB);
+};
+
 TestObject* CheckTestObjectNew(StackAllocator& stackAllocator, int a, float b, char c, bool d, float e)
 {
     TestObject* object = stackAllocator.New<TestObject>(a, b, c, d, e);
@@ -181,36 +190,23 @@ TEST(StackAllocatorDeathTest, NewOutOfMemory)
     StackAllocator stackAllocator2 = StackAllocator(10);
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); },
-                 ".*");
+    ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); }, ".*");
 }
 
 TEST(StackAllocatorDeathTest, DeleteNullPointer)
 {
-    StackAllocator stackAllocator2 = StackAllocator(100);
-
     int* nullPointer = nullptr;
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ stackAllocator2.Delete(nullPointer); }, ".*");
+    ASSERT_DEATH({ stackAllocator.Delete(nullPointer); }, ".*");
 }
 
 TEST(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 {
-    StackAllocator stackAllocator2 = StackAllocator(100);
-
     int* pointer = new int(10);
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ stackAllocator2.Delete(pointer); }, ".*");
+    ASSERT_DEATH({ stackAllocator.Delete(pointer); }, ".*");
 }
 
 #endif
-
-// TEST_F(StackAllocatorTest, NullPtrDeallocate)
-// {
-
-//     TestObject* object  = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-//     TestObject* object2 = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-//     TestObject* object3 = stackAllocator.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-// }

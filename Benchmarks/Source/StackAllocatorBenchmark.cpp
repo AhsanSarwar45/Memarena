@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include <MemoryManager/StackAllocator.hpp>
+#include <MemoryManager/StackAllocatorSafe.hpp>
 
 #include "MemoryTestObjects.hpp"
 
@@ -20,7 +21,7 @@ static void DefaultNewDelete(benchmark::State& state)
 }
 BENCHMARK(DefaultNewDelete);
 
-static void StackAllocatorNewDelete(benchmark::State& state)
+static void StackAllocatorNewClear(benchmark::State& state)
 {
     StackAllocator stackAllocator = StackAllocator(1000 * (8 + sizeof(TestObject)));
 
@@ -34,5 +35,54 @@ static void StackAllocatorNewDelete(benchmark::State& state)
         stackAllocator.Reset();
     }
 }
-// Register the function as a benchmark
+
+BENCHMARK(StackAllocatorNewClear);
+
+static void StackAllocatorNewDelete(benchmark::State& state)
+{
+    StackAllocator stackAllocator = StackAllocator(2 * sizeof(TestObject));
+
+    for (auto _ : state)
+    {
+        for (size_t i = 0; i < 1000; i++)
+        {
+            TestObject* object = stackAllocator.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+            stackAllocator.Delete(object);
+        }
+    }
+}
+
 BENCHMARK(StackAllocatorNewDelete);
+
+static void StackAllocatorSafeNewClear(benchmark::State& state)
+{
+    StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(1000 * (8 + sizeof(TestObject)));
+
+    for (auto _ : state)
+    {
+        for (size_t i = 0; i < 1000; i++)
+        {
+            StackPtr<TestObject> object = stackAllocatorSafe.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+        }
+
+        stackAllocatorSafe.Reset();
+    }
+}
+
+BENCHMARK(StackAllocatorSafeNewClear);
+
+static void StackAllocatorSafeNewDelete(benchmark::State& state)
+{
+    StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(1000 * (8 + sizeof(TestObject)));
+
+    for (auto _ : state)
+    {
+        for (size_t i = 0; i < 1000; i++)
+        {
+            StackPtr<TestObject> object = stackAllocatorSafe.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+            stackAllocatorSafe.Delete(object);
+        }
+    }
+}
+
+BENCHMARK(StackAllocatorSafeNewDelete);

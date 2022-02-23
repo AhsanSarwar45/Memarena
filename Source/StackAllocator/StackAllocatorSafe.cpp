@@ -23,10 +23,10 @@ StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Size alignmen
     const UInt8 padding = CalculatePadding(currentAddress, alignment);
 
     const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
-    if (totalSizeAfterAllocation > m_Data->totalSize) // Check if this allocation will overflow the stack allocator
-    {
-        return {.ptr = nullptr}; // Not enough space in the stack allocator, so return nullptr
-    }
+
+    // Check if this allocation will overflow the stack allocator
+    MEMORY_MANAGER_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
+                          m_Data->debugName.c_str());
 
     const UIntPtr nextAddress = currentAddress + padding;
 
@@ -39,10 +39,16 @@ StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Size alignmen
 
 void StackAllocatorSafe::Deallocate(StackPtr<void> ptrBlock)
 {
-    if (ptrBlock.endOffset == m_CurrentOffset)
-    {
-        SetCurrentOffset(ptrBlock.startOffset);
-    }
+    MEMORY_MANAGER_ASSERT(ptrBlock.ptr, "Error: Cannot deallocate nullptr!\n");
+
+    // Check if this allocator owns the pointer
+    MEMORY_MANAGER_ASSERT(OwnsAddress(reinterpret_cast<UIntPtr>(ptrBlock.ptr)), "Error: The allocator %s does not own the pointer %d!\n",
+                          m_Data->debugName.c_str(), reinterpret_cast<UIntPtr>(ptrBlock.ptr));
+
+    MEMORY_MANAGER_ASSERT(ptrBlock.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
+                          m_Data->debugName.c_str());
+
+    SetCurrentOffset(ptrBlock.startOffset);
 }
 
 } // namespace Memory
