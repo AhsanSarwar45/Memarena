@@ -49,13 +49,11 @@ jobs:
         with:
           version: 1.10.0
 
-      - name: Enable ACTIONS_ALLOW_UNSECURE_COMMANDS
-        run: echo 'ACTIONS_ALLOW_UNSECURE_COMMANDS=true' >> $GITHUB_ENV
-
-      - name: Add Mingw64 to path on Windows
-        shell: bash
-        if: matrix.os_name == 'Windows'
-        run: echo "::add-path::C:\msys64\mingw64\bin"
+      - name: Setup Clang
+        uses: egor-tensin/setup-clang@v1
+        with:
+          version: latest
+          platform: x64
 
       - name: Configure CMake
         env:
