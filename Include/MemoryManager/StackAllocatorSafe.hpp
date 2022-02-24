@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Aliases.hpp"
+#include "TypeAliases.hpp"
 
 #include "StackAllocatorBase.hpp"
 
@@ -116,7 +116,7 @@ class StackAllocatorSafe : public StackAllocatorBase
 template <typename Object, typename... Args>
 StackPtr<Object> StackAllocatorSafe::New(Args... argList)
 {
-    StackPtr<void> rawPtr = Allocate(sizeof(Object), m_DefaultAlignment); // Allocate the raw memory and get a pointer to it
+    StackPtr<void> rawPtr = Allocate(sizeof(Object), alignof(Object)); // Allocate the raw memory and get a pointer to it
     return {.ptr = new (rawPtr.ptr) Object(argList...), .startOffset = rawPtr.startOffset, .endOffset = rawPtr.endOffset};
 }
 

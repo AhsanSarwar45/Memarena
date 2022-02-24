@@ -32,6 +32,7 @@ add_executable(${PROJECT_NAME}
 "Source/Main.cpp"
 "Source/StackAllocatorTest.cpp"
 "Source/StackAllocatorSafeTest.cpp"
+"Source/PaddingTest.cpp"
 "Source/MemoryManagerTest.cpp"
 )
 
@@ -43,14 +44,6 @@ add_dependencies(${PROJECT_NAME} GTest::gtest)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gtest)
 target_link_libraries(${PROJECT_NAME} PRIVATE MemoryManager)
-
-# target_compile_definitions(${PROJECT_NAME}
-#     PUBLIC
-#       $<$<CONFIG:Debug>:MEMORY_MANAGER_DEBUG>
-#       $<$<CONFIG:RelWithDebInfo>:MEMORY_MANAGER_DEBUG>
-#       $<$<CONFIG:Release>:MEMORY_MANAGER_RELEASE>
-#       $<$<CONFIG:MinSizeRel>:MEMORY_MANAGER_RELEASE>
-# )
 
 include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME})

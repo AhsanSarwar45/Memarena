@@ -1,8 +1,8 @@
-#include "Padding.hpp"
+#include "Utility/Padding.hpp"
 
 namespace Memory
 {
-const UInt8 CalculatePadding(const Size baseAddress, const Size alignment)
+const Padding CalculatePadding(const Size baseAddress, const Size alignment)
 {
     const Size  multiplier     = (baseAddress / alignment) + 1;
     const Size  alignedAddress = multiplier * alignment;
@@ -10,7 +10,7 @@ const UInt8 CalculatePadding(const Size baseAddress, const Size alignment)
     return padding;
 }
 
-const UInt8 CalculatePaddingWithHeader(const Size baseAddress, const Size alignment, const Size headerSize)
+const Padding CalculatePaddingWithHeader(const Size baseAddress, const Size alignment, const Size headerSize)
 {
     UInt8 padding     = CalculatePadding(baseAddress, alignment);
     Size  neededSpace = headerSize;

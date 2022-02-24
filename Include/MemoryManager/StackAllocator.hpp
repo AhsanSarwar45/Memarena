@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Aliases.hpp"
+#include "TypeAliases.hpp"
 
 #include "StackAllocatorBase.hpp"
 
@@ -102,9 +102,9 @@ class StackAllocator : public StackAllocatorBase
 
     struct Header
     {
-        UInt8 padding;
+        Padding padding;
 
-        Header(UInt8 _padding) : padding(_padding) {}
+        Header(Padding _padding) : padding(_padding) {}
     };
 };
 

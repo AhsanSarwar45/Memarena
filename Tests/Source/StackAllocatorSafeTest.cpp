@@ -1,12 +1,8 @@
 #include <gtest/gtest.h>
 
-#ifdef MEMORY_MANAGER_DEBUG
-    #define MEMORY_MANAGER_ENABLE_ASSERTS
-    #define MEMORY_MANAGER_DEBUG_BREAK
-#endif
-
 #include <MemoryManager/StackAllocatorSafe.hpp>
 
+#include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 
 using namespace Memory;

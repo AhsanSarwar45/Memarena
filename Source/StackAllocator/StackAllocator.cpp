@@ -19,7 +19,7 @@ void* StackAllocator::Allocate(const Size size, const Size alignment)
     const UIntPtr currentAddress = m_StartAddress + m_CurrentOffset;
 
     // The padding includes alignment as well as the header
-    const UInt8 padding = CalculatePaddingWithHeader(currentAddress, alignment, sizeof(Header));
+    const Padding padding = CalculatePaddingWithHeader(currentAddress, alignment, sizeof(Header));
 
     const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
