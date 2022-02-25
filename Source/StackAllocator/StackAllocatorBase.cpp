@@ -6,9 +6,8 @@
 namespace Memory
 {
 
-StackAllocatorBase::StackAllocatorBase(Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const Size defaultAlignment,
-                                       const char* debugName)
-    : m_MemoryManager(memoryManager), m_Data(std::make_shared<AllocatorData>(debugName, totalSize)), m_DefaultAlignment(defaultAlignment)
+StackAllocatorBase::StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName)
+    : m_MemoryManager(memoryManager), m_Data(std::make_shared<AllocatorData>(debugName, totalSize))
 {
     m_StartPtr     = malloc(m_Data->totalSize);
     m_StartAddress = reinterpret_cast<UIntPtr>(m_StartPtr);
@@ -34,8 +33,6 @@ StackAllocatorBase::~StackAllocatorBase()
 }
 
 void StackAllocatorBase::Reset() { SetCurrentOffset(0); }
-
-void StackAllocatorBase::SetDeafaultAlignment(Size alignment) { m_DefaultAlignment = alignment; }
 
 Size StackAllocatorBase::GetUsedSize() const { return m_Data->usedSize; }
 

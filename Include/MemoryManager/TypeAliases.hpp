@@ -5,4 +5,5 @@
 namespace Memory
 {
 using Padding = UInt8;
+using Alignment = UInt8;
 }

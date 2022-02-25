@@ -1,25 +1,24 @@
 #include "StackAllocator.hpp"
 
 #include "AllocatorData.hpp"
-#include "Utility/Padding.hpp"
+#include "Utility/Alignment.hpp"
 
 #include "Assert.hpp"
 
 namespace Memory
 {
 
-StackAllocator::StackAllocator(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const Size defaultAlignment,
-                               const char* debugName)
-    : StackAllocatorBase(totalSize, memoryManager, defaultAlignment, debugName)
+StackAllocator::StackAllocator(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName)
+    : StackAllocatorBase(totalSize, memoryManager, debugName)
 {
 }
 
-void* StackAllocator::Allocate(const Size size, const Size alignment)
+void* StackAllocator::Allocate(const Size size, const Alignment alignment)
 {
-    const UIntPtr currentAddress = m_StartAddress + m_CurrentOffset;
+    const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
     // The padding includes alignment as well as the header
-    const Padding padding = CalculatePaddingWithHeader(currentAddress, alignment, sizeof(Header));
+    const Padding padding = CalculateAlignedPaddingWithHeader(baseAddress, alignment, sizeof(Header));
 
     const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
@@ -27,14 +26,14 @@ void* StackAllocator::Allocate(const Size size, const Size alignment)
     MEMORY_MANAGER_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
                           m_Data->debugName.c_str());
 
-    const UIntPtr nextAddress   = currentAddress + padding;
-    const UIntPtr headerAddress = nextAddress - sizeof(Header);
+    const UIntPtr alignedAddress = baseAddress + padding;
+    const UIntPtr headerAddress  = alignedAddress - sizeof(Header);
     // Construct the header at 'headerAdress' using placement new operator
     const Header* headerPtr = new (reinterpret_cast<void*>(headerAddress)) Header(padding);
 
     SetCurrentOffset(totalSizeAfterAllocation);
 
-    void* allocatedPtr = reinterpret_cast<void*>(nextAddress);
+    void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
 
     return allocatedPtr;
 }

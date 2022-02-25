@@ -39,7 +39,7 @@ BENCHMARK(DefaultAccess);
 
 static void StackAllocatorAccessAlign(benchmark::State& state)
 {
-    StackAllocator           stackAllocator = StackAllocator(2_KB, nullptr, 1);
+    StackAllocator           stackAllocator = StackAllocator(2_KB);
     std::vector<TestObject*> objects        = std::vector<TestObject*>(20);
 
     for (size_t i = 0; i < 20; i++)

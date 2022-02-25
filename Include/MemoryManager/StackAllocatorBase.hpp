@@ -52,8 +52,7 @@ class StackAllocatorBase
      * If no value or a nullptr is passed, this allocator's memory won't be tracked
      * @param debugName The name that will appear in logs and any editor.
      */
-    StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const Size defaultAlignment,
-                       const char* debugName);
+    StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName);
 
     /**
      * @brief Destroys the Stack Allocator object. Also frees up all the memory. If a MemoryManager instance
@@ -72,7 +71,6 @@ class StackAllocatorBase
     UIntPtr                        m_StartAddress;
     UIntPtr                        m_EndAddress;
     UInt32                         m_CurrentOffset;
-    UInt32                         m_DefaultAlignment; // Used when allocating for the New method
 };
 
 } // namespace Memory

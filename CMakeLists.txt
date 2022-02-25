@@ -21,7 +21,7 @@ add_library(${PROJECT_NAME} STATIC
 "Source/StackAllocator/StackAllocator.cpp"
 "Source/StackAllocator/StackAllocatorBase.cpp"
 "Source/MemoryManager.cpp"
-"Source/Utility/Padding.cpp"
+"Source/Utility/Alignment.cpp"
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)

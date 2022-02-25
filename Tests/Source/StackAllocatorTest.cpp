@@ -154,9 +154,9 @@ TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, Clear)
+TEST_F(StackAllocatorTest, Reset)
 {
-    StackAllocator stackAllocator2 = StackAllocator(10 * (sizeof(TestObject) + 8), nullptr, 8);
+    StackAllocator stackAllocator2 = StackAllocator(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(4))), nullptr);
     for (size_t i = 0; i < 10; i++)
     {
         TestObject* object = CheckTestObjectNew(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);

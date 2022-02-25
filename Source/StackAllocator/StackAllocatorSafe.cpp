@@ -1,26 +1,25 @@
 #include "StackAllocatorSafe.hpp"
 
 #include "AllocatorData.hpp"
-#include "Utility/Padding.hpp"
+#include "Utility/Alignment.hpp"
 
 #include "Assert.hpp"
 
 namespace Memory
 {
 
-StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager,
-                                       const Size defaultAlignment, const char* debugName)
-    : StackAllocatorBase(totalSize, memoryManager, defaultAlignment, debugName)
+StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName)
+    : StackAllocatorBase(totalSize, memoryManager, debugName)
 {
 }
 
-StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Size alignment)
+StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment alignment)
 {
     const UInt32  m_InitialOffset = m_CurrentOffset;
-    const UIntPtr currentAddress  = m_StartAddress + m_CurrentOffset;
+    const UIntPtr baseAddress     = m_StartAddress + m_CurrentOffset;
 
-    // The padding includes alignment as well as the header
-    const Padding padding = CalculatePadding(currentAddress, alignment);
+    const UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
+    const Padding padding        = alignedAddress - baseAddress;
 
     const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
@@ -28,11 +27,9 @@ StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Size alignmen
     MEMORY_MANAGER_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
                           m_Data->debugName.c_str());
 
-    const UIntPtr nextAddress = currentAddress + padding;
-
     SetCurrentOffset(totalSizeAfterAllocation);
 
-    void* allocatedPtr = reinterpret_cast<void*>(nextAddress);
+    void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
 
     return {.ptr = allocatedPtr, .startOffset = m_InitialOffset, .endOffset = m_CurrentOffset};
 }

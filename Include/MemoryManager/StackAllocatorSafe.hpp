@@ -43,7 +43,7 @@ class StackAllocatorSafe : public StackAllocatorBase
     StackAllocatorSafe& operator=(const StackAllocatorSafe&) = delete;
     StackAllocatorSafe& operator=(StackAllocatorSafe&&) = delete;
 
-    StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr, const Size defaultAlignment = 8,
+    StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr,
                        const char* debugName = "StackAllocatorSafe");
 
     /**
@@ -71,40 +71,16 @@ class StackAllocatorSafe : public StackAllocatorBase
     /**
      * @brief Allocates raw memory without calling any constructor
      * @details Speed complexity is O(1)
-     * Before:
-     * ----------------------------------------------------------------------------
-     * |... Used memory |Unused memory                                         ...|
-     * ----------------------------------------------------------------------------
-     * ^ m_HeadPtr      ^ m_Offset
-     * After:
-     * ----------------------------------------------------------------------------
-     * |... Used memory |HEADER(in padding) |OBJECT        ...| Unused memory ...|
-     * ----------------------------------------------------------------------------
-     * ^ m_HeadPtr      ^ headerAddress     ^ currentAddress  ^ m_Offset
-     *                                        (return value)
-     *
      * @param size The size of the memory to be allocated in bytes
      * @param alignment The alignment of the memory to be allocated in bytes
      * @return void* The pointer to the newly allocated memory
      */
-    StackPtr<void> Allocate(const Size size, const Size alignment = 8);
+    StackPtr<void> Allocate(const Size size, const Alignment alignment = 8);
 
     /**
      * @brief Deallocates raw memory without calling any destructor. It also deallocates
      * all allocations that were done after this pointer was allocated.
      * @details Speed complexity is O(1)
-     * Before:
-     * ----------------------------------------------------------------------------
-     * |... Used memory |HEADER(in padding) |OBJECT        ...| Unused memory ...|
-     * ----------------------------------------------------------------------------
-     * ^ m_HeadPtr      ^ headerAddress     ^ currentAddress  ^ m_Offset
-     *                                        (ptr parameter)
-     * After:
-     * ----------------------------------------------------------------------------
-     * |... Used memory |Unused memory                                         ...|
-     * ----------------------------------------------------------------------------
-     * ^ m_HeadPtr      ^ m_Offset
-     *
      * @param ptr The pointer to the memory to be deallocated
      */
     void Deallocate(StackPtr<void> ptr);

@@ -32,7 +32,7 @@ add_executable(${PROJECT_NAME}
 "Source/Main.cpp"
 "Source/StackAllocatorTest.cpp"
 "Source/StackAllocatorSafeTest.cpp"
-"Source/PaddingTest.cpp"
+"Source/AlignmentTest.cpp"
 "Source/MemoryManagerTest.cpp"
 )
 
