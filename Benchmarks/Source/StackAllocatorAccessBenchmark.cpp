@@ -67,4 +67,4 @@ static void StackAllocatorAccessAlign(benchmark::State& state)
     }
 }
 
-BENCHMARK(StackAllocatorAccessAlign)
+BENCHMARK(StackAllocatorAccessAlign);
