@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <MemoryManager/StackAllocator.hpp>
-#include <MemoryManager/Utility/ALignment.hpp>
+#include <MemoryManager/Utility/Alignment.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
