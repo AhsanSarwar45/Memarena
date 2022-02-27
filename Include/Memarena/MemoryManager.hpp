@@ -2,7 +2,7 @@
 
 #include "Aliases.hpp"
 
-namespace Memory
+namespace Memarena
 {
 struct AllocatorData;
 
@@ -30,4 +30,4 @@ class MemoryManager
     Size m_ApplicationBudget; // if 0, means no budget limit
     Size m_TotalAllocatedSize;
 };
-} // namespace Memory
+} // namespace Memarena

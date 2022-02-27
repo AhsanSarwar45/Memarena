@@ -2,7 +2,7 @@
 
 #include "PCH.hpp"
 
-namespace Memory
+namespace Memarena
 {
 using Byte = uint8_t;
 using Size = size_t;
@@ -23,4 +23,4 @@ using ULLInt = unsigned long long int;
 constexpr inline Size operator"" _KB(ULLInt x) { return 1024 * x; }
 constexpr inline Size operator"" _MB(ULLInt x) { return 1048576 * x; }
 constexpr inline Size operator"" _GB(ULLInt x) { return 1073741824 * x; }
-} // namespace Memory
+} // namespace Memarena

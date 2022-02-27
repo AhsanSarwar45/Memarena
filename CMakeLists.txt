@@ -7,10 +7,10 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(MemoryManager)
+project(Memarena)
 
-option(MEMORY_MANAGER_BUILD_TEST "Build the tests of the MemoryManager library." ON)
-option(MEMORY_MANAGER_BUILD_BENCHMARKS "Build the benchmarks of the MemoryManager library." ON)
+option(MEMORY_MANAGER_BUILD_TEST "Build the tests of the Memarena library." ON)
+option(MEMORY_MANAGER_BUILD_BENCHMARKS "Build the benchmarks of the Memarena library." ON)
 # option(MEMORY_MANAGER_BUILD_EXAMPLE "Build the example project that showcases how to use this library." ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -47,7 +47,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Source")
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/MemoryManager")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/Memarena")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Vendor")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${CPP_LINKER_FLAGS}")

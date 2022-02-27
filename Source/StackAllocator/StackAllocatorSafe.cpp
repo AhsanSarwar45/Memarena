@@ -1,11 +1,10 @@
 #include "StackAllocatorSafe.hpp"
 
 #include "AllocatorData.hpp"
-#include "Utility/Alignment.hpp"
 
 #include "Assert.hpp"
 
-namespace Memory
+namespace Memarena
 {
 
 StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName)
@@ -13,9 +12,9 @@ StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_p
 {
 }
 
-StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment alignment)
+StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment& alignment)
 {
-    const UInt32  m_InitialOffset = m_CurrentOffset;
+    const Offset  m_InitialOffset = m_CurrentOffset;
     const UIntPtr baseAddress     = m_StartAddress + m_CurrentOffset;
 
     const UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
@@ -48,4 +47,4 @@ void StackAllocatorSafe::Deallocate(StackPtr<void> ptrBlock)
     SetCurrentOffset(ptrBlock.startOffset);
 }
 
-} // namespace Memory
+} // namespace Memarena

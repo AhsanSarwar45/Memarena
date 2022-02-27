@@ -1,11 +1,11 @@
 #include <benchmark/benchmark.h>
 
-#include <MemoryManager/StackAllocator.hpp>
-#include <MemoryManager/StackAllocatorSafe.hpp>
+#include <Memarena/StackAllocator.hpp>
+#include <Memarena/StackAllocatorSafe.hpp>
 
 #include "MemoryTestObjects.hpp"
 
-using namespace Memory;
+using namespace Memarena;
 
 static void DefaultNewDelete(benchmark::State& state)
 {

@@ -2,7 +2,7 @@
 
 #include "AllocatorData.hpp"
 
-namespace Memory
+namespace Memarena
 {
 MemoryManager::MemoryManager(Size applicationBudget) : m_ApplicationBudget(applicationBudget), m_TotalAllocatedSize(0) {}
 
@@ -32,4 +32,4 @@ Size MemoryManager::GetUsedAllocatedSize() const
 
     return usedSize;
 }
-} // namespace Memory
+} // namespace Memarena

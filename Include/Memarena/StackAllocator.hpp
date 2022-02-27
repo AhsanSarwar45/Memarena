@@ -3,8 +3,9 @@
 #include "TypeAliases.hpp"
 
 #include "StackAllocatorBase.hpp"
+#include "Utility/Alignment.hpp"
 
-namespace Memory
+namespace Memarena
 {
 
 /**
@@ -56,6 +57,12 @@ class StackAllocator : public StackAllocatorBase
     template <typename Object>
     void Delete(Object* ptr);
 
+    template <typename Object, typename... Args>
+    Object* NewArray(const Size objectCount, Args... argList);
+
+    template <typename Object>
+    void DeleteArray(Object* ptr);
+
     /**
      * @brief Allocates raw memory without calling any constructor
      * @details Speed complexity is O(1)
@@ -63,7 +70,10 @@ class StackAllocator : public StackAllocatorBase
      * @param alignment The alignment of the memory to be allocated in bytes
      * @return void* The pointer to the newly allocated memory
      */
-    void* Allocate(const Size size, const Alignment alignment = 8);
+    void* Allocate(const Size size, const Alignment& alignment);
+
+    template <typename Object>
+    void* Allocate();
 
     /**
      * @brief Deallocates raw memory without calling any destructor. It also deallocates
@@ -73,8 +83,21 @@ class StackAllocator : public StackAllocatorBase
      */
     void Deallocate(void* ptr);
 
+    void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment);
+
+    template <typename Object>
+    void* AllocateArray(const Size objectCount);
+
+    Size DeallocateArray(void* ptr);
+
   private:
     StackAllocator(StackAllocator& stackAllocator); // Restrict copying
+
+    template <typename Header, typename... Args>
+    void AllocateHeader(const UIntPtr address, Args... argList);
+
+    template <typename Header>
+    Header* GetHeader(const UIntPtr address);
 
     struct Header
     {
@@ -82,20 +105,84 @@ class StackAllocator : public StackAllocatorBase
 
         Header(Padding _padding) : padding(_padding) {}
     };
+    struct ArrayHeader
+    {
+        Offset  count;
+        Padding padding;
+
+        ArrayHeader(Padding _padding, Size _count) : count(_count), padding(_padding) {}
+    };
 };
 
 template <typename Object, typename... Args>
 Object* StackAllocator::New(Args... argList)
 {
-    void* rawPtr = Allocate(sizeof(Object), alignof(Object)); // Allocate the raw memory and get a pointer to it
-    return new (rawPtr) Object(argList...);                   // Call the placement new operator, which constructs the Object
+    void* rawPtr = Allocate(sizeof(Object), AlignOf(alignof(Object))); // Allocate the raw memory and get a pointer to it
+    return new (rawPtr) Object(argList...);                            // Call the placement new operator, which constructs the Object
 }
 
 template <typename Object>
 void StackAllocator::Delete(Object* ptr)
 {
-    ptr->~Object();  // Call the destructor on the object
     Deallocate(ptr); // Deallocate the pointer
+
+    ptr->~Object(); // Call the destructor on the object
 }
 
-} // namespace Memory
+template <typename Object, typename... Args>
+Object* StackAllocator::NewArray(const Size objectCount, Args... argList)
+{
+    void* rawPtr = AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object))); // Allocate the raw memory and get a pointer to it
+
+    Object* firstPtr = new (rawPtr) Object(argList...); // Call the placement new operator, which constructs the Object
+
+    Object* currentPtr = firstPtr;
+    Object* lastPtr    = firstPtr + (objectCount - 1);
+
+    while (currentPtr <= lastPtr)
+    {
+        new (currentPtr++) Object(argList...);
+    }
+
+    return firstPtr;
+}
+
+template <typename Object>
+void StackAllocator::DeleteArray(Object* ptr)
+{
+    Size objectCount = DeallocateArray(ptr); // Deallocate the pointer
+
+    for (Size i = objectCount - 1; i-- > 0;)
+    {
+        ptr[i].~Object();
+    }
+}
+
+template <typename Object>
+void* StackAllocator::Allocate()
+{
+    return Allocate(sizeof(Object), AlignOf(alignof(Object)));
+}
+
+template <typename Object>
+void* StackAllocator::AllocateArray(const Size objectCount)
+{
+    return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
+}
+
+template <typename Header, typename... Args>
+void StackAllocator::AllocateHeader(const UIntPtr address, Args... argList)
+{
+    const UIntPtr headerAddress = address - sizeof(Header);
+    // Construct the header at 'headerAdress' using placement new operator
+    new (reinterpret_cast<void*>(headerAddress)) Header(argList...);
+}
+
+template <typename Header>
+Header* StackAllocator::GetHeader(const UIntPtr address)
+{
+    const UIntPtr headerAddress = address - sizeof(Header);
+    return reinterpret_cast<Header*>(headerAddress);
+}
+
+} // namespace Memarena

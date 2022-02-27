@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <MemoryManager/StackAllocator.hpp>
+#include <Memarena/StackAllocator.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 
-using namespace Memory;
+using namespace Memarena;
 
 class StackAllocatorTest : public ::testing::Test
 {
@@ -42,6 +42,21 @@ TestObject2* CheckTestObjectNew2(StackAllocator& stackAllocator, int a, double b
     return object;
 }
 
+TestObject* CheckTestObjectNewArray(StackAllocator& stackAllocator, size_t objectCount)
+{
+    TestObject* arr = stackAllocator.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
+
+    for (size_t i = 0; i < objectCount; i++)
+    {
+        EXPECT_EQ(arr[i].a, 1);
+        EXPECT_EQ(arr[i].b, 2.1f);
+        EXPECT_EQ(arr[i].c, 'a');
+        EXPECT_EQ(arr[i].d, false);
+        EXPECT_EQ(arr[i].e, 10.6f);
+    }
+    return arr;
+}
+
 TEST_F(StackAllocatorTest, Initialize) { EXPECT_EQ(stackAllocator.GetUsedSize(), 0); }
 
 TEST_F(StackAllocatorTest, NewSingleObject) { CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
@@ -66,14 +81,14 @@ TEST_F(StackAllocatorTest, NewMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewThenDeleteSingleObject)
+TEST_F(StackAllocatorTest, NewDeleteSingleObject)
 {
     TestObject* object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.Delete(object);
 }
 
-TEST_F(StackAllocatorTest, NewThenDeleteMultipleSameObjects)
+TEST_F(StackAllocatorTest, NewDeleteMultipleSameObjects)
 {
     std::vector<TestObject*> objects;
 
@@ -91,7 +106,7 @@ TEST_F(StackAllocatorTest, NewThenDeleteMultipleSameObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewThenDeleteMultipleDifferentObjects)
+TEST_F(StackAllocatorTest, NewDeleteMultipleDifferentObjects)
 {
     std::vector<TestObject*>  objects1;
     std::vector<TestObject2*> objects2;
@@ -119,7 +134,7 @@ TEST_F(StackAllocatorTest, NewThenDeleteMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewThenDeleteThenNewSingleObject)
+TEST_F(StackAllocatorTest, NewDeleteThenNewSingleObject)
 {
     TestObject* object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
@@ -128,7 +143,7 @@ TEST_F(StackAllocatorTest, NewThenDeleteThenNewSingleObject)
     TestObject* object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 }
 
-TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleSameObjects)
+TEST_F(StackAllocatorTest, NewDeleteNewMultipleSameObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
@@ -138,7 +153,7 @@ TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleSameObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleDifferentObjects)
+TEST_F(StackAllocatorTest, NewDeleteNewMultipleDifferentObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
@@ -152,6 +167,14 @@ TEST_F(StackAllocatorTest, NewThenDeleteThenNewMultipleDifferentObjects)
 
         stackAllocator.Delete(object);
     }
+}
+
+TEST_F(StackAllocatorTest, NewArray) { TestObject* object = CheckTestObjectNewArray(stackAllocator, 10); }
+
+TEST_F(StackAllocatorTest, NewThenDeleteArray)
+{
+    TestObject* object = CheckTestObjectNewArray(stackAllocator, 10);
+    stackAllocator.DeleteArray(object);
 }
 
 TEST_F(StackAllocatorTest, Reset)
@@ -168,6 +191,54 @@ TEST_F(StackAllocatorTest, Reset)
     {
         TestObject* object = CheckTestObjectNew(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
+}
+
+TEST_F(StackAllocatorTest, GetUsedSizeNew)
+{
+    const int numObjects = 10;
+    for (size_t i = 0; i < numObjects; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+    }
+
+    EXPECT_EQ(stackAllocator.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(1))));
+}
+
+TEST_F(StackAllocatorTest, GetUsedSizeNewDelete)
+{
+    const int                numObjects = 10;
+    std::vector<TestObject*> objects;
+    for (size_t i = 0; i < numObjects; i++)
+    {
+        TestObject* object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        objects.push_back(object);
+    }
+
+    for (int i = numObjects - 1; i >= 0; i--)
+    {
+        stackAllocator.Delete(objects[i]);
+    }
+
+    EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
+}
+
+TEST_F(StackAllocatorTest, GetUsedSizeNewArray)
+{
+    const int numObjects = 10;
+
+    TestObject* arr = CheckTestObjectNewArray(stackAllocator, numObjects);
+
+    EXPECT_EQ(stackAllocator.GetUsedSize(), std::max(alignof(TestObject), size_t(8) + numObjects * sizeof(TestObject)));
+}
+
+TEST_F(StackAllocatorTest, GetUsedSizeNewDeleteArray)
+{
+    const int   numObjects = 10;
+    TestObject* arr        = CheckTestObjectNewArray(stackAllocator, numObjects);
+
+    stackAllocator.DeleteArray(arr);
+
+    EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
 }
 
 #ifdef MEMORY_MANAGER_ENABLE_ASSERTS

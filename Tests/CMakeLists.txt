@@ -43,7 +43,7 @@ find_package(GTest REQUIRED)
 add_dependencies(${PROJECT_NAME} GTest::gtest)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gtest)
-target_link_libraries(${PROJECT_NAME} PRIVATE MemoryManager)
+target_link_libraries(${PROJECT_NAME} PRIVATE Memarena)
 
 include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME})

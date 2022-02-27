@@ -3,16 +3,17 @@
 #include "TypeAliases.hpp"
 
 #include "StackAllocatorBase.hpp"
+#include "Utility/Alignment.hpp"
 
-namespace Memory
+namespace Memarena
 {
 
 template <typename T>
 struct StackPtr
 {
     T*     ptr;
-    UInt32 startOffset;
-    UInt32 endOffset;
+    Offset startOffset;
+    Offset endOffset;
 
     T*       operator->() const { return ptr; }
     explicit operator bool() const noexcept { return (ptr != nullptr); }
@@ -68,6 +69,9 @@ class StackAllocatorSafe : public StackAllocatorBase
     template <typename Object>
     void Delete(StackPtr<Object> ptr);
 
+    template <typename Object>
+    StackPtr<Object> NewArray(const Size objectCount);
+
     /**
      * @brief Allocates raw memory without calling any constructor
      * @details Speed complexity is O(1)
@@ -75,7 +79,7 @@ class StackAllocatorSafe : public StackAllocatorBase
      * @param alignment The alignment of the memory to be allocated in bytes
      * @return void* The pointer to the newly allocated memory
      */
-    StackPtr<void> Allocate(const Size size, const Alignment alignment = 8);
+    StackPtr<void> Allocate(const Size size, const Alignment& alignment);
 
     /**
      * @brief Deallocates raw memory without calling any destructor. It also deallocates
@@ -85,6 +89,8 @@ class StackAllocatorSafe : public StackAllocatorBase
      */
     void Deallocate(StackPtr<void> ptr);
 
+    StackPtr<void> AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment);
+
   private:
     StackAllocatorSafe(StackAllocatorSafe& stackAllocator); // Restrict copying
 };
@@ -92,7 +98,7 @@ class StackAllocatorSafe : public StackAllocatorBase
 template <typename Object, typename... Args>
 StackPtr<Object> StackAllocatorSafe::New(Args... argList)
 {
-    StackPtr<void> rawPtr = Allocate(sizeof(Object), alignof(Object)); // Allocate the raw memory and get a pointer to it
+    StackPtr<void> rawPtr = Allocate(sizeof(Object), AlignOf(alignof(Object))); // Allocate the raw memory and get a pointer to it
     return {.ptr = new (rawPtr.ptr) Object(argList...), .startOffset = rawPtr.startOffset, .endOffset = rawPtr.endOffset};
 }
 
@@ -104,4 +110,4 @@ void StackAllocatorSafe::Delete(StackPtr<Object> ptr)
     Deallocate(ptr);    // Deallocate the pointer
 }
 
-} // namespace Memory
+} // namespace Memarena

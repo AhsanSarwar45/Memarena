@@ -1,13 +1,31 @@
 #include "Utility/Alignment.hpp"
 
-namespace Memory
+#include "Assert.hpp"
+
+namespace Memarena
 {
-UIntPtr CalculateAlignedAddress(const UIntPtr baseAddress, const Alignment alignment)
+
+Alignment::Alignment(int alignment)
+{
+    MEMORY_MANAGER_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment in  must be a power of 2 and not equal to 0!",
+                          alignment)
+    value = alignment;
+}
+
+Alignment::Alignment(Size alignment)
+{
+    MEMORY_MANAGER_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment must be a power of 2 and not equal to 0!",
+                          alignment)
+    value = alignment;
+}
+Alignment::Alignment(AlignOf alignOf) { value = alignOf.value; }
+
+UIntPtr CalculateAlignedAddress(const UIntPtr baseAddress, const Alignment& alignment)
 {
     return (baseAddress + (alignment - 1)) & ~(alignment - 1);
 }
 
-Padding CalculateShortestAlignedPadding(const UIntPtr baseAddress, const Alignment alignment)
+Padding CalculateShortestAlignedPadding(const UIntPtr baseAddress, const Alignment& alignment)
 {
     const Size    multiplier     = (baseAddress / alignment) + 1;
     const UIntPtr alignedAddress = multiplier * alignment;
@@ -15,7 +33,7 @@ Padding CalculateShortestAlignedPadding(const UIntPtr baseAddress, const Alignme
     return padding;
 }
 
-Padding CalculateAlignedPaddingWithHeader(const UIntPtr baseAddress, const Alignment alignment, const Size headerSize)
+Padding CalculateAlignedPaddingWithHeader(const UIntPtr baseAddress, const Alignment& alignment, const Size headerSize)
 {
 
     UInt8 padding = CalculateShortestAlignedPadding(baseAddress, alignment);
@@ -40,4 +58,6 @@ Padding CalculateAlignedPaddingWithHeader(const UIntPtr baseAddress, const Align
 
     return padding;
 }
-} // namespace Memory
+
+bool IsAlignmentValid(const int alignment) { return (alignment != 0) && ((alignment & (alignment - 1)) == 0); }
+} // namespace Memarena

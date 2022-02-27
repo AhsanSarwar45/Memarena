@@ -45,6 +45,6 @@ add_dependencies(${PROJECT_NAME} benchmark::benchmark)
 target_include_directories(${PROJECT_NAME} PRIVATE "Source")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${BENCHMARK_CPP_LINKER_FLAGS}")
-target_link_libraries(${PROJECT_NAME} PRIVATE MemoryManager)
+target_link_libraries(${PROJECT_NAME} PRIVATE Memarena)
 target_link_libraries(${PROJECT_NAME} PRIVATE benchmark::benchmark)
 

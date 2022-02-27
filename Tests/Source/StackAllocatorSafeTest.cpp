@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <MemoryManager/StackAllocatorSafe.hpp>
+#include <Memarena/StackAllocatorSafe.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 
-using namespace Memory;
+using namespace Memarena;
 
 class StackAllocatorSafeTest : public ::testing::Test
 {
@@ -169,6 +169,17 @@ TEST_F(StackAllocatorSafeTest, Reset)
     {
         StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
+}
+
+TEST_F(StackAllocatorSafeTest, GetUsedSize)
+{
+    const int numObjects = 10;
+    for (size_t i = 0; i < numObjects; i++)
+    {
+        StackPtr<TestObject> object = CheckTestObjectNew(stackAllocatorSafe, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+    }
+
+    EXPECT_EQ(stackAllocatorSafe.GetUsedSize(), numObjects * sizeof(TestObject));
 }
 
 #ifdef MEMORY_MANAGER_ENABLE_ASSERTS

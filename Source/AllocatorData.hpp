@@ -2,7 +2,7 @@
 
 #include "Aliases.hpp"
 
-namespace Memory
+namespace Memarena
 {
 struct AllocatorData
 {
@@ -32,4 +32,4 @@ struct Chunk
     */
     Chunk* next;
 };
-} // namespace Memory
+} // namespace Memarena

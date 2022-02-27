@@ -1,12 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <MemoryManager/StackAllocator.hpp>
-#include <MemoryManager/Utility/Alignment.hpp>
+#include <Memarena/Utility/Alignment.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 
-using namespace Memory;
+using namespace Memarena;
 
 TEST(AlignmentTest, CalculateAlignedAddress)
 {
@@ -20,4 +19,14 @@ TEST(AlignmentTest, CalculateAlignedAddress)
     EXPECT_EQ(CalculateAlignedAddress(45, 16), 48);
     EXPECT_EQ(CalculateAlignedAddress(24, 8), 24);
     EXPECT_EQ(CalculateAlignedAddress(25, 8), 32);
+}
+
+TEST(AlignmentTest, IsAlignmentValid)
+{
+    EXPECT_EQ(IsAlignmentValid(0), false);
+    EXPECT_EQ(IsAlignmentValid(1), true);
+    EXPECT_EQ(IsAlignmentValid(2), true);
+    EXPECT_EQ(IsAlignmentValid(3), false);
+    EXPECT_EQ(IsAlignmentValid(4), true);
+    EXPECT_EQ(IsAlignmentValid(-1), false);
 }
