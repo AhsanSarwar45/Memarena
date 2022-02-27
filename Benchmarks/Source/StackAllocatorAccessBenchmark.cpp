@@ -18,16 +18,14 @@ static void DefaultAccess(benchmark::State& state)
 
     for (auto _ : state)
     {
-        for (size_t i = 0; i < 1000; i++)
+
+        int num = 0;
+        for (size_t i = 0; i < 20; i++)
         {
-            int num = 0;
-            for (size_t i = 0; i < 20; i++)
-            {
-                num += objects[i]->a + objects[i]->b + objects[i]->e;
-            }
-            benchmark::DoNotOptimize(num);
-            benchmark::ClobberMemory();
+            num += objects[i]->a + objects[i]->b + objects[i]->e;
         }
+        benchmark::DoNotOptimize(num);
+        benchmark::ClobberMemory();
     }
 
     for (size_t i = 0; i < 20; i++)
@@ -49,16 +47,14 @@ static void StackAllocatorAccess(benchmark::State& state)
 
     for (auto _ : state)
     {
-        for (size_t i = 0; i < 1000; i++)
+
+        int num = 0;
+        for (size_t i = 0; i < 20; i++)
         {
-            int num = 0;
-            for (size_t i = 0; i < 20; i++)
-            {
-                num += objects[i]->a + objects[i]->b + objects[i]->e;
-            }
-            benchmark::DoNotOptimize(num);
-            benchmark::ClobberMemory();
+            num += objects[i]->a + objects[i]->b + objects[i]->e;
         }
+        benchmark::DoNotOptimize(num);
+        benchmark::ClobberMemory();
     }
 
     for (size_t i = 0; i < 20; i++)
@@ -81,16 +77,13 @@ static void StackAllocatorSafeAccess(benchmark::State& state)
 
     for (auto _ : state)
     {
-        for (size_t i = 0; i < 1000; i++)
+        int num = 0;
+        for (size_t i = 0; i < 20; i++)
         {
-            int num = 0;
-            for (size_t i = 0; i < 20; i++)
-            {
-                num += objects[i]->a + objects[i]->b + objects[i]->e;
-            }
-            benchmark::DoNotOptimize(num);
-            benchmark::ClobberMemory();
+            num += objects[i]->a + objects[i]->b + objects[i]->e;
         }
+        benchmark::DoNotOptimize(num);
+        benchmark::ClobberMemory();
     }
 
     for (size_t i = 0; i < 20; i++)
@@ -99,4 +92,4 @@ static void StackAllocatorSafeAccess(benchmark::State& state)
     }
 }
 
-BENCHMARK(StackAllocatorAccess);
+BENCHMARK(StackAllocatorSafeAccess);

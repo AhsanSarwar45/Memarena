@@ -5,7 +5,7 @@
 # executable for the Tests
 # ===================================================
 
-project(Tests)
+project(MemarenaTests)
 
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
   message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
