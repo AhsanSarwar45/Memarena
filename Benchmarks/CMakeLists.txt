@@ -35,6 +35,7 @@ add_executable(${PROJECT_NAME}
 "Source/Main.cpp"
 "Source/StackAllocatorAllocationsBenchmark.cpp"
 "Source/StackAllocatorAccessBenchmark.cpp"
+"Source/AlignmentBenchmark.cpp"
 )
 
 include("${CMAKE_CURRENT_BINARY_DIR}/conan_paths.cmake")

@@ -27,15 +27,11 @@ UIntPtr CalculateAlignedAddress(const UIntPtr baseAddress, const Alignment& alig
 
 Padding CalculateShortestAlignedPadding(const UIntPtr baseAddress, const Alignment& alignment)
 {
-    const Size    multiplier     = (baseAddress / alignment) + 1;
-    const UIntPtr alignedAddress = multiplier * alignment;
-    const UInt8   padding        = alignedAddress - baseAddress;
-    return padding;
+    return CalculateAlignedAddress(baseAddress, alignment) - baseAddress;
 }
 
 Padding CalculateAlignedPaddingWithHeader(const UIntPtr baseAddress, const Alignment& alignment, const Size headerSize)
 {
-
     UInt8 padding = CalculateShortestAlignedPadding(baseAddress, alignment);
 
     Size neededSpace = headerSize;

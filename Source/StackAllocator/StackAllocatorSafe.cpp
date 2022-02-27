@@ -29,7 +29,6 @@ StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment& al
     SetCurrentOffset(totalSizeAfterAllocation);
 
     void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
-
     return {.ptr = allocatedPtr, .startOffset = m_InitialOffset, .endOffset = m_CurrentOffset};
 }
 

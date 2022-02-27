@@ -179,7 +179,7 @@ TEST_F(StackAllocatorTest, NewThenDeleteArray)
 
 TEST_F(StackAllocatorTest, Reset)
 {
-    StackAllocator stackAllocator2 = StackAllocator(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(4))), nullptr);
+    StackAllocator stackAllocator2 = StackAllocator(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(1))), nullptr);
     for (size_t i = 0; i < 10; i++)
     {
         TestObject* object = CheckTestObjectNew(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
