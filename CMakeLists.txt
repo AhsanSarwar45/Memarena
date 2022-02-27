@@ -9,9 +9,9 @@ cmake_minimum_required(VERSION 3.16)
 
 project(Memarena)
 
-option(MEMORY_MANAGER_BUILD_TEST "Build the tests of the Memarena library." ON)
-option(MEMORY_MANAGER_BUILD_BENCHMARKS "Build the benchmarks of the Memarena library." ON)
-# option(MEMORY_MANAGER_BUILD_EXAMPLE "Build the example project that showcases how to use this library." ON)
+option(MEMARENA_BUILD_TEST "Build the tests of the Memarena library." ON)
+option(MEMARENA_BUILD_BENCHMARKS "Build the benchmarks of the Memarena library." ON)
+# option(MEMARENA_BUILD_EXAMPLE "Build the example project that showcases how to use this library." ON)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -34,10 +34,10 @@ target_compile_definitions(${PROJECT_NAME}
       _CRT_SECURE_NO_WARNINGS
       GLFW_INCLUDE_NONE
     PUBLIC
-      $<$<CONFIG:Debug>:MEMORY_MANAGER_DEBUG>
-      $<$<CONFIG:RelWithDebInfo>:MEMORY_MANAGER_DEBUG>
-      $<$<CONFIG:Release>:MEMORY_MANAGER_RELEASE>
-      $<$<CONFIG:MinSizeRel>:MEMORY_MANAGER_RELEASE>
+      $<$<CONFIG:Debug>:MEMARENA_DEBUG>
+      $<$<CONFIG:RelWithDebInfo>:MEMARENA_DEBUG>
+      $<$<CONFIG:Release>:MEMARENA_RELEASE>
+      $<$<CONFIG:MinSizeRel>:MEMARENA_RELEASE>
 )
 
 target_include_directories(${PROJECT_NAME} INTERFACE 
@@ -52,15 +52,15 @@ target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${CPP_LINKER_FLAGS}")
 
-if (MEMORY_MANAGER_BUILD_TEST OR MEMORY_MANAGER_BUILD_BENCHMARKS)
+if (MEMARENA_BUILD_TEST OR MEMARENA_BUILD_BENCHMARKS)
   enable_testing()
   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Tests")
 endif()
 
-if(MEMORY_MANAGER_BUILD_BENCHMARKS)
+if(MEMARENA_BUILD_BENCHMARKS)
   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Benchmarks")
 endif()
 
-# if (MEMORY_MANAGER_BUILD_EXAMPLE)
+# if (MEMARENA_BUILD_EXAMPLE)
 #   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Vendor/benchmark")
 # endif()
