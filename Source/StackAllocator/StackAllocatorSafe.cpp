@@ -14,8 +14,8 @@ StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_p
 
 StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment& alignment)
 {
-    const Offset  m_InitialOffset = m_CurrentOffset;
-    const UIntPtr baseAddress     = m_StartAddress + m_CurrentOffset;
+    const Offset  startOffset = m_CurrentOffset;
+    const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
     const UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
     const Padding padding        = alignedAddress - baseAddress;
@@ -29,7 +29,7 @@ StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment& al
     SetCurrentOffset(totalSizeAfterAllocation);
 
     void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
-    return {.ptr = allocatedPtr, .startOffset = m_InitialOffset, .endOffset = m_CurrentOffset};
+    return {.ptr = allocatedPtr, .startOffset = startOffset, .endOffset = m_CurrentOffset};
 }
 
 void StackAllocatorSafe::Deallocate(StackPtr<void> ptrBlock)
@@ -45,5 +45,12 @@ void StackAllocatorSafe::Deallocate(StackPtr<void> ptrBlock)
 
     SetCurrentOffset(ptrBlock.startOffset);
 }
+
+StackPtr<void> StackAllocatorSafe::AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
+{
+    return Allocate(objectCount * objectSize, alignment);
+}
+
+void StackAllocatorSafe::DeallocateArray(StackPtr<void> ptr) { Deallocate(ptr); }
 
 } // namespace Memarena

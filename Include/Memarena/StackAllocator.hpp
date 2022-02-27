@@ -45,7 +45,7 @@ class StackAllocator : public StackAllocatorBase
      * @return Object* The pointer to the newly allocated and created object
      */
     template <typename Object, typename... Args>
-    Object* New(Args... argList);
+    Object* New(Args&&... argList);
 
     /**
      * @brief Deallocates a pointer and calls the destructor
@@ -115,10 +115,10 @@ class StackAllocator : public StackAllocatorBase
 };
 
 template <typename Object, typename... Args>
-Object* StackAllocator::New(Args... argList)
+Object* StackAllocator::New(Args&&... argList)
 {
-    void* rawPtr = Allocate(sizeof(Object), AlignOf(alignof(Object))); // Allocate the raw memory and get a pointer to it
-    return new (rawPtr) Object(argList...);                            // Call the placement new operator, which constructs the Object
+    void* rawPtr = Allocate<Object>();      // Allocate the raw memory and get a pointer to it
+    return new (rawPtr) Object(argList...); // Call the placement new operator, which constructs the Object
 }
 
 template <typename Object>
@@ -132,7 +132,7 @@ void StackAllocator::Delete(Object* ptr)
 template <typename Object, typename... Args>
 Object* StackAllocator::NewArray(const Size objectCount, Args... argList)
 {
-    void* rawPtr = AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object))); // Allocate the raw memory and get a pointer to it
+    void* rawPtr = AllocateArray<Object>(objectCount); // Allocate the raw memory and get a pointer to it
 
     Object* firstPtr = new (rawPtr) Object(argList...); // Call the placement new operator, which constructs the Object
 

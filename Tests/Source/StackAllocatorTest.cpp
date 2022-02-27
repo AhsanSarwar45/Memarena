@@ -252,6 +252,12 @@ class StackAllocatorDeathTest : public ::testing::Test
     StackAllocator stackAllocator = StackAllocator(10_MB);
 };
 
+TEST_F(StackAllocatorDeathTest, MaxSizeAllocation)
+{
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ StackAllocator stackAllocator2 = StackAllocator(std::numeric_limits<Offset>::max() + 1); }, ".*");
+}
+
 TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
 {
     StackAllocator stackAllocator2 = StackAllocator(10);

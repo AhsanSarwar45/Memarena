@@ -69,8 +69,11 @@ class StackAllocatorSafe : public StackAllocatorBase
     template <typename Object>
     void Delete(StackPtr<Object> ptr);
 
+    template <typename Object, typename... Args>
+    StackPtr<Object> NewArray(const Size objectCount, Args... argList);
+
     template <typename Object>
-    StackPtr<Object> NewArray(const Size objectCount);
+    void DeleteArray(StackPtr<Object> ptr);
 
     /**
      * @brief Allocates raw memory without calling any constructor
@@ -80,6 +83,9 @@ class StackAllocatorSafe : public StackAllocatorBase
      * @return void* The pointer to the newly allocated memory
      */
     StackPtr<void> Allocate(const Size size, const Alignment& alignment);
+
+    template <typename Object>
+    StackPtr<void> Allocate();
 
     /**
      * @brief Deallocates raw memory without calling any destructor. It also deallocates
@@ -91,6 +97,11 @@ class StackAllocatorSafe : public StackAllocatorBase
 
     StackPtr<void> AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment);
 
+    template <typename Object>
+    StackPtr<void> AllocateArray(const Size objectCount);
+
+    void DeallocateArray(StackPtr<void> ptr);
+
   private:
     StackAllocatorSafe(StackAllocatorSafe& stackAllocator); // Restrict copying
 };
@@ -98,16 +109,61 @@ class StackAllocatorSafe : public StackAllocatorBase
 template <typename Object, typename... Args>
 StackPtr<Object> StackAllocatorSafe::New(Args... argList)
 {
-    StackPtr<void> rawPtr = Allocate(sizeof(Object), AlignOf(alignof(Object))); // Allocate the raw memory and get a pointer to it
+    StackPtr<void> rawPtr = Allocate<Object>(); // Allocate the raw memory and get a pointer to it
     return {.ptr = new (rawPtr.ptr) Object(argList...), .startOffset = rawPtr.startOffset, .endOffset = rawPtr.endOffset};
 }
 
 template <typename Object>
 void StackAllocatorSafe::Delete(StackPtr<Object> ptr)
 {
-
-    ptr.ptr->~Object(); // Call the destructor on the object
     Deallocate(ptr);    // Deallocate the pointer
+    ptr.ptr->~Object(); // Call the destructor on the object
+}
+
+template <typename Object, typename... Args>
+StackPtr<Object> StackAllocatorSafe::NewArray(const Size objectCount, Args... argList)
+{
+    // Allocate the raw memory and get a pointer to it
+    StackPtr<void> rawPtr = AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
+
+    // Call the placement new operator, which constructs the Object
+    StackPtr<Object> firstPtr = {
+        .ptr = new (rawPtr.ptr) Object(argList...), .startOffset = rawPtr.startOffset, .endOffset = rawPtr.endOffset};
+
+    Object* currentPtr = firstPtr.ptr;
+    Object* lastPtr    = firstPtr.ptr + (objectCount - 1);
+
+    while (currentPtr <= lastPtr)
+    {
+        new (currentPtr++) Object(argList...);
+    }
+
+    return firstPtr;
+}
+
+template <typename Object>
+void StackAllocatorSafe::DeleteArray(StackPtr<Object> ptr)
+{
+    DeallocateArray(ptr); // Deallocate the pointer
+
+    Size objectCount = (ptr.endOffset - ptr.startOffset) / sizeof(Object);
+
+    for (Size i = objectCount - 1; i-- > 0;)
+    {
+        ptr.ptr[i].~Object();
+    }
+}
+
+template <typename Object>
+StackPtr<void> StackAllocatorSafe::Allocate()
+{
+    return Allocate(sizeof(Object), AlignOf(alignof(Object)));
+}
+
+template <typename Object>
+StackPtr<void> StackAllocatorSafe::AllocateArray(const Size objectCount)
+{
+    return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
 }
 
 } // namespace Memarena

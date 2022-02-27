@@ -29,6 +29,22 @@ StackPtr<TestObject> CheckTestObjectNew(StackAllocatorSafe& stackAllocatorSafe, 
     return object;
 }
 
+StackPtr<TestObject> CheckTestObjectNewArray(StackAllocatorSafe& stackAllocatorSafe, size_t objectCount)
+{
+    StackPtr<TestObject> arr = stackAllocatorSafe.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
+
+    for (size_t i = 0; i < objectCount; i++)
+    {
+        EXPECT_EQ(arr.ptr[i].a, 1);
+        EXPECT_EQ(arr.ptr[i].b, 2.1f);
+        EXPECT_EQ(arr.ptr[i].c, 'a');
+        EXPECT_EQ(arr.ptr[i].d, false);
+        EXPECT_EQ(arr.ptr[i].e, 10.6f);
+    }
+
+    return arr;
+}
+
 StackPtr<TestObject2> CheckTestObjectNew2(StackAllocatorSafe& stackAllocatorSafe, int a, double b, double c, bool d, std::vector<int> e)
 {
     StackPtr<TestObject2> object = stackAllocatorSafe.New<TestObject2>(a, b, c, d, e);
@@ -154,6 +170,14 @@ TEST_F(StackAllocatorSafeTest, NewThenDeleteThenNewMultipleDifferentObjects)
     }
 }
 
+TEST_F(StackAllocatorSafeTest, NewArray) { StackPtr<TestObject> object = CheckTestObjectNewArray(stackAllocatorSafe, 10); }
+
+TEST_F(StackAllocatorSafeTest, NewThenDeleteArray)
+{
+    StackPtr<TestObject> object = CheckTestObjectNewArray(stackAllocatorSafe, 10);
+    stackAllocatorSafe.DeleteArray(object);
+}
+
 TEST_F(StackAllocatorSafeTest, Reset)
 {
     StackAllocatorSafe stackAllocator2 =
@@ -200,6 +224,25 @@ TEST_F(StackAllocatorSafeTest, GetUsedSizeNewDelete)
     EXPECT_EQ(stackAllocatorSafe.GetUsedSize(), 0);
 }
 
+TEST_F(StackAllocatorSafeTest, GetUsedSizeNewArray)
+{
+    const int numObjects = 10;
+
+    StackPtr<TestObject> arr = CheckTestObjectNewArray(stackAllocatorSafe, numObjects);
+
+    EXPECT_EQ(stackAllocatorSafe.GetUsedSize(), numObjects * sizeof(TestObject));
+}
+
+TEST_F(StackAllocatorSafeTest, GetUsedSizeNewDeleteArray)
+{
+    const int            numObjects = 10;
+    StackPtr<TestObject> arr        = CheckTestObjectNewArray(stackAllocatorSafe, numObjects);
+
+    stackAllocatorSafe.DeleteArray(arr);
+
+    EXPECT_EQ(stackAllocatorSafe.GetUsedSize(), 0);
+}
+
 #ifdef MEMORY_MANAGER_ENABLE_ASSERTS
 
 class StackAllocatorSafeDeathTest : public ::testing::Test
@@ -210,6 +253,12 @@ class StackAllocatorSafeDeathTest : public ::testing::Test
 
     StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(10_MB);
 };
+
+TEST_F(StackAllocatorSafeDeathTest, MaxSizeAllocation)
+{
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ StackAllocatorSafe stackAllocator2 = StackAllocatorSafe(std::numeric_limits<Offset>::max() + 1); }, ".*");
+}
 
 TEST_F(StackAllocatorSafeDeathTest, NewOutOfMemory)
 {
@@ -245,11 +294,3 @@ TEST_F(StackAllocatorSafeDeathTest, DeleteWrongOrder)
 }
 
 #endif
-
-// TEST_F(StackAllocatorSafeTest, NullPtrDeallocate)
-// {
-
-//     StackPtr<TestObject> object  = stackAllocatorSafe.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-//     StackPtr<TestObject> object2 = stackAllocatorSafe.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-//     StackPtr<TestObject> object3 = stackAllocatorSafe.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-// }
