@@ -8,7 +8,8 @@
 namespace Memarena
 {
 
-StackAllocatorBase::StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName)
+StackAllocatorBase::StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager,
+                                       const std::string& debugName)
 {
     MEMORY_MANAGER_ASSERT(totalSize <= std::numeric_limits<Offset>::max(),
                           "Error: Max size of allocator cannot be more than %d! Value passed was %d.\n", std::numeric_limits<Offset>::max(),

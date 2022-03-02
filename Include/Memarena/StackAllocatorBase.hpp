@@ -50,7 +50,7 @@ class StackAllocatorBase
      * If no value or a nullptr is passed, this allocator's memory won't be tracked
      * @param debugName The name that will appear in logs and any editor.
      */
-    StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName);
+    StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const std::string& debugName);
 
     /**
      * @brief Destroys the Stack Allocator object. Also frees up all the memory. If a Memarena instance

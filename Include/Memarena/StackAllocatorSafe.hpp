@@ -45,7 +45,8 @@ class StackAllocatorSafe : public StackAllocatorBase
     StackAllocatorSafe& operator=(StackAllocatorSafe&&) = delete;
 
     StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr,
-                       const char* debugName = "StackAllocatorSafe");
+                       const std::string& debugName = "StackAllocatorSafe");
+    // explicit StackAllocatorSafe(const Size totalSize, const std::string& debugName);
 
     /**
      * @brief Allocates a new block of memory and calls the constructor
@@ -124,7 +125,7 @@ template <typename Object, typename... Args>
 StackPtr<Object> StackAllocatorSafe::NewArray(const Size objectCount, Args... argList)
 {
     // Allocate the raw memory and get a pointer to it
-    StackPtr<void> rawPtr = AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
+    StackPtr<void> rawPtr = AllocateArray<Object>(objectCount);
 
     // Call the placement new operator, which constructs the Object
     StackPtr<Object> firstPtr = {

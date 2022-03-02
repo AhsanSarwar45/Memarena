@@ -60,6 +60,9 @@ class StackAllocator : public StackAllocatorBase
     template <typename Object, typename... Args>
     Object* NewArray(const Size objectCount, Args... argList);
 
+    template <typename Object, typename... Args>
+    Object* NewArrayRaw(const Size objectCount);
+
     template <typename Object>
     void DeleteArray(Object* ptr);
 
@@ -145,6 +148,12 @@ Object* StackAllocator::NewArray(const Size objectCount, Args... argList)
     }
 
     return firstPtr;
+}
+
+template <typename Object, typename... Args>
+Object* StackAllocator::NewArrayRaw(const Size objectCount)
+{
+    return static_cast<Object*>(AllocateArray<Object>(objectCount));
 }
 
 template <typename Object>

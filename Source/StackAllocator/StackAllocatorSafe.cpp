@@ -7,10 +7,16 @@
 namespace Memarena
 {
 
-StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const char* debugName)
+StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager,
+                                       const std::string& debugName)
     : StackAllocatorBase(totalSize, memoryManager, debugName)
 {
 }
+
+// StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::string& debugName)
+//     : StackAllocatorBase(totalSize, nullptr, debugName)
+// {
+// }
 
 StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment& alignment)
 {

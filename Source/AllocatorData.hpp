@@ -12,7 +12,7 @@ struct AllocatorData
     Size                                  usedSize  = 0;
     Size                                  peakUsage = 0;
 
-    AllocatorData(const char* debugName, Size totalSize) : debugName(debugName), totalSize(totalSize) {}
+    AllocatorData(const std::string& _debugName, Size _totalSize) : debugName(_debugName), totalSize(_totalSize) {}
 };
 
 enum class ResizePolicy : UInt8
