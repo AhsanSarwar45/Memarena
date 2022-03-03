@@ -241,7 +241,7 @@ TEST_F(StackAllocatorTest, GetUsedSizeNewDeleteArray)
     EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
 }
 
-#ifdef MEMORY_MANAGER_ENABLE_ASSERTS
+#ifdef MEMARENA_ENABLE_ASSERTS
 
 class StackAllocatorDeathTest : public ::testing::Test
 {
@@ -280,6 +280,24 @@ TEST_F(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 
     // TODO Write proper exit messages
     ASSERT_DEATH({ stackAllocator.Delete(pointer); }, ".*");
+}
+
+TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
+{
+    StackAllocator<BasicBoundsChecking> stackAllocator2 = StackAllocator<BasicBoundsChecking>(1_KB);
+
+    TestObject* testObject = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+
+    TestObject* testObject2 = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+
+    stackAllocator2.Delete(testObject);
+
+    TestObject2* testObject3 = stackAllocator2.New<TestObject2>(1, 2.1, 3.4, false, std::vector<int>());
+
+    // TODO Write proper exit messages
+    stackAllocator2.Delete(testObject3);
+
+    ASSERT_DEATH({ stackAllocator2.Delete(testObject2); }, ".*");
 }
 
 #endif

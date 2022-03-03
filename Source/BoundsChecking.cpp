@@ -24,8 +24,7 @@ void BasicBoundsChecking::Check(const UIntPtr address, const Offset offset, cons
     UIntPtr         backGuardAddress = frontGuardAddress + frontGuard->allocationSize;
     BoundGuardBack* backGuard        = reinterpret_cast<BoundGuardBack*>(frontGuardAddress);
 
-    MEMORY_MANAGER_ASSERT(frontGuard->offset == offset && backGuard->offset == offset,
-                          "Error: Memory stomping detected in allocator %s at offset %d and address %d!\n", allocatorDebugName, offset,
-                          address);
+    MEMARENA_ASSERT(frontGuard->offset == offset && backGuard->offset == offset,
+                    "Error: Memory stomping detected in allocator %s at offset %d and address %d!\n", allocatorDebugName, offset, address);
 }
 } // namespace Memarena

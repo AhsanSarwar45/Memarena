@@ -124,8 +124,8 @@ class StackAllocator : public StackAllocatorBase
 
         const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
         // Check if this allocation will overflow the stack allocator
-        MEMORY_MANAGER_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
-                              m_Data->debugName.c_str());
+        MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
+                        m_Data->debugName.c_str());
 
         const UIntPtr alignedAddress = baseAddress + padding;
 
@@ -154,13 +154,13 @@ class StackAllocator : public StackAllocatorBase
      */
     void Deallocate(void* ptr)
     {
-        MEMORY_MANAGER_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
+        MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
 
         const UIntPtr currentAddress = reinterpret_cast<UIntPtr>(ptr);
 
         // Check if this allocator owns the pointer
-        MEMORY_MANAGER_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n",
-                              m_Data->debugName.c_str(), currentAddress);
+        MEMARENA_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
+                        currentAddress);
 
         const UIntPtr headerAddress = currentAddress - sizeof(Header);
         Header*       header        = GetHeader<Header>(headerAddress);
@@ -185,8 +185,8 @@ class StackAllocator : public StackAllocatorBase
         const Size totalSizeAfterAllocation = m_CurrentOffset + padding + allocationSize;
 
         // Check if this allocation will overflow the stack allocator
-        MEMORY_MANAGER_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
-                              m_Data->debugName.c_str());
+        MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
+                        m_Data->debugName.c_str());
 
         const UIntPtr alignedAddress = baseAddress + padding;
 
@@ -210,13 +210,13 @@ class StackAllocator : public StackAllocatorBase
 
     Size DeallocateArray(void* ptr)
     {
-        MEMORY_MANAGER_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
+        MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
 
         const UIntPtr currentAddress = reinterpret_cast<UIntPtr>(ptr);
 
         // Check if this allocator owns the pointer
-        MEMORY_MANAGER_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n",
-                              m_Data->debugName.c_str(), currentAddress);
+        MEMARENA_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
+                        currentAddress);
 
         const UIntPtr headerAddress = currentAddress - sizeof(ArrayHeader);
         ArrayHeader*  header        = GetHeader<ArrayHeader>(headerAddress);

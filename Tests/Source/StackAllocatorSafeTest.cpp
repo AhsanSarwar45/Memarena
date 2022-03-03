@@ -243,7 +243,7 @@ TEST_F(StackAllocatorSafeTest, GetUsedSizeNewDeleteArray)
     EXPECT_EQ(stackAllocatorSafe.GetUsedSize(), 0);
 }
 
-#ifdef MEMORY_MANAGER_ENABLE_ASSERTS
+#ifdef MEMARENA_ENABLE_ASSERTS
 
 class StackAllocatorSafeDeathTest : public ::testing::Test
 {

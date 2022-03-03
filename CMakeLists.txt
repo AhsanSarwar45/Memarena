@@ -33,7 +33,6 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/P
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
       _CRT_SECURE_NO_WARNINGS
-      GLFW_INCLUDE_NONE
     PUBLIC
       $<$<CONFIG:Debug>:MEMARENA_DEBUG>
       $<$<CONFIG:RelWithDebInfo>:MEMARENA_DEBUG>

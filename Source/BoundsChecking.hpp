@@ -39,6 +39,6 @@ class BasicBoundsChecking
     void Check(const UIntPtr address, const Offset offset, const std::string& allocatorDebugName);
 
   public:
-    static const Size s_FrontGuardSize = 0;
+    static const Size s_FrontGuardSize = sizeof(BoundGuardFront);
 };
 } // namespace Memarena

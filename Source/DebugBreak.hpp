@@ -28,7 +28,7 @@
 
 #include "Macros.hpp"
 
-#ifdef MEMORY_MANAGER_DEBUG_BREAK
+#ifdef MEMARENA_DEBUG_BREAK
 
     #ifdef _MSC_VER
 

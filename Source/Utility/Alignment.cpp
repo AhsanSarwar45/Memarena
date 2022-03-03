@@ -7,15 +7,13 @@ namespace Memarena
 
 Alignment::Alignment(int alignment)
 {
-    MEMORY_MANAGER_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment in  must be a power of 2 and not equal to 0!",
-                          alignment)
+    MEMARENA_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment in  must be a power of 2 and not equal to 0!", alignment)
     value = alignment;
 }
 
 Alignment::Alignment(Size alignment)
 {
-    MEMORY_MANAGER_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment must be a power of 2 and not equal to 0!",
-                          alignment)
+    MEMARENA_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment must be a power of 2 and not equal to 0!", alignment)
     value = alignment;
 }
 Alignment::Alignment(AlignOf alignOf) { value = alignOf.value; }
