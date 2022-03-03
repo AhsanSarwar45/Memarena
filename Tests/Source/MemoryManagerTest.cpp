@@ -1,7 +1,7 @@
-#include <gtest/gtest.h>
+// #include <gtest/gtest.h>
 
-#include <Memarena/StackAllocator.hpp>
+// #include <Memarena/StackAllocator.hpp>
 
-#include "MemoryTestObjects.hpp"
+// #include "MemoryTestObjects.hpp"
 
-using namespace Memarena;
+// using namespace Memarena;

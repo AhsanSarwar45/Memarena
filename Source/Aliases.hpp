@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PCH.hpp"
+#include <cstdint>
 
 namespace Memarena
 {

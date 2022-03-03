@@ -1,9 +1,7 @@
 #pragma once
 
-#include "TypeAliases.hpp"
-
+#include "Source/Utility/Alignment.hpp"
 #include "StackAllocatorBase.hpp"
-#include "Utility/Alignment.hpp"
 
 namespace Memarena
 {

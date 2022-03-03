@@ -1,6 +1,9 @@
 #pragma once
 
-#include "TypeAliases.hpp"
+#include <memory>
+#include <string>
+
+#include "Source/TypeAliases.hpp"
 
 namespace Memarena
 {

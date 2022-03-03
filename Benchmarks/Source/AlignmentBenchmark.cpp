@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include <Memarena/Utility/Alignment.hpp>
+#include <Memarena/Memarena.hpp>
 
 #include "MemoryTestObjects.hpp"
 

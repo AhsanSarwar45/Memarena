@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <Memarena/Utility/Alignment.hpp>
+#include <Memarena/Memarena.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"

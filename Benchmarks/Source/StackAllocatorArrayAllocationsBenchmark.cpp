@@ -1,7 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include <Memarena/StackAllocator.hpp>
-#include <Memarena/StackAllocatorSafe.hpp>
+#include <Memarena/Memarena.hpp>
 
 #include <algorithm>
 

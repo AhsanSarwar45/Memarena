@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <Memarena/StackAllocator.hpp>
+#include <Memarena/Memarena.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
@@ -13,10 +13,10 @@ class StackAllocatorTest : public ::testing::Test
     void SetUp() override {}
     void TearDown() override {}
 
-    StackAllocator stackAllocator = StackAllocator(10_MB);
+    StackAllocator<> stackAllocator = StackAllocator<>(10_MB);
 };
 
-TestObject* CheckTestObjectNew(StackAllocator& stackAllocator, int a, float b, char c, bool d, float e)
+TestObject* CheckTestObjectNew(StackAllocator<>& stackAllocator, int a, float b, char c, bool d, float e)
 {
     TestObject* object = stackAllocator.New<TestObject>(a, b, c, d, e);
 
@@ -29,7 +29,7 @@ TestObject* CheckTestObjectNew(StackAllocator& stackAllocator, int a, float b, c
     return object;
 }
 
-TestObject2* CheckTestObjectNew2(StackAllocator& stackAllocator, int a, double b, double c, bool d, std::vector<int> e)
+TestObject2* CheckTestObjectNew2(StackAllocator<>& stackAllocator, int a, double b, double c, bool d, std::vector<int> e)
 {
     TestObject2* object = stackAllocator.New<TestObject2>(a, b, c, d, e);
 
@@ -42,7 +42,7 @@ TestObject2* CheckTestObjectNew2(StackAllocator& stackAllocator, int a, double b
     return object;
 }
 
-TestObject* CheckTestObjectNewArray(StackAllocator& stackAllocator, size_t objectCount)
+TestObject* CheckTestObjectNewArray(StackAllocator<>& stackAllocator, size_t objectCount)
 {
     TestObject* arr = stackAllocator.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
 
@@ -179,7 +179,7 @@ TEST_F(StackAllocatorTest, NewThenDeleteArray)
 
 TEST_F(StackAllocatorTest, Reset)
 {
-    StackAllocator stackAllocator2 = StackAllocator(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(1))), nullptr);
+    StackAllocator<> stackAllocator2 = StackAllocator<>(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(1))), nullptr);
     for (size_t i = 0; i < 10; i++)
     {
         TestObject* object = CheckTestObjectNew(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
@@ -249,18 +249,18 @@ class StackAllocatorDeathTest : public ::testing::Test
     void SetUp() override {}
     void TearDown() override {}
 
-    StackAllocator stackAllocator = StackAllocator(10_MB);
+    StackAllocator<> stackAllocator = StackAllocator<>(10_MB);
 };
 
 TEST_F(StackAllocatorDeathTest, MaxSizeAllocation)
 {
     // TODO Write proper exit messages
-    ASSERT_DEATH({ StackAllocator stackAllocator2 = StackAllocator(std::numeric_limits<Offset>::max() + 1); }, ".*");
+    ASSERT_DEATH({ StackAllocator<> stackAllocator2 = StackAllocator<>(std::numeric_limits<Offset>::max() + 1); }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
 {
-    StackAllocator stackAllocator2 = StackAllocator(10);
+    StackAllocator<> stackAllocator2 = StackAllocator<>(10);
 
     // TODO Write proper exit messages
     ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); }, ".*");

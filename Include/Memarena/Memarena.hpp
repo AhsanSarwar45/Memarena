@@ -1,5 +1,5 @@
 #pragma once
 
-#include "MemoryManager.hpp"
-#include "StackAllocator.hpp"
-#include "StackAllocatorSafe.hpp"
+#include "Source/MemoryManager.hpp"
+#include "Source/StackAllocator/StackAllocator.hpp"
+#include "Source/StackAllocator/StackAllocatorSafe.hpp"

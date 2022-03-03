@@ -20,6 +20,7 @@ add_library(${PROJECT_NAME} STATIC
 "Source/StackAllocator/StackAllocatorSafe.cpp"
 "Source/StackAllocator/StackAllocator.cpp"
 "Source/StackAllocator/StackAllocatorBase.cpp"
+"Source/BoundsChecking.cpp"
 "Source/MemoryManager.cpp"
 "Source/Utility/Alignment.cpp"
 )
@@ -47,7 +48,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Source")
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/Memarena")
+# target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/Memarena")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Vendor")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${CPP_LINKER_FLAGS}")
