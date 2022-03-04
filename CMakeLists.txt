@@ -18,9 +18,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_library(${PROJECT_NAME} STATIC
 "Source/StackAllocator/StackAllocatorSafe.cpp"
-"Source/StackAllocator/StackAllocator.cpp"
 "Source/StackAllocator/StackAllocatorBase.cpp"
-"Source/BoundsChecking.cpp"
 "Source/MemoryManager.cpp"
 "Source/Utility/Alignment.cpp"
 )

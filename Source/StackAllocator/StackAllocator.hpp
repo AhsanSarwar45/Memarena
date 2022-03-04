@@ -23,7 +23,7 @@ namespace Memarena
  * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
  * Allocation and deallocation complexity: O(1)
  */
-template <typename BoundsCheckingPolicy = NoBoundsChecking>
+template <BoundsCheckingPolicy boundsCheckingPolicy = BoundsCheckingPolicy::None>
 class StackAllocator : public StackAllocatorBase
 {
   public:
@@ -119,8 +119,7 @@ class StackAllocator : public StackAllocatorBase
         const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
         // The padding includes alignment as well as the header
-        const Padding padding =
-            CalculateAlignedPaddingWithHeader(baseAddress, alignment, sizeof(Header) + BoundsCheckingPolicy::s_FrontGuardSize);
+        const Padding padding = CalculateAlignedPaddingWithHeader(baseAddress, alignment, GetHeaderSize<AllocationHeader>());
 
         const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
         // Check if this allocation will overflow the stack allocator
@@ -129,15 +128,7 @@ class StackAllocator : public StackAllocatorBase
 
         const UIntPtr alignedAddress = baseAddress + padding;
 
-        const UIntPtr headerAddress = alignedAddress - sizeof(Header);
-        AllocateHeader<Header>(headerAddress, padding);
-
-        m_BoundsChecker.Guard(headerAddress, m_CurrentOffset, size);
-
-        SetCurrentOffset(totalSizeAfterAllocation);
-
-        void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
-        return allocatedPtr;
+        return GetAllocatedPtrWithHeader<AllocationHeader>(alignedAddress, size, totalSizeAfterAllocation, padding);
     }
 
     template <typename Object>
@@ -162,15 +153,7 @@ class StackAllocator : public StackAllocatorBase
         MEMARENA_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
                         currentAddress);
 
-        const UIntPtr headerAddress = currentAddress - sizeof(Header);
-        Header*       header        = GetHeader<Header>(headerAddress);
-
-        const Offset currentOffset = currentAddress - m_StartAddress;
-        const Offset newOffset     = currentOffset - header->padding;
-
-        m_BoundsChecker.Check(headerAddress, newOffset, m_Data->debugName.c_str());
-
-        SetCurrentOffset(newOffset);
+        SetCurrentOffset(GetOriginalOffset<AllocationHeader>(currentAddress));
     }
 
     void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
@@ -180,7 +163,7 @@ class StackAllocator : public StackAllocatorBase
         const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
         // The padding includes alignment as well as the header
-        const Padding padding = CalculateAlignedPaddingWithHeader(baseAddress, alignment, sizeof(ArrayHeader));
+        const Padding padding = CalculateAlignedPaddingWithHeader(baseAddress, alignment, GetHeaderSize<ArrayHeader>());
 
         const Size totalSizeAfterAllocation = m_CurrentOffset + padding + allocationSize;
 
@@ -190,16 +173,7 @@ class StackAllocator : public StackAllocatorBase
 
         const UIntPtr alignedAddress = baseAddress + padding;
 
-        const UIntPtr headerAddress = alignedAddress - sizeof(ArrayHeader);
-        AllocateHeader<ArrayHeader>(headerAddress, padding, objectCount);
-
-        m_BoundsChecker.Guard(headerAddress, m_CurrentOffset, allocationSize);
-
-        SetCurrentOffset(totalSizeAfterAllocation);
-
-        void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
-
-        return allocatedPtr;
+        return GetAllocatedPtrWithHeader<ArrayHeader>(alignedAddress, allocationSize, totalSizeAfterAllocation, padding, objectCount);
     }
 
     template <typename Object>
@@ -218,15 +192,10 @@ class StackAllocator : public StackAllocatorBase
         MEMARENA_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
                         currentAddress);
 
-        const UIntPtr headerAddress = currentAddress - sizeof(ArrayHeader);
-        ArrayHeader*  header        = GetHeader<ArrayHeader>(headerAddress);
+        const UIntPtr      headerAddress = currentAddress - sizeof(ArrayHeader);
+        const ArrayHeader* header        = reinterpret_cast<ArrayHeader*>(headerAddress);
 
-        const Offset currentOffset = currentAddress - m_StartAddress;
-        const Offset newOffset     = currentOffset - header->padding;
-
-        m_BoundsChecker.Check(headerAddress, newOffset, m_Data->debugName.c_str());
-
-        SetCurrentOffset(newOffset);
+        SetCurrentOffset(GetOriginalOffset<ArrayHeader>(currentAddress, headerAddress, header));
 
         return header->count;
     }
@@ -235,24 +204,84 @@ class StackAllocator : public StackAllocatorBase
     StackAllocator(StackAllocator& stackAllocator); // Restrict copying
 
     template <typename Header, typename... Args>
-    void AllocateHeader(const UIntPtr address, Args... argList)
+    void* GetAllocatedPtrWithHeader(const UIntPtr address, const Size allocationSize, const Size totalSizeAfterAllocation, Args... argList)
     {
+        const UIntPtr headerAddress = address - sizeof(Header);
         // Construct the header at 'headerAdress' using placement new operator
-        void* headerPtr = reinterpret_cast<void*>(address);
+        void* headerPtr = reinterpret_cast<void*>(headerAddress);
         new (headerPtr) Header(argList...);
+
+        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::None)
+        {
+        }
+        else if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        {
+            const UIntPtr frontGuardAddress = headerAddress - sizeof(BoundGuardFront);
+            const UIntPtr backGuardAddress  = address + allocationSize;
+
+            new (reinterpret_cast<void*>(frontGuardAddress)) BoundGuardFront(m_CurrentOffset, allocationSize);
+            new (reinterpret_cast<void*>(backGuardAddress)) BoundGuardBack(m_CurrentOffset);
+        }
+
+        SetCurrentOffset(totalSizeAfterAllocation);
+
+        void* allocatedPtr = reinterpret_cast<void*>(address);
+
+        return allocatedPtr;
     }
 
     template <typename Header>
-    Header* GetHeader(const UIntPtr address)
+    Offset GetOriginalOffset(const UIntPtr address)
     {
-        return reinterpret_cast<Header*>(address);
+        const UIntPtr headerAddress = address - sizeof(Header);
+        const Header* header        = reinterpret_cast<Header*>(headerAddress);
+
+        return GetOriginalOffset<Header>(address, headerAddress, header);
     }
 
-    struct Header
+    template <typename Header>
+    Offset GetOriginalOffset(const UIntPtr address, const UIntPtr headerAddress, const Header* header)
+    {
+        const Offset addressOffset = address - m_StartAddress;
+        const Offset newOffset     = addressOffset - header->padding;
+
+        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::None)
+        {
+        }
+        else if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        {
+            const UIntPtr          frontGuardAddress = headerAddress - sizeof(BoundGuardFront);
+            const BoundGuardFront* frontGuard        = reinterpret_cast<BoundGuardFront*>(frontGuardAddress);
+
+            const UIntPtr         backGuardAddress = frontGuardAddress + frontGuard->allocationSize;
+            const BoundGuardBack* backGuard        = reinterpret_cast<BoundGuardBack*>(frontGuardAddress);
+
+            MEMARENA_ASSERT(frontGuard->offset == newOffset && backGuard->offset == newOffset,
+                            "Error: Memory stomping detected in allocator %s at offset %d and address %d!\n", m_Data->debugName.c_str(),
+                            newOffset, address);
+        }
+
+        return newOffset;
+    }
+
+    template <typename Header>
+    Size GetHeaderSize()
+    {
+        Size headerSize = sizeof(Header);
+
+        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        {
+            headerSize += sizeof(BoundGuardFront);
+        }
+
+        return headerSize;
+    }
+
+    struct AllocationHeader
     {
         Padding padding;
 
-        Header(Padding _padding) : padding(_padding) {}
+        AllocationHeader(Padding _padding) : padding(_padding) {}
     };
     struct ArrayHeader
     {

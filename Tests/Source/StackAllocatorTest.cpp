@@ -29,6 +29,20 @@ TestObject* CheckTestObjectNew(StackAllocator<>& stackAllocator, int a, float b,
     return object;
 }
 
+// template <BoundsCheckingPolicy boundsCheckingPolicy>
+// TestObject* CheckTestObjectNew(StackAllocator<boundsCheckingPolicy>& stackAllocator, int a, float b, char c, bool d, float e)
+// {
+//     TestObject* object = stackAllocator.New<TestObject>(a, b, c, d, e);
+
+//     EXPECT_EQ(object->a, a);
+//     EXPECT_EQ(object->b, b);
+//     EXPECT_EQ(object->c, c);
+//     EXPECT_EQ(object->d, d);
+//     EXPECT_EQ(object->e, e);
+
+//     return object;
+// }
+
 TestObject2* CheckTestObjectNew2(StackAllocator<>& stackAllocator, int a, double b, double c, bool d, std::vector<int> e)
 {
     TestObject2* object = stackAllocator.New<TestObject2>(a, b, c, d, e);
@@ -42,6 +56,20 @@ TestObject2* CheckTestObjectNew2(StackAllocator<>& stackAllocator, int a, double
     return object;
 }
 
+// template <BoundsCheckingPolicy boundsCheckingPolicy>
+// TestObject2* CheckTestObjectNew2(StackAllocator<boundsCheckingPolicy>& stackAllocator, int a, double b, double c, bool d,
+//                                  std::vector<int> e)
+// {
+//     TestObject2* object = stackAllocator.New<TestObject2>(a, b, c, d, e);
+
+//     EXPECT_EQ(object->a, a);
+//     EXPECT_EQ(object->b, b);
+//     EXPECT_EQ(object->c, c);
+//     EXPECT_EQ(object->d, d);
+//     EXPECT_EQ(object->e.size(), e.size());
+
+//     return object;
+// }
 TestObject* CheckTestObjectNewArray(StackAllocator<>& stackAllocator, size_t objectCount)
 {
     TestObject* arr = stackAllocator.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
@@ -134,7 +162,7 @@ TEST_F(StackAllocatorTest, NewDeleteMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewDeleteThenNewSingleObject)
+TEST_F(StackAllocatorTest, NewDeleteNewSingleObject)
 {
     TestObject* object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
@@ -284,11 +312,23 @@ TEST_F(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 
 TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 {
-    StackAllocator<BasicBoundsChecking> stackAllocator2 = StackAllocator<BasicBoundsChecking>(1_KB);
+    StackAllocator<BoundsCheckingPolicy::Basic> stackAllocator2 = StackAllocator<BoundsCheckingPolicy::Basic>(1_KB);
 
     TestObject* testObject = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
 
+    EXPECT_EQ(testObject->a, 1);
+    EXPECT_EQ(testObject->b, 2.1f);
+    EXPECT_EQ(testObject->c, 'a');
+    EXPECT_EQ(testObject->d, false);
+    EXPECT_EQ(testObject->e, 10.6f);
+
     TestObject* testObject2 = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+
+    EXPECT_EQ(testObject2->a, 1);
+    EXPECT_EQ(testObject2->b, 2.1f);
+    EXPECT_EQ(testObject2->c, 'a');
+    EXPECT_EQ(testObject2->d, false);
+    EXPECT_EQ(testObject2->e, 10.6f);
 
     stackAllocator2.Delete(testObject);
 

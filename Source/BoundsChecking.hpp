@@ -21,24 +21,30 @@ struct BoundGuardBack
     BoundGuardBack(Offset _offset) : offset(_offset) {}
 };
 
-class NoBoundsChecking
+enum class BoundsCheckingPolicy
 {
-
-  public:
-    inline void Guard(const UIntPtr address, const Offset offset, const Offset allocationSize) {}
-    inline void Check(const UIntPtr address, const Offset offset, const std::string& allocatorDebugName) {}
-
-  public:
-    static const Size s_FrontGuardSize = 0;
+    None,
+    Basic
 };
 
-class BasicBoundsChecking
-{
-  public:
-    void Guard(const UIntPtr address, const Offset offset, Offset allocationSize);
-    void Check(const UIntPtr address, const Offset offset, const std::string& allocatorDebugName);
+// class NoBoundsChecking
+// {
 
-  public:
-    static const Size s_FrontGuardSize = sizeof(BoundGuardFront);
-};
+//   public:
+//     inline void Guard(const UIntPtr address, const Offset offset, const Offset allocationSize) {}
+//     inline void Check(const UIntPtr address, const Offset offset, const std::string& allocatorDebugName) {}
+
+//   public:
+//     static const Size s_FrontGuardSize = 0;
+// };
+
+// class BasicBoundsChecking
+// {
+//   public:
+//     void Guard(const UIntPtr address, const Offset offset, Offset allocationSize);
+//     void Check(const UIntPtr address, const Offset offset, const std::string& allocatorDebugName);
+
+//   public:
+//     static const Size s_FrontGuardSize = sizeof(BoundGuardFront);
+// };
 } // namespace Memarena
