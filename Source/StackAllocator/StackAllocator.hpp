@@ -24,8 +24,7 @@ namespace Memarena
  * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
  * Allocation and deallocation complexity: O(1)
  */
-template <BoundsCheckingPolicy  boundsCheckingPolicy  = BoundsCheckingPolicy::None,
-          StackAllocationPolicy stackAllocationPolicy = StackAllocationPolicy::Unsafe>
+template <StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy()>
 class StackAllocator : public StackAllocatorBase
 {
   private:
@@ -61,9 +60,10 @@ class StackAllocator : public StackAllocatorBase
     };
 
     using AllocationHeader =
-        std::conditional<stackAllocationPolicy == StackAllocationPolicy::Unsafe, AllocationHeaderUnsafe, AllocationHeaderSafe>::type;
+        std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None, AllocationHeaderUnsafe, AllocationHeaderSafe>::type;
 
-    using ArrayHeader = std::conditional<stackAllocationPolicy == StackAllocationPolicy::Unsafe, ArrayHeaderUnsafe, ArrayHeaderSafe>::type;
+    using ArrayHeader =
+        std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None, ArrayHeaderUnsafe, ArrayHeaderSafe>::type;
 
   public:
     // Prohibit default construction, moving and assignment
@@ -153,22 +153,7 @@ class StackAllocator : public StackAllocatorBase
      * @param alignment The alignment of the memory to be allocated in bytes
      * @return void* The pointer to the newly allocated memory
      */
-    void* Allocate(const Size size, const Alignment& alignment)
-    {
-        const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
-
-        // The padding includes alignment as well as the header
-        const Padding padding = CalculateAlignedPaddingWithHeader(baseAddress, alignment, GetHeaderSize<AllocationHeader>());
-
-        const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
-        // Check if this allocation will overflow the stack allocator
-        MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
-                        m_Data->debugName.c_str());
-
-        const UIntPtr alignedAddress = baseAddress + padding;
-
-        return GetAllocatedPtrWithHeader<AllocationHeader>(alignedAddress, size, totalSizeAfterAllocation, padding);
-    }
+    void* Allocate(const Size size, const Alignment& alignment) { return AllocateInternal<AllocationHeader>(size, alignment); }
 
     template <typename Object>
     void* Allocate()
@@ -184,35 +169,16 @@ class StackAllocator : public StackAllocatorBase
      */
     void Deallocate(void* ptr)
     {
-        MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
+        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
 
-        const UIntPtr currentAddress = reinterpret_cast<UIntPtr>(ptr);
-
-        // Check if this allocator owns the pointer
-        MEMARENA_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
-                        currentAddress);
-
-        SetCurrentOffset(GetOriginalOffset<AllocationHeader>(currentAddress));
+        DeallocateInternal<AllocationHeader>(currentAddress);
     }
 
     void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
     {
         const Size allocationSize = objectCount * objectSize;
 
-        const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
-
-        // The padding includes alignment as well as the header
-        const Padding padding = CalculateAlignedPaddingWithHeader(baseAddress, alignment, GetHeaderSize<ArrayHeader>());
-
-        const Size totalSizeAfterAllocation = m_CurrentOffset + padding + allocationSize;
-
-        // Check if this allocation will overflow the stack allocator
-        MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
-                        m_Data->debugName.c_str());
-
-        const UIntPtr alignedAddress = baseAddress + padding;
-
-        return GetAllocatedPtrWithHeader<ArrayHeader>(alignedAddress, allocationSize, totalSizeAfterAllocation, padding, objectCount);
+        return AllocateInternal<ArrayHeader>(allocationSize, alignment, objectCount);
     }
 
     template <typename Object>
@@ -223,18 +189,12 @@ class StackAllocator : public StackAllocatorBase
 
     Size DeallocateArray(void* ptr)
     {
-        MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
-
-        const UIntPtr currentAddress = reinterpret_cast<UIntPtr>(ptr);
-
-        // Check if this allocator owns the pointer
-        MEMARENA_ASSERT(OwnsAddress(currentAddress), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
-                        currentAddress);
+        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
 
         const UIntPtr      headerAddress = currentAddress - sizeof(ArrayHeader);
         const ArrayHeader* header        = reinterpret_cast<ArrayHeader*>(headerAddress);
 
-        SetCurrentOffset(GetOriginalOffset<ArrayHeader>(currentAddress, headerAddress, header));
+        DeallocateInternal<ArrayHeader>(currentAddress, headerAddress, header);
 
         return header->count;
     }
@@ -243,50 +203,66 @@ class StackAllocator : public StackAllocatorBase
     StackAllocator(StackAllocator& stackAllocator); // Restrict copying
 
     template <typename Header, typename... Args>
-    void* GetAllocatedPtrWithHeader(const UIntPtr address, const Size allocationSize, const Size totalSizeAfterAllocation, Args... argList)
+    void* AllocateInternal(const Size size, const Alignment& alignment, Args... argList)
     {
-        const UIntPtr headerAddress = address - sizeof(Header);
+        const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
+
+        // The padding includes alignment as well as the header
+        const Padding padding = CalculateAlignedPaddingWithHeader(baseAddress, alignment, GetHeaderSize<Header>());
+
+        const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
+
+        if constexpr (allocatorPolicy.sizeCheckPolicy == SizeCheckPolicy::Check)
+        {
+            // Check if this allocation will overflow the stack allocator
+            MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
+                            m_Data->debugName.c_str());
+        }
+
+        const UIntPtr alignedAddress = baseAddress + padding;
+
+        const UIntPtr headerAddress = alignedAddress - sizeof(Header);
         // Construct the header at 'headerAdress' using placement new operator
         void* headerPtr = reinterpret_cast<void*>(headerAddress);
 
-        if constexpr (stackAllocationPolicy == StackAllocationPolicy::Unsafe)
+        if constexpr (allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None)
         {
-            new (headerPtr) Header(argList...);
+            new (headerPtr) Header(padding, argList...);
         }
-        else if constexpr (stackAllocationPolicy == StackAllocationPolicy::Safe)
+        else if constexpr (allocatorPolicy.stackCheckPolicy == StackCheckPolicy::Check)
         {
-            new (headerPtr) Header(m_CurrentOffset, argList...);
+            new (headerPtr) Header(m_CurrentOffset, padding, argList...);
         }
 
-        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
         {
             const UIntPtr frontGuardAddress = headerAddress - sizeof(BoundGuardFront);
-            const UIntPtr backGuardAddress  = address + allocationSize;
+            const UIntPtr backGuardAddress  = alignedAddress + size;
 
-            new (reinterpret_cast<void*>(frontGuardAddress)) BoundGuardFront(m_CurrentOffset, allocationSize);
+            new (reinterpret_cast<void*>(frontGuardAddress)) BoundGuardFront(m_CurrentOffset, size);
             new (reinterpret_cast<void*>(backGuardAddress)) BoundGuardBack(m_CurrentOffset);
         }
 
         SetCurrentOffset(totalSizeAfterAllocation);
 
-        void* allocatedPtr = reinterpret_cast<void*>(address);
+        void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
 
         return allocatedPtr;
     }
 
     template <typename Header>
-    Offset GetOriginalOffset(const UIntPtr address)
+    void DeallocateInternal(const UIntPtr address)
     {
         const UIntPtr headerAddress = address - sizeof(Header);
         const Header* header        = reinterpret_cast<Header*>(headerAddress);
 
-        return GetOriginalOffset<Header>(address, headerAddress, header);
+        DeallocateInternal<Header>(address, headerAddress, header);
     }
 
     template <typename Header>
-    Offset GetOriginalOffset(const UIntPtr address, const UIntPtr headerAddress, const Header* header)
+    void DeallocateInternal(const UIntPtr address, const UIntPtr headerAddress, const Header* header)
     {
-        if constexpr (stackAllocationPolicy == StackAllocationPolicy::Safe)
+        if constexpr (allocatorPolicy.stackCheckPolicy == StackCheckPolicy::Check)
         {
             MEMARENA_ASSERT(header->endOffset == m_CurrentOffset,
                             "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n", m_Data->debugName.c_str());
@@ -295,7 +271,7 @@ class StackAllocator : public StackAllocatorBase
         const Offset addressOffset = address - m_StartAddress;
         const Offset newOffset     = addressOffset - header->padding;
 
-        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
         {
             const UIntPtr          frontGuardAddress = headerAddress - sizeof(BoundGuardFront);
             const BoundGuardFront* frontGuard        = reinterpret_cast<BoundGuardFront*>(frontGuardAddress);
@@ -308,7 +284,26 @@ class StackAllocator : public StackAllocatorBase
                             newOffset, address);
         }
 
-        return newOffset;
+        SetCurrentOffset(newOffset);
+    }
+
+    UIntPtr GetAddressFromPtr(void* ptr)
+    {
+        if constexpr (allocatorPolicy.nullCheckPolicy == NullCheckPolicy::Check)
+        {
+            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
+        }
+
+        const UIntPtr address = reinterpret_cast<UIntPtr>(ptr);
+
+        if constexpr (allocatorPolicy.ownershipCheckPolicy == OwnershipCheckPolicy::Check)
+        {
+            // Check if this allocator owns the pointer
+            MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
+                            address);
+        }
+
+        return address;
     }
 
     template <typename Header>
@@ -316,7 +311,7 @@ class StackAllocator : public StackAllocatorBase
     {
         Size headerSize = sizeof(Header);
 
-        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
         {
             headerSize += sizeof(BoundGuardFront);
         }

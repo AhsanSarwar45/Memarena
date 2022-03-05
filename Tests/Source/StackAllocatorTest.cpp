@@ -221,8 +221,8 @@ TEST_F(StackAllocatorTest, NewDeleteMixed)
     TestObject* arr2    = CheckTestObjectNewArray(stackAllocator, 10);
 
     stackAllocator.DeleteArray(arr2);
-    stackAllocator.DeleteArray(object2);
-    stackAllocator.DeleteArray(object1);
+    stackAllocator.Delete(object2);
+    stackAllocator.Delete(object1);
     stackAllocator.DeleteArray(arr1);
 }
 
@@ -309,7 +309,9 @@ TEST_F(StackAllocatorDeathTest, MaxSizeAllocation)
 
 TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
 {
-    StackAllocator<> stackAllocator2 = StackAllocator<>(10);
+    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(SizeCheckPolicy::Check);
+
+    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(10);
 
     // TODO Write proper exit messages
     ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); }, ".*");
@@ -317,23 +319,33 @@ TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
 
 TEST_F(StackAllocatorDeathTest, DeleteNullPointer)
 {
+    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(NullCheckPolicy::Check);
+
+    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
+
     int* nullPointer = nullptr;
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ stackAllocator.Delete(nullPointer); }, ".*");
+    ASSERT_DEATH({ stackAllocator2.Delete(nullPointer); }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 {
+    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(OwnershipCheckPolicy::Check);
+
+    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
+
     int* pointer = new int(10);
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ stackAllocator.Delete(pointer); }, ".*");
+    ASSERT_DEATH({ stackAllocator2.Delete(pointer); }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 {
-    StackAllocator<BoundsCheckingPolicy::Basic> stackAllocator2 = StackAllocator<BoundsCheckingPolicy::Basic>(1_KB);
+    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(BoundsCheckPolicy::Basic);
+
+    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
 
     TestObject* testObject = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
 
@@ -363,9 +375,9 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 
 TEST_F(StackAllocatorDeathTest, DeleteWrongOrder)
 {
+    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(StackCheckPolicy::Check);
 
-    StackAllocator<BoundsCheckingPolicy::None, StackAllocationPolicy::Safe> stackAllocator2 =
-        StackAllocator<BoundsCheckingPolicy::None, StackAllocationPolicy::Safe>(1_KB);
+    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
 
     TestObject* testObject  = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
     TestObject* testObject2 = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
