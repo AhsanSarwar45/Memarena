@@ -2,9 +2,10 @@
 
 #include "Source/AllocatorData.hpp"
 #include "Source/Assert.hpp"
-#include "Source/BoundsChecking.hpp"
+#include "Source/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
 #include "StackAllocatorBase.hpp"
+// #include "StackAllocatorImpl.hpp"
 
 namespace Memarena
 {
@@ -23,9 +24,47 @@ namespace Memarena
  * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
  * Allocation and deallocation complexity: O(1)
  */
-template <BoundsCheckingPolicy boundsCheckingPolicy = BoundsCheckingPolicy::None>
+template <BoundsCheckingPolicy  boundsCheckingPolicy  = BoundsCheckingPolicy::None,
+          StackAllocationPolicy stackAllocationPolicy = StackAllocationPolicy::Unsafe>
 class StackAllocator : public StackAllocatorBase
 {
+  private:
+    struct AllocationHeaderUnsafe
+    {
+        Padding padding;
+
+        AllocationHeaderUnsafe(Padding _padding) : padding(_padding) {}
+    };
+    struct AllocationHeaderSafe
+    {
+        Offset  endOffset;
+        Padding padding;
+
+        AllocationHeaderSafe(Offset _endOffset, Padding _padding) : endOffset(_endOffset), padding(_padding) {}
+    };
+
+    struct ArrayHeaderSafe
+    {
+        Offset  endOffset;
+        Offset  count;
+        Padding padding;
+
+        ArrayHeaderSafe(Offset _endOffset, Padding _padding, Offset _count) : endOffset(_endOffset), count(_count), padding(_padding) {}
+    };
+
+    struct ArrayHeaderUnsafe
+    {
+        Offset  count;
+        Padding padding;
+
+        ArrayHeaderUnsafe(Padding _padding, Size _count) : count(_count), padding(_padding) {}
+    };
+
+    using AllocationHeader =
+        std::conditional<stackAllocationPolicy == StackAllocationPolicy::Unsafe, AllocationHeaderUnsafe, AllocationHeaderSafe>::type;
+
+    using ArrayHeader = std::conditional<stackAllocationPolicy == StackAllocationPolicy::Unsafe, ArrayHeaderUnsafe, ArrayHeaderSafe>::type;
+
   public:
     // Prohibit default construction, moving and assignment
     StackAllocator()                      = delete;
@@ -209,12 +248,17 @@ class StackAllocator : public StackAllocatorBase
         const UIntPtr headerAddress = address - sizeof(Header);
         // Construct the header at 'headerAdress' using placement new operator
         void* headerPtr = reinterpret_cast<void*>(headerAddress);
-        new (headerPtr) Header(argList...);
 
-        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::None)
+        if constexpr (stackAllocationPolicy == StackAllocationPolicy::Unsafe)
         {
+            new (headerPtr) Header(argList...);
         }
-        else if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        else if constexpr (stackAllocationPolicy == StackAllocationPolicy::Safe)
+        {
+            new (headerPtr) Header(m_CurrentOffset, argList...);
+        }
+
+        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
         {
             const UIntPtr frontGuardAddress = headerAddress - sizeof(BoundGuardFront);
             const UIntPtr backGuardAddress  = address + allocationSize;
@@ -242,13 +286,16 @@ class StackAllocator : public StackAllocatorBase
     template <typename Header>
     Offset GetOriginalOffset(const UIntPtr address, const UIntPtr headerAddress, const Header* header)
     {
+        if constexpr (stackAllocationPolicy == StackAllocationPolicy::Safe)
+        {
+            MEMARENA_ASSERT(header->endOffset == m_CurrentOffset,
+                            "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n", m_Data->debugName.c_str());
+        }
+
         const Offset addressOffset = address - m_StartAddress;
         const Offset newOffset     = addressOffset - header->padding;
 
-        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::None)
-        {
-        }
-        else if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
+        if constexpr (boundsCheckingPolicy == BoundsCheckingPolicy::Basic)
         {
             const UIntPtr          frontGuardAddress = headerAddress - sizeof(BoundGuardFront);
             const BoundGuardFront* frontGuard        = reinterpret_cast<BoundGuardFront*>(frontGuardAddress);
@@ -276,23 +323,6 @@ class StackAllocator : public StackAllocatorBase
 
         return headerSize;
     }
-
-    struct AllocationHeader
-    {
-        Padding padding;
-
-        AllocationHeader(Padding _padding) : padding(_padding) {}
-    };
-    struct ArrayHeader
-    {
-        Offset  count;
-        Padding padding;
-
-        ArrayHeader(Padding _padding, Size _count) : count(_count), padding(_padding) {}
-    };
-
-  private:
-    BoundsCheckingPolicy m_BoundsChecker;
 };
 
 } // namespace Memarena

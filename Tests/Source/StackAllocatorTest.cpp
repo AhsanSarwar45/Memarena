@@ -197,12 +197,33 @@ TEST_F(StackAllocatorTest, NewDeleteNewMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewArray) { TestObject* object = CheckTestObjectNewArray(stackAllocator, 10); }
+TEST_F(StackAllocatorTest, NewArray) { TestObject* arr = CheckTestObjectNewArray(stackAllocator, 10); }
 
-TEST_F(StackAllocatorTest, NewThenDeleteArray)
+TEST_F(StackAllocatorTest, NewDeleteArray)
 {
-    TestObject* object = CheckTestObjectNewArray(stackAllocator, 10);
-    stackAllocator.DeleteArray(object);
+    TestObject* arr = CheckTestObjectNewArray(stackAllocator, 10);
+    stackAllocator.DeleteArray(arr);
+}
+
+TEST_F(StackAllocatorTest, NewMixed)
+{
+    TestObject* arr1    = CheckTestObjectNewArray(stackAllocator, 10);
+    TestObject* object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* arr2    = CheckTestObjectNewArray(stackAllocator, 10);
+}
+
+TEST_F(StackAllocatorTest, NewDeleteMixed)
+{
+    TestObject* arr1    = CheckTestObjectNewArray(stackAllocator, 10);
+    TestObject* object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* arr2    = CheckTestObjectNewArray(stackAllocator, 10);
+
+    stackAllocator.DeleteArray(arr2);
+    stackAllocator.DeleteArray(object2);
+    stackAllocator.DeleteArray(object1);
+    stackAllocator.DeleteArray(arr1);
 }
 
 TEST_F(StackAllocatorTest, Reset)
@@ -338,6 +359,19 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
     stackAllocator2.Delete(testObject3);
 
     ASSERT_DEATH({ stackAllocator2.Delete(testObject2); }, ".*");
+}
+
+TEST_F(StackAllocatorDeathTest, DeleteWrongOrder)
+{
+
+    StackAllocator<BoundsCheckingPolicy::None, StackAllocationPolicy::Safe> stackAllocator2 =
+        StackAllocator<BoundsCheckingPolicy::None, StackAllocationPolicy::Safe>(1_KB);
+
+    TestObject* testObject  = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    TestObject* testObject2 = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ stackAllocator2.Delete(testObject); }, ".*");
 }
 
 #endif
