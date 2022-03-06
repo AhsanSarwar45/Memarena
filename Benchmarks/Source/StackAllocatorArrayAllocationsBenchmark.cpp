@@ -32,7 +32,7 @@ static void StackAllocatorNewDeleteArray(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* arr = stackAllocator.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 2.5f, false, 10.5f);
+        TestObject* arr = stackAllocator.NewArrayRaw<TestObject>(NUM_OBJECTS, 1, 1.5f, 2.5f, false, 10.5f);
         stackAllocator.DeleteArray(arr);
     }
 }

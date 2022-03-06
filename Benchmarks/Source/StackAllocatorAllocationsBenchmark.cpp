@@ -33,7 +33,7 @@ static void StackAllocatorNewDelete(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* object = stackAllocator.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+        TestObject* object = stackAllocator.NewRaw<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
         stackAllocator.Delete(object);
     }
 }

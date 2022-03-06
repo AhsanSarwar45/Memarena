@@ -6,6 +6,7 @@
 #include "MemoryTestObjects.hpp"
 
 using namespace Memarena;
+using namespace Memarena::SizeOperators;
 
 class StackAllocatorSafeTest : public ::testing::Test
 {

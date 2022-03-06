@@ -6,6 +6,7 @@
 #include "MemoryTestObjects.hpp"
 
 using namespace Memarena;
+using namespace Memarena::SizeOperators;
 
 class StackAllocatorTest : public ::testing::Test
 {
@@ -18,7 +19,7 @@ class StackAllocatorTest : public ::testing::Test
 
 TestObject* CheckTestObjectNew(StackAllocator<>& stackAllocator, int a, float b, char c, bool d, float e)
 {
-    TestObject* object = stackAllocator.New<TestObject>(a, b, c, d, e);
+    TestObject* object = stackAllocator.NewRaw<TestObject>(a, b, c, d, e);
 
     EXPECT_EQ(object->a, a);
     EXPECT_EQ(object->b, b);
@@ -32,7 +33,7 @@ TestObject* CheckTestObjectNew(StackAllocator<>& stackAllocator, int a, float b,
 // template <BoundsCheckingPolicy boundsCheckingPolicy>
 // TestObject* CheckTestObjectNew(StackAllocator<boundsCheckingPolicy>& stackAllocator, int a, float b, char c, bool d, float e)
 // {
-//     TestObject* object = stackAllocator.New<TestObject>(a, b, c, d, e);
+//     TestObject* object = stackAllocator.NewRaw<TestObject>(a, b, c, d, e);
 
 //     EXPECT_EQ(object->a, a);
 //     EXPECT_EQ(object->b, b);
@@ -45,7 +46,7 @@ TestObject* CheckTestObjectNew(StackAllocator<>& stackAllocator, int a, float b,
 
 TestObject2* CheckTestObjectNew2(StackAllocator<>& stackAllocator, int a, double b, double c, bool d, std::vector<int> e)
 {
-    TestObject2* object = stackAllocator.New<TestObject2>(a, b, c, d, e);
+    TestObject2* object = stackAllocator.NewRaw<TestObject2>(a, b, c, d, e);
 
     EXPECT_EQ(object->a, a);
     EXPECT_EQ(object->b, b);
@@ -60,7 +61,7 @@ TestObject2* CheckTestObjectNew2(StackAllocator<>& stackAllocator, int a, double
 // TestObject2* CheckTestObjectNew2(StackAllocator<boundsCheckingPolicy>& stackAllocator, int a, double b, double c, bool d,
 //                                  std::vector<int> e)
 // {
-//     TestObject2* object = stackAllocator.New<TestObject2>(a, b, c, d, e);
+//     TestObject2* object = stackAllocator.NewRaw<TestObject2>(a, b, c, d, e);
 
 //     EXPECT_EQ(object->a, a);
 //     EXPECT_EQ(object->b, b);
@@ -72,7 +73,7 @@ TestObject2* CheckTestObjectNew2(StackAllocator<>& stackAllocator, int a, double
 // }
 TestObject* CheckTestObjectNewArray(StackAllocator<>& stackAllocator, size_t objectCount)
 {
-    TestObject* arr = stackAllocator.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* arr = stackAllocator.NewArrayRaw<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
 
     for (size_t i = 0; i < objectCount; i++)
     {
@@ -113,7 +114,7 @@ TEST_F(StackAllocatorTest, NewDeleteSingleObject)
 {
     TestObject* object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
-    stackAllocator.Delete(object);
+    stackAllocator.Delete<TestObject>(object);
 }
 
 TEST_F(StackAllocatorTest, NewDeleteMultipleSameObjects)
@@ -197,7 +198,7 @@ TEST_F(StackAllocatorTest, NewDeleteNewMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewArray) { TestObject* arr = CheckTestObjectNewArray(stackAllocator, 10); }
+TEST_F(StackAllocatorTest, NewArrayRaw) { TestObject* arr = CheckTestObjectNewArray(stackAllocator, 10); }
 
 TEST_F(StackAllocatorTest, NewDeleteArray)
 {
@@ -314,7 +315,7 @@ TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
     StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(10);
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ TestObject* object = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f); }, ".*");
+    ASSERT_DEATH({ TestObject* object = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f); }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, DeleteNullPointer)
@@ -347,7 +348,7 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 
     StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
 
-    TestObject* testObject = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
 
     EXPECT_EQ(testObject->a, 1);
     EXPECT_EQ(testObject->b, 2.1f);
@@ -355,7 +356,7 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
     EXPECT_EQ(testObject->d, false);
     EXPECT_EQ(testObject->e, 10.6f);
 
-    TestObject* testObject2 = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    TestObject* testObject2 = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
 
     EXPECT_EQ(testObject2->a, 1);
     EXPECT_EQ(testObject2->b, 2.1f);
@@ -365,7 +366,7 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 
     stackAllocator2.Delete(testObject);
 
-    TestObject2* testObject3 = stackAllocator2.New<TestObject2>(1, 2.1, 3.4, false, std::vector<int>());
+    TestObject2* testObject3 = stackAllocator2.NewRaw<TestObject2>(1, 2.1, 3.4, false, std::vector<int>());
 
     // TODO Write proper exit messages
     stackAllocator2.Delete(testObject3);
@@ -379,8 +380,8 @@ TEST_F(StackAllocatorDeathTest, DeleteWrongOrder)
 
     StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
 
-    TestObject* testObject  = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
-    TestObject* testObject2 = stackAllocator2.New<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    TestObject* testObject  = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    TestObject* testObject2 = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
 
     // TODO Write proper exit messages
     ASSERT_DEATH({ stackAllocator2.Delete(testObject); }, ".*");

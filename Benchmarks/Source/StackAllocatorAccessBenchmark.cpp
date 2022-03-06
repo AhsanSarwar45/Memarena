@@ -5,6 +5,7 @@
 #include "MemoryTestObjects.hpp"
 
 using namespace Memarena;
+using namespace Memarena::SizeOperators;
 
 static void DefaultAccess(benchmark::State& state)
 {
@@ -41,7 +42,7 @@ static void StackAllocatorAccess(benchmark::State& state)
 
     for (size_t i = 0; i < 20; i++)
     {
-        objects[i] = stackAllocator.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+        objects[i] = stackAllocator.NewRaw<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
     }
 
     for (auto _ : state)

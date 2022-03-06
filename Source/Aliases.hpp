@@ -20,7 +20,11 @@ using Int64 = int64_t;
 
 using ULLInt = unsigned long long int;
 
+namespace SizeOperators
+{
 constexpr inline Size operator"" _KB(ULLInt x) { return 1024 * x; }
 constexpr inline Size operator"" _MB(ULLInt x) { return 1048576 * x; }
 constexpr inline Size operator"" _GB(ULLInt x) { return 1073741824 * x; }
+} // namespace SizeOperators
+
 } // namespace Memarena
