@@ -21,6 +21,41 @@ consteval Size GetTotalHeaderSize()
     }
 }
 
+struct StackHeader
+{
+    Offset startOffset;
+    Offset endOffset;
+
+    StackHeader(Offset _startOffset, Offset _endOffset) : startOffset(_startOffset), endOffset(_endOffset) {}
+};
+
+template <typename T>
+struct Ptr
+{
+
+  public:
+    Ptr(T* _ptr) : ptr(_ptr) {}
+
+    inline T* GetPtr() const { return ptr; }
+
+    T*       operator->() const { return ptr; }
+    explicit operator bool() const noexcept { return (ptr != nullptr); }
+    T        operator[](int index) const { return ptr[index]; }
+
+  protected:
+    T* ptr;
+};
+
+template <typename T>
+struct StackPtr : public Ptr<T>
+{
+  public:
+    StackHeader header;
+
+    StackPtr(T* _ptr, StackHeader _header) : Ptr<T>(_ptr), header(_header) {}
+    operator StackPtr<void>() const noexcept { return StackPtr<void>(this->ptr, header); }
+};
+
 /**
  * @brief A custom memory allocator which allocates in a stack-like manner.
  * All the memory will be allocated up-front. This means it will have
@@ -39,66 +74,27 @@ template <StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy()>
 class StackAllocator : public StackAllocatorBase
 {
   private:
-    struct SafeHeader
+    struct SafeHeaderBase
     {
         Offset endOffset;
 
-        SafeHeader(Offset _endOffset) : endOffset(_endOffset) {}
+        SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
     };
-    struct UnsafeHeader
+    struct UnsafeHeaderBase
     {
-        UnsafeHeader(Offset _endOffset) {}
+        UnsafeHeaderBase(Offset _endOffset) {}
     };
 
-    using HeaderBase = std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None, UnsafeHeader, SafeHeader>::type;
+    using HeaderBase = std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None, UnsafeHeaderBase, SafeHeaderBase>::type;
 
-    struct AllocationHeader : public HeaderBase
-    {
-        Offset startOffset;
-
-        AllocationHeader(Offset _endOffset, Offset _startOffset) : HeaderBase(_endOffset), startOffset(_startOffset) {}
-    };
-
-    struct ArrayHeader : public HeaderBase
+    struct InplaceHeader : public HeaderBase
     {
         Offset startOffset;
-        Offset count;
 
-        ArrayHeader(Offset _endOffset, Offset _startOffset, Offset _count)
-            : HeaderBase(_endOffset), startOffset(_startOffset), count(_count)
-        {
-        }
+        InplaceHeader(Offset _startOffset, Offset _endOffset) : HeaderBase(_endOffset), startOffset(_startOffset) {}
     };
 
-    template <typename T>
-    struct Ptr
-    {
-        T* ptr;
-
-        Ptr(T* _ptr) : ptr(_ptr) {}
-
-        T*       operator->() const { return ptr; }
-        explicit operator bool() const noexcept { return (ptr != nullptr); }
-        explicit operator void*() const noexcept { return static_cast<void*>(ptr); }
-    };
-
-    template <typename T>
-    struct AllocationPtr : public Ptr<T>
-    {
-        AllocationHeader header;
-
-        AllocationPtr(T* _ptr, AllocationHeader _header) : Ptr<T>(_ptr), header(_header) {}
-        operator AllocationPtr<void>() const noexcept { return {.ptr = this->ptr, .header = header}; }
-    };
-
-    template <typename T>
-    struct ArrayPtr : public Ptr<T>
-    {
-        ArrayHeader header;
-
-        ArrayPtr(T* _ptr, ArrayHeader _header) : Ptr<T>(_ptr), header(_header) {}
-        operator ArrayPtr<void>() const noexcept { return {.ptr = this->ptr, .header = header}; }
-    };
+    using InplaceArrayHeader = StackHeader;
 
   public:
     // Prohibit default construction, moving and assignment
@@ -124,13 +120,12 @@ class StackAllocator : public StackAllocatorBase
      * @return Object* The pointer to the newly allocated and created object
      */
     template <typename Object, typename... Args>
-    AllocationPtr<Object> New(Args&&... argList)
+    StackPtr<Object> New(Args&&... argList)
     {
-        constexpr Size headerSize  = 0;
-        Offset         startOffset = m_CurrentOffset;
-        void*          voidPtr     = AllocateInternalObject<Object, headerSize>();
-        Offset         endOffset   = m_CurrentOffset;
-        return AllocationPtr<Object>(ConstructObject<Object>(voidPtr, argList...), AllocationHeader(endOffset, startOffset));
+        Offset startOffset = m_CurrentOffset;
+        void*  voidPtr     = AllocateInternalObject<Object>();
+        Offset endOffset   = m_CurrentOffset;
+        return StackPtr<Object>(ConstructObject<Object>(voidPtr, argList...), StackHeader(startOffset, endOffset));
     }
 
     template <typename Object, typename... Args>
@@ -148,7 +143,7 @@ class StackAllocator : public StackAllocatorBase
      * @param ptr The pointer to the memory to be deallocated
      */
     template <typename Object>
-    void Delete(AllocationPtr<Object> ptr)
+    void Delete(StackPtr<Object> ptr)
     {
         Deallocate(ptr); // Deallocate the pointer
 
@@ -164,13 +159,12 @@ class StackAllocator : public StackAllocatorBase
     }
 
     template <typename Object, typename... Args>
-    ArrayPtr<Object> NewArray(const Size objectCount, Args... argList)
+    StackPtr<Object> NewArray(const Size objectCount, Args... argList)
     {
-        Offset         startOffset = m_CurrentOffset;
-        constexpr Size headerSize  = 0;
-        void*          voidPtr     = AllocateInternalArray<Object, headerSize>(objectCount);
-        Offset         endOffset   = m_CurrentOffset;
-        return ArrayPtr<Object>(ConstructArray<Object>(voidPtr, objectCount, argList...), ArrayHeader(endOffset, startOffset, objectCount));
+        Offset startOffset = m_CurrentOffset;
+        void*  voidPtr     = AllocateInternalArray<Object>(objectCount);
+        Offset endOffset   = m_CurrentOffset;
+        return StackPtr<Object>(ConstructArray<Object>(voidPtr, objectCount, argList...), StackHeader(startOffset, endOffset));
     }
 
     template <typename Object, typename... Args>
@@ -182,7 +176,7 @@ class StackAllocator : public StackAllocatorBase
     }
 
     // template <typename Object, typename... Args>
-    // ArrayPtr<Object> NewArrayRaw(const Size objectCount)
+    // StackArrayPtr<Object> NewArrayRaw(const Size objectCount)
     // {
     //     return static_cast<Object*>(AllocateArray<Object>(objectCount));
     // }
@@ -190,15 +184,15 @@ class StackAllocator : public StackAllocatorBase
     template <typename Object>
     void DeleteArray(Object* ptr)
     {
-        Size objectCount = DeallocateArray(ptr);
+        Size objectCount = DeallocateArray(ptr, sizeof(Object));
         DestructArray(ptr, objectCount);
     }
 
     template <typename Object>
-    void DeleteArray(ArrayPtr<Object> ptr)
+    void DeleteArray(StackPtr<Object> ptr)
     {
-        Size objectCount = DeallocateArray(ptr);
-        DestructArray(ptr, objectCount);
+        Size objectCount = DeallocateArray(ptr, sizeof(Object));
+        DestructArray(ptr.GetPtr(), objectCount);
     }
 
     /**
@@ -209,18 +203,7 @@ class StackAllocator : public StackAllocatorBase
      * @return void* The pointer to the newly allocated memory
      */
 
-    void* Allocate(const Size size, const Alignment& alignment)
-    {
-        constexpr Size headerSize = sizeof(AllocationHeader);
-
-        const Offset startOffset = m_CurrentOffset;
-        void*        ptr         = AllocateInternal<headerSize>(size, alignment);
-        const Offset endOffset   = endOffset;
-
-        AllocateHeader<AllocationHeader>(ptr, endOffset, startOffset);
-
-        return ptr;
-    }
+    void* Allocate(const Size size, const Alignment& alignment) { return AllocateWithHeader<InplaceHeader>(size, alignment); }
 
     template <typename Object>
     void* Allocate()
@@ -234,22 +217,14 @@ class StackAllocator : public StackAllocatorBase
      * @details Speed complexity is O(1)
      * @param ptr The pointer to the memory to be deallocated
      */
-    void Deallocate(void* ptr) { DeallocateInternal<AllocationHeader>(ptr); }
-    void Deallocate(AllocationPtr<void> ptr) { DeallocateInternal<AllocationHeader>(ptr); }
+    void Deallocate(void* ptr) { DeallocateInternal(ptr); }
+    void Deallocate(StackPtr<void> ptr) { DeallocateInternal(ptr); }
 
     void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
     {
         const Size allocationSize = objectCount * objectSize;
 
-        constexpr Size headerSize = sizeof(ArrayHeader);
-
-        const Offset startOffset = m_CurrentOffset;
-        void*        ptr         = AllocateInternal<headerSize>(allocationSize, alignment);
-        const Offset endOffset   = endOffset;
-
-        AllocateHeader<ArrayHeader>(ptr, endOffset, startOffset, objectCount);
-
-        return ptr;
+        return AllocateWithHeader<InplaceArrayHeader>(allocationSize, alignment);
     }
 
     template <typename Object>
@@ -258,44 +233,61 @@ class StackAllocator : public StackAllocatorBase
         return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
     }
 
-    Size DeallocateArray(void* ptr)
+    Size DeallocateArray(void* ptr, const Size objectSize)
     {
         const UIntPtr currentAddress = GetAddressFromPtr(ptr);
 
-        UIntPtr           addressMarker = currentAddress;
-        const ArrayHeader header        = GetHeaderFromPtr<ArrayHeader>(addressMarker);
+        UIntPtr                  addressMarker = currentAddress;
+        const InplaceArrayHeader header        = GetHeaderFromPtr<InplaceArrayHeader>(addressMarker);
 
-        DeallocateInternal<ArrayHeader>(currentAddress, addressMarker, header);
+        DeallocateInternal<InplaceArrayHeader>(currentAddress, addressMarker, header);
 
-        return header.count;
+        const Size numObjects = GetArrayCount(currentAddress, header.endOffset, objectSize);
+        return numObjects;
     }
 
-    Size DeallocateArray(ArrayPtr<void> ptr)
+    Size DeallocateArray(StackPtr<void> ptr, const Size objectSize)
     {
-        DeallocateInternal<ArrayHeader>(ptr);
+        const UIntPtr currentAddress = GetAddressFromPtr(ptr.GetPtr());
 
-        return ptr.header.count;
+        DeallocateInternal<StackHeader>(currentAddress, currentAddress, ptr.header);
+
+        const Size numElements = GetArrayCount(currentAddress, ptr.header.endOffset, objectSize);
+        return numElements;
     }
 
   private:
     StackAllocator(StackAllocator& stackAllocator); // Restrict copying
 
-    template <typename Object, Size headerSize>
-    void* AllocateInternalObject()
+    template <typename Header>
+    void* AllocateWithHeader(const Size size, const Alignment alignment)
     {
-        return AllocateInternal<headerSize>(sizeof(Object), AlignOf(alignof(Object)));
+        constexpr Size headerSize = sizeof(Header);
+
+        const Offset startOffset = m_CurrentOffset;
+        void*        ptr         = AllocateInternal<headerSize>(size, alignment);
+        const Offset endOffset   = m_CurrentOffset;
+
+        AllocateHeader<Header>(ptr, startOffset, endOffset);
+
+        return ptr;
     }
 
-    template <typename Object, Size headerSize>
+    template <typename Object>
+    void* AllocateInternalObject()
+    {
+        return AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
+    }
+
+    template <typename Object>
     void* AllocateInternalArray(const Size objectCount)
     {
-        return AllocateInternal<headerSize>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
+        return AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
     }
 
     template <Size headerSize, typename... Args>
     void* AllocateInternal(const Size size, const Alignment& alignment)
     {
-        const UIntPtr startOffset = m_CurrentOffset;
         const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
         Padding padding;
@@ -339,23 +331,21 @@ class StackAllocator : public StackAllocatorBase
         return allocatedPtr;
     }
 
-    template <typename Header>
     void DeallocateInternal(void* ptr)
     {
         const UIntPtr currentAddress = GetAddressFromPtr(ptr);
         UIntPtr       addressMarker  = currentAddress;
 
-        Header header = GetHeaderFromPtr<Header>(addressMarker);
+        InplaceHeader header = GetHeaderFromPtr<InplaceHeader>(addressMarker);
 
-        DeallocateInternal<Header>(currentAddress, addressMarker, header);
+        DeallocateInternal<InplaceHeader>(currentAddress, addressMarker, header);
     }
 
-    template <typename Header, template <class> class PtrType>
-    void DeallocateInternal(PtrType<void> ptr)
+    void DeallocateInternal(StackPtr<void> ptr)
     {
-        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
+        const UIntPtr currentAddress = GetAddressFromPtr(ptr.GetPtr());
 
-        DeallocateInternal<Header>(currentAddress, currentAddress, ptr.header);
+        DeallocateInternal<StackHeader>(currentAddress, currentAddress, ptr.header);
     }
 
     template <typename Header>
@@ -407,7 +397,6 @@ class StackAllocator : public StackAllocatorBase
     template <typename Header>
     Header GetHeaderFromPtr(UIntPtr& address)
     {
-
         const UIntPtr headerAddress = address - sizeof(Header);
         const Header* headerPtr     = reinterpret_cast<Header*>(headerAddress);
         address                     = headerAddress;
@@ -415,15 +404,15 @@ class StackAllocator : public StackAllocatorBase
         return *headerPtr;
     }
 
-    template <typename Header, typename... Args>
-    void AllocateHeader(void* ptr, Args... argList)
+    template <typename Header>
+    void AllocateHeader(void* ptr, const Offset startOffset, const Offset endOffset)
     {
         const UIntPtr address = reinterpret_cast<UIntPtr>(ptr);
 
         const UIntPtr headerAddress = address - sizeof(Header);
         // Construct the header at 'headerAdress' using placement new operator
         void* headerPtr = reinterpret_cast<void*>(headerAddress);
-        new (headerPtr) Header(argList...);
+        new (headerPtr) Header(startOffset, endOffset);
     }
 
     template <typename Object, typename... Args>
@@ -432,7 +421,7 @@ class StackAllocator : public StackAllocatorBase
         return new (voidPtr) Object(argList...);
     }
     template <typename Object, typename... Args>
-    Object* ConstructArray(void* voidPtr, Offset objectCount, Args... argList)
+    Object* ConstructArray(void* voidPtr, const Offset objectCount, Args... argList)
     {
         // Call the placement new operator, which constructs the Object
         Object* firstPtr = new (voidPtr) Object(argList...);
@@ -448,8 +437,14 @@ class StackAllocator : public StackAllocatorBase
         return firstPtr;
     }
 
+    Offset GetArrayCount(const UIntPtr ptrAddress, const Offset endOffset, const Size objectSize)
+    {
+        const Offset addressOffset = ptrAddress - m_StartAddress;
+        return (endOffset - addressOffset) / objectSize;
+    }
+
     template <typename Object>
-    void DestructArray(Object* ptr, Offset objectCount)
+    void DestructArray(Object* ptr, const Offset objectCount)
     {
         for (Size i = objectCount - 1; i-- > 0;)
         {

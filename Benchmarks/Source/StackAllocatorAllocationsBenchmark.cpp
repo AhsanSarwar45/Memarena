@@ -27,7 +27,7 @@ static void UniquePtr(benchmark::State& state)
 }
 BENCHMARK(UniquePtr);
 
-static void StackAllocatorNewDelete(benchmark::State& state)
+static void StackAllocatorRawNewDelete(benchmark::State& state)
 {
     StackAllocator stackAllocator = StackAllocator(8 + sizeof(TestObject));
 
@@ -38,17 +38,17 @@ static void StackAllocatorNewDelete(benchmark::State& state)
     }
 }
 
-BENCHMARK(StackAllocatorNewDelete);
+BENCHMARK(StackAllocatorRawNewDelete);
 
-static void StackAllocatorSafeNewDelete(benchmark::State& state)
+static void StackAllocatorNewDelete(benchmark::State& state)
 {
-    StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(sizeof(TestObject));
+    StackAllocator stackAllocator = StackAllocator(8 + sizeof(TestObject));
 
     for (auto _ : state)
     {
-        StackPtr<TestObject> object = stackAllocatorSafe.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
-        stackAllocatorSafe.Delete(object);
+        StackPtr<TestObject> object = stackAllocator.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+        stackAllocator.Delete(object);
     }
 }
 
-BENCHMARK(StackAllocatorSafeNewDelete);
+BENCHMARK(StackAllocatorNewDelete);

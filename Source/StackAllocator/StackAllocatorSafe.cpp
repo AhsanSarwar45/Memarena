@@ -1,62 +1,62 @@
-#include "StackAllocatorSafe.hpp"
+// #include "StackAllocatorSafe.hpp"
 
-#include "Source/AllocatorData.hpp"
+// #include "Source/AllocatorData.hpp"
 
-#include "Source/Assert.hpp"
+// #include "Source/Assert.hpp"
 
-namespace Memarena
-{
+// namespace Memarena
+// {
 
-StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager,
-                                       const std::string& debugName)
-    : StackAllocatorBase(totalSize, memoryManager, debugName)
-{
-}
-
-// StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::string& debugName)
-//     : StackAllocatorBase(totalSize, nullptr, debugName)
+// StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager,
+//                                        const std::string& debugName)
+//     : StackAllocatorBase(totalSize, memoryManager, debugName)
 // {
 // }
 
-StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment& alignment)
-{
-    const Offset  startOffset = m_CurrentOffset;
-    const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
+// // StackAllocatorSafe::StackAllocatorSafe(const Size totalSize, const std::string& debugName)
+// //     : StackAllocatorBase(totalSize, nullptr, debugName)
+// // {
+// // }
 
-    const UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
-    const Padding padding        = alignedAddress - baseAddress;
+// StackPtr<void> StackAllocatorSafe::Allocate(const Size size, const Alignment& alignment)
+// {
+//     const Offset  startOffset = m_CurrentOffset;
+//     const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
-    const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
+//     const UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
+//     const Padding padding        = alignedAddress - baseAddress;
 
-    // Check if this allocation will overflow the stack allocator
-    MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
-                    m_Data->debugName.c_str());
+//     const Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
-    SetCurrentOffset(totalSizeAfterAllocation);
+//     // Check if this allocation will overflow the stack allocator
+//     MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
+//                     m_Data->debugName.c_str());
 
-    void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
-    return {.ptr = allocatedPtr, .startOffset = startOffset, .endOffset = m_CurrentOffset};
-}
+//     SetCurrentOffset(totalSizeAfterAllocation);
 
-void StackAllocatorSafe::Deallocate(StackPtr<void> ptrBlock)
-{
-    MEMARENA_ASSERT(ptrBlock.ptr, "Error: Cannot deallocate nullptr!\n");
+//     void* allocatedPtr = reinterpret_cast<void*>(alignedAddress);
+//     return {.ptr = allocatedPtr, .startOffset = startOffset, .endOffset = m_CurrentOffset};
+// }
 
-    // Check if this allocator owns the pointer
-    MEMARENA_ASSERT(OwnsAddress(reinterpret_cast<UIntPtr>(ptrBlock.ptr)), "Error: The allocator %s does not own the pointer %d!\n",
-                    m_Data->debugName.c_str(), reinterpret_cast<UIntPtr>(ptrBlock.ptr));
+// void StackAllocatorSafe::Deallocate(StackPtr<void> ptrBlock)
+// {
+//     MEMARENA_ASSERT(ptrBlock.ptr, "Error: Cannot deallocate nullptr!\n");
 
-    MEMARENA_ASSERT(ptrBlock.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
-                    m_Data->debugName.c_str());
+//     // Check if this allocator owns the pointer
+//     MEMARENA_ASSERT(OwnsAddress(reinterpret_cast<UIntPtr>(ptrBlock.ptr)), "Error: The allocator %s does not own the pointer %d!\n",
+//                     m_Data->debugName.c_str(), reinterpret_cast<UIntPtr>(ptrBlock.ptr));
 
-    SetCurrentOffset(ptrBlock.startOffset);
-}
+//     MEMARENA_ASSERT(ptrBlock.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
+//                     m_Data->debugName.c_str());
 
-StackPtr<void> StackAllocatorSafe::AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
-{
-    return Allocate(objectCount * objectSize, alignment);
-}
+//     SetCurrentOffset(ptrBlock.startOffset);
+// }
 
-void StackAllocatorSafe::DeallocateArray(StackPtr<void> ptr) { Deallocate(ptr); }
+// StackPtr<void> StackAllocatorSafe::AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
+// {
+//     return Allocate(objectCount * objectSize, alignment);
+// }
 
-} // namespace Memarena
+// void StackAllocatorSafe::DeallocateArray(StackPtr<void> ptr) { Deallocate(ptr); }
+
+// } // namespace Memarena

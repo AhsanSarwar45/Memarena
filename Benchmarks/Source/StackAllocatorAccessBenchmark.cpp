@@ -65,31 +65,31 @@ static void StackAllocatorAccess(benchmark::State& state)
 
 BENCHMARK(StackAllocatorAccess);
 
-static void StackAllocatorSafeAccess(benchmark::State& state)
-{
-    StackAllocatorSafe                stackAllocatorSafe = StackAllocatorSafe(2_KB);
-    std::vector<StackPtr<TestObject>> objects            = std::vector<StackPtr<TestObject>>(20);
+// static void StackAllocatorSafeAccess(benchmark::State& state)
+// {
+//     StackAllocatorSafe                stackAllocatorSafe = StackAllocatorSafe(2_KB);
+//     std::vector<StackPtr<TestObject>> objects            = std::vector<StackPtr<TestObject>>(20);
 
-    for (size_t i = 0; i < 20; i++)
-    {
-        objects[i] = stackAllocatorSafe.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
-    }
+//     for (size_t i = 0; i < 20; i++)
+//     {
+//         objects[i] = stackAllocatorSafe.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+//     }
 
-    for (auto _ : state)
-    {
-        int num = 0;
-        for (size_t i = 0; i < 20; i++)
-        {
-            num += objects[i]->a + objects[i]->b + objects[i]->e;
-        }
-        benchmark::DoNotOptimize(num);
-        benchmark::ClobberMemory();
-    }
+//     for (auto _ : state)
+//     {
+//         int num = 0;
+//         for (size_t i = 0; i < 20; i++)
+//         {
+//             num += objects[i]->a + objects[i]->b + objects[i]->e;
+//         }
+//         benchmark::DoNotOptimize(num);
+//         benchmark::ClobberMemory();
+//     }
 
-    for (size_t i = 0; i < 20; i++)
-    {
-        stackAllocatorSafe.Delete(objects[i]);
-    }
-}
+//     for (size_t i = 0; i < 20; i++)
+//     {
+//         stackAllocatorSafe.Delete(objects[i]);
+//     }
+// }
 
-BENCHMARK(StackAllocatorSafeAccess);
+// BENCHMARK(StackAllocatorSafeAccess);

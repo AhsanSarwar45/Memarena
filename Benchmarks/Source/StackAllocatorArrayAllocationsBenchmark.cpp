@@ -39,15 +39,15 @@ static void StackAllocatorNewDeleteArray(benchmark::State& state)
 
 BENCHMARK(StackAllocatorNewDeleteArray);
 
-static void StackAllocatorSafeNewDeleteArray(benchmark::State& state)
-{
-    StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(NUM_OBJECTS * sizeof(TestObject));
+// static void StackAllocatorSafeNewDeleteArray(benchmark::State& state)
+// {
+//     StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(NUM_OBJECTS * sizeof(TestObject));
 
-    for (auto _ : state)
-    {
-        StackPtr<TestObject> arr = stackAllocatorSafe.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 2.5f, false, 10.5f);
-        stackAllocatorSafe.DeleteArray(arr);
-    }
-}
+//     for (auto _ : state)
+//     {
+//         StackPtr<TestObject> arr = stackAllocatorSafe.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 2.5f, false, 10.5f);
+//         stackAllocatorSafe.DeleteArray(arr);
+//     }
+// }
 
-BENCHMARK(StackAllocatorSafeNewDeleteArray);
+// BENCHMARK(StackAllocatorSafeNewDeleteArray);
