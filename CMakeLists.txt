@@ -11,10 +11,14 @@ project(Memarena)
 
 option(MEMARENA_BUILD_TEST "Build the tests of the Memarena library." ON)
 option(MEMARENA_BUILD_BENCHMARKS "Build the benchmarks of the Memarena library." ON)
+option(MEMARENA_CPPCHECK "Run the cppcheck static analyzer." ON)
 # option(MEMARENA_BUILD_EXAMPLE "Build the example project that showcases how to use this library." ON)
 
 set(CMAKE_CXX_STANDARD 20)
 
+if (MEMARENA_CPP_CHECK)
+set(CMAKE_CXX_CPPCHECK "cppcheck")
+endif()
 
 add_library(${PROJECT_NAME} STATIC
 "Source/StackAllocator/StackAllocatorBase.cpp"
