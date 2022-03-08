@@ -15,14 +15,14 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         build_type: [Debug, Release]
-        compiler: [gcc]
+        compiler: [gcc-11]
         include:
           - os: ubuntu-latest
             os_name: Linux
           # - os: windows-latest
           #   os_name: Windows
-          - compiler: gcc
-            cxx_compiler: g++
+          - compiler: gcc-11
+            cxx_compiler: g++-11
             compiler_name: GCC
           # - compiler: clang
           #   cxx_compiler: clang++
@@ -48,7 +48,7 @@ jobs:
         # if:  ${{ matrix.compiler == 'gcc'}}
         uses: egor-tensin/setup-gcc@v1
         with:
-          version: latest
+          version: 11
           platform: x64
 
       - name: Setup Ninja
