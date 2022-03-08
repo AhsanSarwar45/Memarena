@@ -18,7 +18,7 @@ struct BoundGuardBack
 {
     Offset offset;
 
-    BoundGuardBack(Offset _offset) : offset(_offset) {}
+    explicit BoundGuardBack(Offset _offset) : offset(_offset) {}
 };
 
 enum class BoundsCheckPolicy
@@ -68,10 +68,10 @@ struct StackAllocatorPolicy
           nullCheckPolicy(_nullCheckPolicy), sizeCheckPolicy(_sizeCheckPolicy)
     {
     }
-    constexpr StackAllocatorPolicy(StackCheckPolicy _stackCheckPolicy) : stackCheckPolicy(_stackCheckPolicy) {}
-    constexpr StackAllocatorPolicy(OwnershipCheckPolicy _ownershipCheckPolicy) : ownershipCheckPolicy(_ownershipCheckPolicy) {}
-    constexpr StackAllocatorPolicy(NullCheckPolicy _nullCheckPolicy) : nullCheckPolicy(_nullCheckPolicy) {}
-    constexpr StackAllocatorPolicy(SizeCheckPolicy _sizeCheckPolicy) : sizeCheckPolicy(_sizeCheckPolicy) {}
+    explicit constexpr StackAllocatorPolicy(StackCheckPolicy _stackCheckPolicy) : stackCheckPolicy(_stackCheckPolicy) {}
+    explicit constexpr StackAllocatorPolicy(OwnershipCheckPolicy _ownershipCheckPolicy) : ownershipCheckPolicy(_ownershipCheckPolicy) {}
+    explicit constexpr StackAllocatorPolicy(NullCheckPolicy _nullCheckPolicy) : nullCheckPolicy(_nullCheckPolicy) {}
+    explicit constexpr StackAllocatorPolicy(SizeCheckPolicy _sizeCheckPolicy) : sizeCheckPolicy(_sizeCheckPolicy) {}
 };
 
 } // namespace Memarena

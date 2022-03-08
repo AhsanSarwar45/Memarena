@@ -9,14 +9,13 @@ struct AlignOf
 {
     Size value;
 
-    AlignOf(Size _value) : value(_value) {}
+    explicit AlignOf(Size _value) : value(_value) {}
 };
 
 class Alignment
 {
   public:
     Alignment(int alignment);
-    Alignment(Size alignment);
     Alignment(AlignOf alignOf);
 
     operator UInt8() const noexcept { return value; }

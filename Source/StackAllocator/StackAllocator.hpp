@@ -31,7 +31,7 @@ template <typename T>
 struct Ptr
 {
   public:
-    Ptr(T* _ptr) : ptr(_ptr) {}
+    explicit Ptr(T* _ptr) : ptr(_ptr) {}
 
     inline T* GetPtr() const { return ptr; }
 
@@ -99,11 +99,11 @@ class StackAllocator : public StackAllocatorBase
     {
         Offset endOffset;
 
-        SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
+        explicit SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
     };
     struct UnsafeHeaderBase
     {
-        UnsafeHeaderBase(Offset _endOffset) {}
+        explicit UnsafeHeaderBase(Offset _endOffset) {}
     };
 
     using HeaderBase =

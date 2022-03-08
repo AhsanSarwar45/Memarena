@@ -11,11 +11,6 @@ Alignment::Alignment(int alignment)
     value = alignment;
 }
 
-Alignment::Alignment(Size alignment)
-{
-    MEMARENA_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment must be a power of 2 and not equal to 0!", alignment)
-    value = alignment;
-}
 Alignment::Alignment(AlignOf alignOf) { value = alignOf.value; }
 
 UIntPtr CalculateAlignedAddress(const UIntPtr baseAddress, const Alignment& alignment)
