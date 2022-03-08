@@ -17,14 +17,27 @@ static void DefaultNewDeleteArray(benchmark::State& state)
         TestObject* arr = new TestObject[NUM_OBJECTS];
         for (size_t i = 0; i < NUM_OBJECTS; i++)
         {
-            arr[i] = TestObject(1, 1.5f, 2.5f, false, 10.5f);
+            arr[i] = TestObject(1, 1.5f, 'c', false, 10.5f);
         }
 
         benchmark::ClobberMemory();
-        delete arr;
+        delete[] arr;
     }
 }
 BENCHMARK(DefaultNewDeleteArray);
+
+static void StackAllocatorRawNewDeleteArray(benchmark::State& state)
+{
+    StackAllocator stackAllocator = StackAllocator(8 + NUM_OBJECTS * sizeof(TestObject));
+
+    for (auto _ : state)
+    {
+        TestObject* arr = stackAllocator.NewArrayRaw<TestObject>(NUM_OBJECTS, 1, 1.5f, 'c', false, 10.5f);
+        stackAllocator.DeleteArray(arr);
+    }
+}
+
+BENCHMARK(StackAllocatorRawNewDeleteArray);
 
 static void StackAllocatorNewDeleteArray(benchmark::State& state)
 {
@@ -32,22 +45,9 @@ static void StackAllocatorNewDeleteArray(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* arr = stackAllocator.NewArrayRaw<TestObject>(NUM_OBJECTS, 1, 1.5f, 2.5f, false, 10.5f);
+        StackArrayPtr<TestObject> arr = stackAllocator.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 'c', false, 10.5f);
         stackAllocator.DeleteArray(arr);
     }
 }
 
 BENCHMARK(StackAllocatorNewDeleteArray);
-
-// static void StackAllocatorSafeNewDeleteArray(benchmark::State& state)
-// {
-//     StackAllocatorSafe stackAllocatorSafe = StackAllocatorSafe(NUM_OBJECTS * sizeof(TestObject));
-
-//     for (auto _ : state)
-//     {
-//         StackPtr<TestObject> arr = stackAllocatorSafe.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 2.5f, false, 10.5f);
-//         stackAllocatorSafe.DeleteArray(arr);
-//     }
-// }
-
-// BENCHMARK(StackAllocatorSafeNewDeleteArray);

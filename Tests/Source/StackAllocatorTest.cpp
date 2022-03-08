@@ -84,9 +84,9 @@ TestObject* CheckTestObjectNewArrayRaw(StackAllocator<>& stackAllocator, size_t 
     return arr;
 }
 
-StackPtr<TestObject> CheckTestObjectNewArray(StackAllocator<>& stackAllocator, size_t objectCount)
+StackArrayPtr<TestObject> CheckTestObjectNewArray(StackAllocator<>& stackAllocator, size_t objectCount)
 {
-    StackPtr<TestObject> arr = stackAllocator.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
+    StackArrayPtr<TestObject> arr = stackAllocator.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
 
     for (size_t i = 0; i < objectCount; i++)
     {
@@ -240,13 +240,13 @@ TEST_F(StackAllocatorTest, RawNewDeleteMixed)
     stackAllocator.DeleteArray(arr1);
 }
 
-TEST_F(StackAllocatorTest, NewSingleObject) { CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
+TEST_F(StackAllocatorTest, NewSingleObject) { StackPtr object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
 
 TEST_F(StackAllocatorTest, NewMultipleSameObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
-        CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        StackPtr object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
 }
 
@@ -254,17 +254,17 @@ TEST_F(StackAllocatorTest, NewMultipleDifferentObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
-        CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
     for (size_t i = 0; i < 10; i++)
     {
-        CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
+        StackPtr<TestObject2> object = CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
     }
 }
 
 TEST_F(StackAllocatorTest, NewDeleteSingleObject)
 {
-    StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.Delete(object);
 }
@@ -350,28 +350,28 @@ TEST_F(StackAllocatorTest, NewDeleteNewMultipleDifferentObjects)
     }
 }
 
-TEST_F(StackAllocatorTest, NewArray) { StackPtr<TestObject> arr = CheckTestObjectNewArray(stackAllocator, 10); }
+TEST_F(StackAllocatorTest, NewArray) { StackArrayPtr<TestObject> arr = CheckTestObjectNewArray(stackAllocator, 10); }
 
 TEST_F(StackAllocatorTest, NewDeleteArray)
 {
-    StackPtr<TestObject> arr = CheckTestObjectNewArray(stackAllocator, 10);
+    StackArrayPtr<TestObject> arr = CheckTestObjectNewArray(stackAllocator, 10);
     stackAllocator.DeleteArray(arr);
 }
 
 TEST_F(StackAllocatorTest, NewMixed)
 {
-    StackPtr<TestObject> arr1    = CheckTestObjectNewArray(stackAllocator, 10);
-    StackPtr<TestObject> object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackPtr<TestObject> object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackPtr<TestObject> arr2    = CheckTestObjectNewArray(stackAllocator, 10);
+    StackArrayPtr<TestObject> arr1    = CheckTestObjectNewArray(stackAllocator, 10);
+    StackPtr<TestObject>      object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject>      object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackArrayPtr<TestObject> arr2    = CheckTestObjectNewArray(stackAllocator, 10);
 }
 
 TEST_F(StackAllocatorTest, NewDeleteMixed)
 {
-    StackPtr<TestObject> arr1    = CheckTestObjectNewArray(stackAllocator, 10);
-    StackPtr<TestObject> object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackPtr<TestObject> object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackPtr<TestObject> arr2    = CheckTestObjectNewArray(stackAllocator, 10);
+    StackArrayPtr<TestObject> arr1    = CheckTestObjectNewArray(stackAllocator, 10);
+    StackPtr<TestObject>      object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject>      object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackArrayPtr<TestObject> arr2    = CheckTestObjectNewArray(stackAllocator, 10);
 
     stackAllocator.DeleteArray(arr2);
     stackAllocator.Delete(object2);

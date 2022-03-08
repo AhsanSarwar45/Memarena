@@ -10,7 +10,7 @@ static void DefaultNewDelete(benchmark::State& state)
 {
     for (auto _ : state)
     {
-        TestObject* object = new TestObject(1, 1.5f, 2.5f, false, 10.5f);
+        TestObject* object = new TestObject(1, 1.5f, 'c', false, 10.5f);
         benchmark::ClobberMemory();
         delete object;
     }
@@ -21,7 +21,7 @@ static void UniquePtr(benchmark::State& state)
 {
     for (auto _ : state)
     {
-        std::unique_ptr<TestObject> object = std::make_unique<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+        std::unique_ptr<TestObject> object = std::make_unique<TestObject>(1, 1.5f, 'c', false, 10.5f);
         benchmark::ClobberMemory();
     }
 }
@@ -33,7 +33,7 @@ static void StackAllocatorRawNewDelete(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* object = stackAllocator.NewRaw<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+        TestObject* object = stackAllocator.NewRaw<TestObject>(1, 1.5f, 'x', false, 10.5f);
         stackAllocator.Delete(object);
     }
 }
@@ -46,7 +46,7 @@ static void StackAllocatorNewDelete(benchmark::State& state)
 
     for (auto _ : state)
     {
-        StackPtr<TestObject> object = stackAllocator.New<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+        StackPtr<TestObject> object = stackAllocator.New<TestObject>(1, 1.5f, 'c', false, 10.5f);
         stackAllocator.Delete(object);
     }
 }

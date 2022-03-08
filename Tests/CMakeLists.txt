@@ -7,6 +7,8 @@
 
 project(MemarenaTests)
 
+set(CMAKE_CXX_CPPCHECK "cppcheck")
+
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
   message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
   file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/v0.16.1/conan.cmake"
@@ -34,7 +36,6 @@ add_executable(${PROJECT_NAME}
 "Source/AlignmentTest.cpp"
 "Source/MemoryManagerTest.cpp"
 )
-
 
 target_include_directories(${PROJECT_NAME} PRIVATE "Source")
 

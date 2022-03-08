@@ -7,63 +7,63 @@
 using namespace Memarena;
 using namespace Memarena::SizeOperators;
 
-static void DefaultAccess(benchmark::State& state)
-{
-    std::vector<TestObject*> objects = std::vector<TestObject*>(20);
+// static void DefaultAccess(benchmark::State& state)
+// {
+//     std::vector<TestObject*> objects = std::vector<TestObject*>(20);
 
-    for (size_t i = 0; i < 20; i++)
-    {
-        objects[i] = new TestObject(1, 1.5f, 2.5f, false, 10.5f);
-    }
+//     for (size_t i = 0; i < 20; i++)
+//     {
+//         objects[i] = new TestObject(1, 1.5f, 2.5f, false, 10.5f);
+//     }
 
-    for (auto _ : state)
-    {
+//     for (auto _ : state)
+//     {
 
-        int num = 0;
-        for (size_t i = 0; i < 20; i++)
-        {
-            num += objects[i]->a + objects[i]->b + objects[i]->e;
-        }
-        benchmark::DoNotOptimize(num);
-        benchmark::ClobberMemory();
-    }
+//         int num = 0;
+//         for (size_t i = 0; i < 20; i++)
+//         {
+//             num += objects[i]->a + objects[i]->b + objects[i]->e;
+//         }
+//         benchmark::DoNotOptimize(num);
+//         benchmark::ClobberMemory();
+//     }
 
-    for (size_t i = 0; i < 20; i++)
-    {
-        delete objects[i];
-    }
-}
-BENCHMARK(DefaultAccess);
+//     for (size_t i = 0; i < 20; i++)
+//     {
+//         delete objects[i];
+//     }
+// }
+// BENCHMARK(DefaultAccess);
 
-static void StackAllocatorAccess(benchmark::State& state)
-{
-    StackAllocator           stackAllocator = StackAllocator(2_KB);
-    std::vector<TestObject*> objects        = std::vector<TestObject*>(20);
+// static void StackAllocatorAccess(benchmark::State& state)
+// {
+//     StackAllocator           stackAllocator = StackAllocator(2_KB);
+//     std::vector<TestObject*> objects        = std::vector<TestObject*>(20);
 
-    for (size_t i = 0; i < 20; i++)
-    {
-        objects[i] = stackAllocator.NewRaw<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
-    }
+//     for (size_t i = 0; i < 20; i++)
+//     {
+//         objects[i] = stackAllocator.NewRaw<TestObject>(1, 1.5f, 2.5f, false, 10.5f);
+//     }
 
-    for (auto _ : state)
-    {
+//     for (auto _ : state)
+//     {
 
-        int num = 0;
-        for (size_t i = 0; i < 20; i++)
-        {
-            num += objects[i]->a + objects[i]->b + objects[i]->e;
-        }
-        benchmark::DoNotOptimize(num);
-        benchmark::ClobberMemory();
-    }
+//         int num = 0;
+//         for (size_t i = 0; i < 20; i++)
+//         {
+//             num += objects[i]->a + objects[i]->b + objects[i]->e;
+//         }
+//         benchmark::DoNotOptimize(num);
+//         benchmark::ClobberMemory();
+//     }
 
-    for (size_t i = 0; i < 20; i++)
-    {
-        stackAllocator.Delete(objects[i]);
-    }
-}
+//     for (size_t i = 0; i < 20; i++)
+//     {
+//         stackAllocator.Delete(objects[i]);
+//     }
+// }
 
-BENCHMARK(StackAllocatorAccess);
+// BENCHMARK(StackAllocatorAccess);
 
 // static void StackAllocatorSafeAccess(benchmark::State& state)
 // {

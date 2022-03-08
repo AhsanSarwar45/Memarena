@@ -17,7 +17,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 add_library(${PROJECT_NAME} STATIC
-"Source/StackAllocator/StackAllocatorSafe.cpp"
 "Source/StackAllocator/StackAllocatorBase.cpp"
 "Source/MemoryManager.cpp"
 "Source/Utility/Alignment.cpp"
@@ -29,8 +28,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 target_precompile_headers(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/PCH.hpp")
 
 target_compile_definitions(${PROJECT_NAME}
-    PRIVATE
-      _CRT_SECURE_NO_WARNINGS
+    # PRIVATE
+      # _CRT_SECURE_NO_WARNINGS
     PUBLIC
       $<$<CONFIG:Debug>:MEMARENA_DEBUG>
       $<$<CONFIG:RelWithDebInfo>:MEMARENA_DEBUG>
