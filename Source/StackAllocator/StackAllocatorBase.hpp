@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Source/TypeAliases.hpp"
+#include "StackAllocatorUtils.hpp"
 
 namespace Memarena
 {
@@ -13,7 +14,6 @@ struct AllocatorData;
 
 namespace Internal
 {
-
 class StackAllocatorBase
 {
   public:
@@ -74,6 +74,68 @@ class StackAllocatorBase
         explicit UnsafeHeaderBase(Offset _endOffset) {}
     };
 };
+
+struct StackHeader
+{
+    Offset startOffset;
+    Offset endOffset;
+
+    StackHeader(Offset _startOffset, Offset _endOffset) : startOffset(_startOffset), endOffset(_endOffset) {}
+};
+
+struct StackArrayHeader
+{
+    Offset startOffset;
+    Offset count;
+
+    StackArrayHeader(Offset _startOffset, Offset _count) : startOffset(_startOffset), count(_count) {}
+};
+
 } // namespace Internal
+
+template <typename T>
+struct Ptr
+{
+  public:
+    inline T* GetPtr() const { return ptr; }
+
+    inline T*       operator->() const { return ptr; }
+    inline explicit operator bool() const noexcept { return (ptr != nullptr); }
+
+  protected:
+    T* ptr;
+
+    explicit Ptr(T* _ptr) : ptr(_ptr) {}
+};
+
+template <typename T>
+class StackPtr : public Ptr<T>
+{
+    template <StackAllocatorPolicy allocatorPolicy>
+    friend class StackAllocator;
+
+  private:
+    inline StackPtr(T* _ptr, Internal::StackHeader _header) : Ptr<T>(_ptr), header(_header) {}
+
+  private:
+    Internal::StackHeader header;
+};
+
+template <typename T>
+class StackArrayPtr : public Ptr<T>
+{
+    template <StackAllocatorPolicy allocatorPolicy>
+    friend class StackAllocator;
+
+  public:
+    Size GetCount() const { return header.count; }
+    T    operator[](int index) const { return this->ptr[index]; }
+
+  private:
+    StackArrayPtr(T* _ptr, Internal::StackArrayHeader _header) : Ptr<T>(_ptr), header(_header) {}
+
+  private:
+    Internal::StackArrayHeader header;
+};
 
 } // namespace Memarena

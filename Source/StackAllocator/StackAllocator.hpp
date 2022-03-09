@@ -4,72 +4,11 @@
 #include "Source/Assert.hpp"
 #include "Source/Utility/Alignment.hpp"
 #include "StackAllocatorBase.hpp"
-#include "StackAllocatorUtils.hpp"
 
 #define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
 
 namespace Memarena
 {
-struct StackHeader
-{
-    Offset startOffset;
-    Offset endOffset;
-
-    StackHeader(Offset _startOffset, Offset _endOffset) : startOffset(_startOffset), endOffset(_endOffset) {}
-};
-
-struct StackArrayHeader
-{
-    Offset startOffset;
-    Offset count;
-
-    StackArrayHeader(Offset _startOffset, Offset _count) : startOffset(_startOffset), count(_count) {}
-};
-
-template <typename T>
-struct Ptr
-{
-  public:
-    inline T* GetPtr() const { return ptr; }
-
-    T*       operator->() const { return ptr; }
-    explicit operator bool() const noexcept { return (ptr != nullptr); }
-
-  protected:
-    T* ptr;
-
-    explicit Ptr(T* _ptr) : ptr(_ptr) {}
-};
-
-template <typename T>
-class StackPtr : public Ptr<T>
-{
-    template <StackAllocatorPolicy allocatorPolicy>
-    friend class StackAllocator;
-
-  private:
-    StackPtr(T* _ptr, StackHeader _header) : Ptr<T>(_ptr), header(_header) {}
-
-  private:
-    StackHeader header;
-};
-
-template <typename T>
-class StackArrayPtr : public Ptr<T>
-{
-    template <StackAllocatorPolicy allocatorPolicy>
-    friend class StackAllocator;
-
-  public:
-    Size GetCount() const { return header.count; }
-    T    operator[](int index) const { return this->ptr[index]; }
-
-  private:
-    StackArrayPtr(T* _ptr, StackArrayHeader _header) : Ptr<T>(_ptr), header(_header) {}
-
-  private:
-    StackArrayHeader header;
-};
 
 /**
  * @brief A custom memory allocator which allocates in a stack-like manner.
@@ -98,8 +37,9 @@ class StackAllocator : public Internal::StackAllocatorBase
 
         InplaceHeader(Offset _startOffset, Offset _endOffset) : HeaderBase(_endOffset), startOffset(_startOffset) {}
     };
-
-    using InplaceArrayHeader = StackArrayHeader;
+    using Header             = Internal::StackHeader;
+    using InplaceArrayHeader = Internal::StackArrayHeader;
+    using ArrayHeader        = Internal::StackArrayHeader;
 
   public:
     // Prohibit default construction, moving and assignment
@@ -131,7 +71,7 @@ class StackAllocator : public Internal::StackAllocatorBase
         void*   voidPtr     = AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
         Offset  endOffset   = m_CurrentOffset;
         Object* objectPtr   = new (voidPtr) Object(std::forward<Args>(argList)...);
-        return StackPtr<Object>(objectPtr, StackHeader(startOffset, endOffset));
+        return StackPtr<Object>(objectPtr, Header(startOffset, endOffset));
     }
 
     template <typename Object, typename... Args>
@@ -171,7 +111,7 @@ class StackAllocator : public Internal::StackAllocatorBase
         Offset startOffset = m_CurrentOffset;
         void*  voidPtr     = AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
         return StackArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...),
-                                     StackArrayHeader(startOffset, objectCount));
+                                     ArrayHeader(startOffset, objectCount));
     }
 
     template <typename Object, typename... Args>
@@ -261,7 +201,7 @@ class StackAllocator : public Internal::StackAllocatorBase
         const InplaceArrayHeader header         = Internal::GetHeaderFromPtr<InplaceArrayHeader>(addressMarker);
         DeallocateInternal(
             currentAddress, addressMarker,
-            StackHeader(header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize)));
+            Header(header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize)));
         return header.count;
     }
 
@@ -270,7 +210,7 @@ class StackAllocator : public Internal::StackAllocatorBase
         const UIntPtr currentAddress = GetAddressFromPtr(ptr.GetPtr());
         DeallocateInternal(
             currentAddress, currentAddress,
-            StackHeader(ptr.header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, ptr.header.count, objectSize)));
+            Header(ptr.header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, ptr.header.count, objectSize)));
         return ptr.header.count;
     }
 

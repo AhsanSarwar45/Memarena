@@ -5,7 +5,7 @@
 #include "MemoryTestObjects.hpp"
 
 using namespace Memarena;
-using namespace Memarena::SizeOperators;
+using namespace Memarena::SizeLiterals;
 
 // static void DefaultAccess(benchmark::State& state)
 // {
