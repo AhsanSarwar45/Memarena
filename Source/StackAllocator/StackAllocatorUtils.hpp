@@ -1,11 +1,26 @@
 #pragma once
 
+#include "Source/Policies.hpp"
 #include "Source/TypeAliases.hpp"
 
 namespace Memarena
 {
 namespace Internal
 {
+Offset GetArrayEndOffset(const UIntPtr ptrAddress, const UIntPtr startAddress, const Offset objectCount, const Size objectSize);
+
+template <Size headerSize, StackAllocatorPolicy allocatorPolicy>
+consteval Size GetTotalHeaderSize()
+{
+    if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
+    {
+        return headerSize + sizeof(BoundGuardFront);
+    }
+    else
+    {
+        return headerSize;
+    }
+}
 
 template <typename Object, typename... Args>
 Object* ConstructArray(void* voidPtr, const Offset objectCount, Args&&... argList)

@@ -11,20 +11,9 @@ namespace Memarena
 class MemoryManager;
 struct AllocatorData;
 
-/**
- * @brief A custom memory allocator which allocates in a stack-like manner.
- * All the memory will be allocated up-front. This means it will have
- * zero allocations during runtime. This also means that it will take the same
- * amount of memory whether it is full or empty. Allocations and Deallocations
- * also need to be done in a stack-like manner. It is the responsibility of the
- * user to make sure that deallocations happen in an order that is the reverse
- * of the allocation order. If a pointer p1 that was not allocated last is deallocated,
- * future allocations will overwrite the memory of all allocations that were made
- * between the allocation and deallocation of p1.
- *
- * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
- * Allocation and deallocation complexity: O(1)
- */
+namespace Internal
+{
+
 class StackAllocatorBase
 {
   public:
@@ -68,10 +57,23 @@ class StackAllocatorBase
   protected:
     std::shared_ptr<MemoryManager> m_MemoryManager; // Pointer to the memory manager that this allocator will report the memory usage to
     std::shared_ptr<AllocatorData> m_Data;
-    void*                          m_StartPtr{nullptr};
+    void*                          m_StartPtr = nullptr;
     UIntPtr                        m_StartAddress;
     UIntPtr                        m_EndAddress;
     Offset                         m_CurrentOffset;
+
+  protected:
+    struct SafeHeaderBase
+    {
+        Offset endOffset;
+
+        explicit SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
+    };
+    struct UnsafeHeaderBase
+    {
+        explicit UnsafeHeaderBase(Offset _endOffset) {}
+    };
 };
+} // namespace Internal
 
 } // namespace Memarena

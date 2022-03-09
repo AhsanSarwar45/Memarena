@@ -2,7 +2,6 @@
 
 #include "Source/AllocatorData.hpp"
 #include "Source/Assert.hpp"
-#include "Source/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
 #include "StackAllocatorBase.hpp"
 #include "StackAllocatorUtils.hpp"
@@ -31,8 +30,6 @@ template <typename T>
 struct Ptr
 {
   public:
-    explicit Ptr(T* _ptr) : ptr(_ptr) {}
-
     inline T* GetPtr() const { return ptr; }
 
     T*       operator->() const { return ptr; }
@@ -40,42 +37,43 @@ struct Ptr
 
   protected:
     T* ptr;
+
+    explicit Ptr(T* _ptr) : ptr(_ptr) {}
 };
 
 template <typename T>
 class StackPtr : public Ptr<T>
 {
-  public:
-    StackHeader header;
+    template <StackAllocatorPolicy allocatorPolicy>
+    friend class StackAllocator;
 
+  public:
     StackPtr(T* _ptr, StackHeader _header) : Ptr<T>(_ptr), header(_header) {}
-    operator StackPtr<void>() const noexcept { return StackPtr<void>(this->ptr, header); }
+
+    StackPtr<void> GetVoidPtr() const { return StackPtr<void>(this->ptr, header); }
+
+  private:
+  private:
+    StackHeader header;
 };
 
 template <typename T>
 class StackArrayPtr : public Ptr<T>
 {
+    template <StackAllocatorPolicy allocatorPolicy>
+    friend class StackAllocator;
+
   public:
-    StackArrayHeader header;
-
     StackArrayPtr(T* _ptr, StackArrayHeader _header) : Ptr<T>(_ptr), header(_header) {}
-    Size GetCount() const { return header.count; }
-    T    operator[](int index) const { return this->ptr[index]; }
-         operator StackArrayPtr<void>() const noexcept { return StackArrayPtr<void>(this->ptr, header); }
-};
 
-template <Size headerSize, StackAllocatorPolicy allocatorPolicy>
-consteval Size GetTotalHeaderSize()
-{
-    if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
-    {
-        return headerSize + sizeof(BoundGuardFront);
-    }
-    else
-    {
-        return headerSize;
-    }
-}
+    Size                GetCount() const { return header.count; }
+    StackArrayPtr<void> GetVoidPtr() const { return StackArrayPtr<void>(this->ptr, header); }
+    T                   operator[](int index) const { return this->ptr[index]; }
+
+  private:
+  private:
+    StackArrayHeader header;
+};
 
 /**
  * @brief A custom memory allocator which allocates in a stack-like manner.
@@ -92,22 +90,11 @@ consteval Size GetTotalHeaderSize()
  * Allocation and deallocation complexity: O(1)
  */
 template <StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy()>
-class StackAllocator : public StackAllocatorBase
+class StackAllocator : public Internal::StackAllocatorBase
 {
   private:
-    struct SafeHeaderBase
-    {
-        Offset endOffset;
-
-        explicit SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
-    };
-    struct UnsafeHeaderBase
-    {
-        explicit UnsafeHeaderBase(Offset _endOffset) {}
-    };
-
-    using HeaderBase =
-        typename std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None, UnsafeHeaderBase, SafeHeaderBase>::type;
+    using HeaderBase = typename std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None,
+                                                 StackAllocatorBase::UnsafeHeaderBase, StackAllocatorBase::SafeHeaderBase>::type;
 
     struct InplaceHeader : public HeaderBase
     {
@@ -128,7 +115,7 @@ class StackAllocator : public StackAllocatorBase
 
     explicit StackAllocator(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr,
                             const std::string& debugName = "StackAllocator")
-        : StackAllocatorBase(totalSize, memoryManager, debugName)
+        : Internal::StackAllocatorBase(totalSize, memoryManager, debugName)
     {
     }
 
@@ -169,7 +156,7 @@ class StackAllocator : public StackAllocatorBase
     template <typename Object>
     void Delete(StackPtr<Object> ptr)
     {
-        Deallocate(ptr); // Deallocate the pointer
+        Deallocate(ptr.GetVoidPtr()); // Deallocate the pointer
 
         ptr->~Object(); // Call the destructor on the object
     }
@@ -209,7 +196,7 @@ class StackAllocator : public StackAllocatorBase
     template <typename Object>
     void DeleteArray(StackArrayPtr<Object> ptr)
     {
-        Size objectCount = DeallocateArray(ptr, sizeof(Object));
+        Size objectCount = DeallocateArray(ptr.GetVoidPtr(), sizeof(Object));
         Internal::DestructArray(ptr.GetPtr(), objectCount);
     }
 
@@ -250,7 +237,7 @@ class StackAllocator : public StackAllocatorBase
         DeallocateInternal(currentAddress, addressMarker, header);
     }
 
-    void Deallocate(StackPtr<void> ptr)
+    void Deallocate(const StackPtr<void>& ptr)
     {
         const UIntPtr currentAddress = GetAddressFromPtr(ptr.GetPtr());
         DeallocateInternal(currentAddress, currentAddress, ptr.header);
@@ -276,16 +263,18 @@ class StackAllocator : public StackAllocatorBase
         const UIntPtr            currentAddress = GetAddressFromPtr(ptr);
         UIntPtr                  addressMarker  = currentAddress;
         const InplaceArrayHeader header         = Internal::GetHeaderFromPtr<InplaceArrayHeader>(addressMarker);
-        DeallocateInternal(currentAddress, addressMarker,
-                           StackHeader(header.startOffset, GetEndOffset(currentAddress, header.count, objectSize)));
+        DeallocateInternal(
+            currentAddress, addressMarker,
+            StackHeader(header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize)));
         return header.count;
     }
 
     Size DeallocateArray(const StackArrayPtr<void>& ptr, const Size objectSize)
     {
         const UIntPtr currentAddress = GetAddressFromPtr(ptr.GetPtr());
-        DeallocateInternal(currentAddress, currentAddress,
-                           StackHeader(ptr.header.startOffset, GetEndOffset(currentAddress, ptr.header.count, objectSize)));
+        DeallocateInternal(
+            currentAddress, currentAddress,
+            StackHeader(ptr.header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, ptr.header.count, objectSize)));
         return ptr.header.count;
     }
 
@@ -300,7 +289,7 @@ class StackAllocator : public StackAllocatorBase
         Padding padding;
         UIntPtr alignedAddress;
 
-        constexpr Size totalHeaderSize = GetTotalHeaderSize<headerSize, allocatorPolicy>();
+        constexpr Size totalHeaderSize = Internal::GetTotalHeaderSize<headerSize, allocatorPolicy>();
 
         if constexpr (totalHeaderSize > 0)
         { // The padding includes alignment as well as the header
@@ -383,12 +372,6 @@ class StackAllocator : public StackAllocatorBase
         }
 
         return address;
-    }
-
-    Offset GetEndOffset(const UIntPtr ptrAddress, const Offset objectCount, const Size objectSize)
-    {
-        const Offset addressOffset = ptrAddress - m_StartAddress;
-        return addressOffset + (objectCount * objectSize);
     }
 };
 } // namespace Memarena

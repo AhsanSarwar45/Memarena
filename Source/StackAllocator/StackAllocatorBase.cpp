@@ -9,7 +9,8 @@
 
 namespace Memarena
 {
-
+namespace Internal
+{
 StackAllocatorBase::StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager,
                                        const std::string& debugName)
 {
@@ -62,4 +63,5 @@ void StackAllocatorBase::SetCurrentOffset(Offset offset)
     m_Data->peakUsage = std::max(m_Data->peakUsage, m_Data->usedSize);
 }
 bool StackAllocatorBase::OwnsAddress(UIntPtr address) { return address >= m_StartAddress && address <= m_EndAddress; }
+} // namespace Internal
 } // namespace Memarena
