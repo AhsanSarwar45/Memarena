@@ -47,12 +47,9 @@ class StackPtr : public Ptr<T>
     template <StackAllocatorPolicy allocatorPolicy>
     friend class StackAllocator;
 
-  public:
+  private:
     StackPtr(T* _ptr, StackHeader _header) : Ptr<T>(_ptr), header(_header) {}
 
-    StackPtr<void> GetVoidPtr() const { return StackPtr<void>(this->ptr, header); }
-
-  private:
   private:
     StackHeader header;
 };
@@ -64,13 +61,12 @@ class StackArrayPtr : public Ptr<T>
     friend class StackAllocator;
 
   public:
-    StackArrayPtr(T* _ptr, StackArrayHeader _header) : Ptr<T>(_ptr), header(_header) {}
-
-    Size                GetCount() const { return header.count; }
-    StackArrayPtr<void> GetVoidPtr() const { return StackArrayPtr<void>(this->ptr, header); }
-    T                   operator[](int index) const { return this->ptr[index]; }
+    Size GetCount() const { return header.count; }
+    T    operator[](int index) const { return this->ptr[index]; }
 
   private:
+    StackArrayPtr(T* _ptr, StackArrayHeader _header) : Ptr<T>(_ptr), header(_header) {}
+
   private:
     StackArrayHeader header;
 };
@@ -156,7 +152,7 @@ class StackAllocator : public Internal::StackAllocatorBase
     template <typename Object>
     void Delete(StackPtr<Object> ptr)
     {
-        Deallocate(ptr.GetVoidPtr()); // Deallocate the pointer
+        Deallocate(StackPtr<void>(ptr.ptr, ptr.header)); // Deallocate the pointer
 
         ptr->~Object(); // Call the destructor on the object
     }
@@ -196,7 +192,7 @@ class StackAllocator : public Internal::StackAllocatorBase
     template <typename Object>
     void DeleteArray(StackArrayPtr<Object> ptr)
     {
-        Size objectCount = DeallocateArray(ptr.GetVoidPtr(), sizeof(Object));
+        Size objectCount = DeallocateArray(StackArrayPtr<void>(ptr.ptr, ptr.header), sizeof(Object));
         Internal::DestructArray(ptr.GetPtr(), objectCount);
     }
 
