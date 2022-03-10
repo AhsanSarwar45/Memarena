@@ -23,13 +23,15 @@ namespace Memarena
  *
  * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
  * Allocation and deallocation complexity: O(1)
+ *
+ * @tparam allocatorPolicy The StackAllocatorPolicy object to define the behaviour of this allocator
  */
 template <StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy()>
 class StackAllocator : public Internal::StackAllocatorBase
 {
   private:
-    using HeaderBase = typename std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None,
-                                                 StackAllocatorBase::UnsafeHeaderBase, StackAllocatorBase::SafeHeaderBase>::type;
+    using HeaderBase = typename std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None, Internal::UnsafeHeaderBase,
+                                                 Internal::SafeHeaderBase>::type;
 
     struct InplaceHeader : public HeaderBase
     {
@@ -55,15 +57,6 @@ class StackAllocator : public Internal::StackAllocatorBase
     {
     }
 
-    /**
-     * @brief Allocates a new block of memory and calls the constructor
-     * @details Speed complexity is O(1)
-     *
-     * @tparam Object The type to be created
-     * @tparam Args Variadic arguments
-     * @param argList The arguments to the constructor of the type "Object"
-     * @return Object* The pointer to the newly allocated and created object
-     */
     template <typename Object, typename... Args>
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackPtr<Object> New(Args&&... argList)
     {
@@ -77,32 +70,23 @@ class StackAllocator : public Internal::StackAllocatorBase
     template <typename Object, typename... Args>
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
     {
-        void*   voidPtr   = Allocate<Object>(); // Allocate the raw memory and get a pointer to it
+        void*   voidPtr   = Allocate<Object>();
         Object* objectPtr = new (voidPtr) Object(std::forward<Args>(argList)...);
         return objectPtr;
     }
 
-    /**
-     * @brief Deallocates a pointer and calls the destructor
-     * @details Speed complexity is O(1)
-     *
-     * @tparam Object The type of the passed pointer
-     * @param ptr The pointer to the memory to be deallocated
-     */
     template <typename Object>
     void Delete(StackPtr<Object> ptr)
     {
-        Deallocate(StackPtr<void>(ptr.ptr, ptr.header)); // Deallocate the pointer
-
-        ptr->~Object(); // Call the destructor on the object
+        Deallocate(StackPtr<void>(ptr.ptr, ptr.header));
+        ptr->~Object();
     }
 
     template <typename Object>
     void Delete(Object* ptr)
     {
-        Deallocate(ptr); // Deallocate the pointer
-
-        ptr->~Object(); // Call the destructor on the object
+        Deallocate(ptr);
+        ptr->~Object();
     }
 
     template <typename Object, typename... Args>
@@ -117,7 +101,6 @@ class StackAllocator : public Internal::StackAllocatorBase
     template <typename Object, typename... Args>
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
-        // Allocate the raw memory and get a pointer to it
         void* voidPtr = AllocateArray<Object>(objectCount);
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
     }
@@ -136,14 +119,6 @@ class StackAllocator : public Internal::StackAllocatorBase
         Internal::DestructArray(ptr.GetPtr(), objectCount);
     }
 
-    /**
-     * @brief Allocates raw memory without calling any constructor
-     * @details Speed complexity is O(1)
-     * @param size The size of the memory to be allocated in bytes
-     * @param alignment The alignment of the memory to be allocated in bytes
-     * @return void* The pointer to the newly allocated memory
-     */
-
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
     {
         const Offset startOffset = m_CurrentOffset;
@@ -159,12 +134,6 @@ class StackAllocator : public Internal::StackAllocatorBase
         return Allocate(sizeof(Object), AlignOf(alignof(Object)));
     }
 
-    /**
-     * @brief Deallocates raw memory without calling any destructor. It also deallocates
-     * all allocations that were done after this pointer was allocated.
-     * @details Speed complexity is O(1)
-     * @param ptr The pointer to the memory to be deallocated
-     */
     void Deallocate(void* ptr)
     {
         const UIntPtr currentAddress = GetAddressFromPtr(ptr);
@@ -228,7 +197,7 @@ class StackAllocator : public Internal::StackAllocatorBase
         constexpr Size totalHeaderSize = Internal::GetTotalHeaderSize<headerSize, allocatorPolicy>();
 
         if constexpr (totalHeaderSize > 0)
-        { // The padding includes alignment as well as the header
+        {
             padding        = CalculateAlignedPaddingWithHeader(baseAddress, alignment, totalHeaderSize);
             alignedAddress = baseAddress + padding;
         }
@@ -242,7 +211,6 @@ class StackAllocator : public Internal::StackAllocatorBase
 
         if constexpr (allocatorPolicy.sizeCheckPolicy == SizeCheckPolicy::Check)
         {
-            // Check if this allocation will overflow the stack allocator
             MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
                             m_Data->debugName.c_str());
         }
@@ -267,13 +235,13 @@ class StackAllocator : public Internal::StackAllocatorBase
     template <typename Header>
     void DeallocateInternal(const UIntPtr address, const UIntPtr addressMarker, const Header& header)
     {
+        const Offset newOffset = header.startOffset;
+
         if constexpr (allocatorPolicy.stackCheckPolicy == StackCheckPolicy::Check)
         {
             MEMARENA_ASSERT(header.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
                             m_Data->debugName.c_str());
         }
-
-        const Offset newOffset = header.startOffset;
 
         if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
         {
@@ -302,7 +270,6 @@ class StackAllocator : public Internal::StackAllocatorBase
 
         if constexpr (allocatorPolicy.ownershipCheckPolicy == OwnershipCheckPolicy::Check)
         {
-            // Check if this allocator owns the pointer
             MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator %s does not own the pointer %d!\n", m_Data->debugName.c_str(),
                             address);
         }

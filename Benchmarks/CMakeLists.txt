@@ -33,7 +33,7 @@ conan_cmake_install(PATH_OR_REFERENCE .
 
 add_executable(${PROJECT_NAME} 
 "Source/Main.cpp"
-"Source/StackAllocatorAllocationsBenchmark.cpp"
+"Source/AllocationsBenchmark.cpp"
 "Source/StackAllocatorArrayAllocationsBenchmark.cpp"
 "Source/StackAllocatorAccessBenchmark.cpp"
 "Source/AlignmentBenchmark.cpp"

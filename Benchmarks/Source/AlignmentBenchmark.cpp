@@ -9,7 +9,7 @@ static void CalculateAlignedAddress(benchmark::State& state)
 
     for (auto _ : state)
     {
-        Memarena::UIntPtr alignedAddress = Memarena::CalculateAlignedAddress(1001, 4);
+        Memarena::UIntPtr alignedAddress = Memarena::CalculateAlignedAddress(1000, 4);
 
         benchmark::DoNotOptimize(alignedAddress);
         benchmark::ClobberMemory();
@@ -22,7 +22,7 @@ static void CalculateShortestAlignedPadding(benchmark::State& state)
 
     for (auto _ : state)
     {
-        Memarena::UIntPtr alignedPadding = Memarena::CalculateShortestAlignedPadding(1001, 4);
+        Memarena::UIntPtr alignedPadding = Memarena::CalculateShortestAlignedPadding(1000, 4);
 
         benchmark::DoNotOptimize(alignedPadding);
         benchmark::ClobberMemory();
@@ -35,7 +35,7 @@ static void CalculateAlignedPaddingWithHeader(benchmark::State& state)
 
     for (auto _ : state)
     {
-        Memarena::UIntPtr alignedPadding = Memarena::CalculateAlignedPaddingWithHeader(1001, 4, 8);
+        Memarena::UIntPtr alignedPadding = Memarena::CalculateAlignedPaddingWithHeader(1000, 4, 8);
 
         benchmark::DoNotOptimize(alignedPadding);
         benchmark::ClobberMemory();

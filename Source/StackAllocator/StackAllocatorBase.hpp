@@ -31,23 +31,8 @@ class StackAllocatorBase
     std::string GetDebugName() const;
 
   protected:
-    /**
-     * @brief Constructs a new Stack Allocator object. This is where the entire memory of the allocator
-     * is allocated. If a Memarena instance is provided, it registers itself to the manager to
-     * allow memory tracking.
-     *
-     * @param totalSize This will be allocated up-front. Even if the stack allocator is empty, it will
-     * consume this amount of memory.
-     * @param memoryManager The Memarena instance that will keep track of this allocator's memory.
-     * If no value or a nullptr is passed, this allocator's memory won't be tracked
-     * @param debugName The name that will appear in logs and any editor.
-     */
     StackAllocatorBase(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager, const std::string& debugName);
 
-    /**
-     * @brief Destroys the Stack Allocator object. Also frees up all the memory. If a Memarena instance
-     * is provided, it un-registers itself from the manager.
-     */
     ~StackAllocatorBase();
 
     void SetCurrentOffset(Offset offset);
@@ -63,16 +48,17 @@ class StackAllocatorBase
     Offset                         m_CurrentOffset;
 
   protected:
-    struct SafeHeaderBase
-    {
-        Offset endOffset;
+};
 
-        explicit SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
-    };
-    struct UnsafeHeaderBase
-    {
-        explicit UnsafeHeaderBase(Offset _endOffset) {}
-    };
+struct SafeHeaderBase
+{
+    Offset endOffset;
+
+    explicit SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
+};
+struct UnsafeHeaderBase
+{
+    explicit UnsafeHeaderBase(Offset _endOffset) {}
 };
 
 struct StackHeader

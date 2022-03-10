@@ -17,151 +17,86 @@ class StackAllocatorTest : public ::testing::Test
     StackAllocator<> stackAllocator = StackAllocator<>(10_MB);
 };
 
-TestObject* CheckTestObjectNewRaw(StackAllocator<>& stackAllocator, int a, float b, char c, bool d, float e)
+template <typename Object, typename... Args>
+Object* CheckNewRaw(StackAllocator<>& allocator, Args&&... argList)
 {
-    TestObject* object = stackAllocator.NewRaw<TestObject>(a, b, c, d, e);
+    Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);
 
-    EXPECT_EQ(object->a, a);
-    EXPECT_EQ(object->b, b);
-    EXPECT_EQ(object->c, c);
-    EXPECT_EQ(object->d, d);
-    EXPECT_EQ(object->e, e);
+    EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));
 
     return object;
 }
-
-StackPtr<TestObject> CheckTestObjectNew(StackAllocator<>& stackAllocator, int a, float b, char c, bool d, float e)
+template <typename Object, typename... Args>
+Object* CheckNewArrayRaw(StackAllocator<>& allocator, size_t objectCount, Args&&... argList)
 {
-    StackPtr<TestObject> object = stackAllocator.New<TestObject>(a, b, c, d, e);
-
-    EXPECT_EQ(object->a, a);
-    EXPECT_EQ(object->b, b);
-    EXPECT_EQ(object->c, c);
-    EXPECT_EQ(object->d, d);
-    EXPECT_EQ(object->e, e);
-
-    return object;
-}
-
-TestObject2* CheckTestObjectNewRaw2(StackAllocator<>& stackAllocator, int a, double b, double c, bool d, std::vector<int> e)
-{
-    TestObject2* object = stackAllocator.NewRaw<TestObject2>(a, b, c, d, e);
-
-    EXPECT_EQ(object->a, a);
-    EXPECT_EQ(object->b, b);
-    EXPECT_EQ(object->c, c);
-    EXPECT_EQ(object->d, d);
-    EXPECT_EQ(object->e.size(), e.size());
-
-    return object;
-}
-
-StackPtr<TestObject2> CheckTestObjectNew2(StackAllocator<>& stackAllocator, int a, double b, double c, bool d, std::vector<int> e)
-{
-    StackPtr<TestObject2> object = stackAllocator.New<TestObject2>(a, b, c, d, e);
-
-    EXPECT_EQ(object->a, a);
-    EXPECT_EQ(object->b, b);
-    EXPECT_EQ(object->c, c);
-    EXPECT_EQ(object->d, d);
-    EXPECT_EQ(object->e.size(), e.size());
-
-    return object;
-}
-
-TestObject* CheckTestObjectNewArrayRaw(StackAllocator<>& stackAllocator, size_t objectCount)
-{
-    TestObject* arr = stackAllocator.NewArrayRaw<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
+    Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
 
     for (size_t i = 0; i < objectCount; i++)
     {
-        EXPECT_EQ(arr[i].a, 1);
-        EXPECT_EQ(arr[i].b, 2.1f);
-        EXPECT_EQ(arr[i].c, 'a');
-        EXPECT_EQ(arr[i].d, false);
-        EXPECT_EQ(arr[i].e, 10.6f);
+        EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
     }
     return arr;
 }
 
-StackArrayPtr<TestObject> CheckTestObjectNewArray(StackAllocator<>& stackAllocator, size_t objectCount)
+template <typename Object, typename... Args>
+Memarena::StackPtr<Object> CheckNew(StackAllocator<>& allocator, Args&&... argList)
 {
-    StackArrayPtr<TestObject> arr = stackAllocator.NewArray<TestObject>(objectCount, 1, 2.1f, 'a', false, 10.6f);
+    Memarena::StackPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);
+
+    EXPECT_EQ(*(object.GetPtr()), Object(std::forward<Args>(argList)...));
+
+    return object;
+}
+
+template <typename Object, typename... Args>
+Memarena::StackArrayPtr<Object> CheckNewArray(StackAllocator<>& allocator, size_t objectCount, Args&&... argList)
+{
+    Memarena::StackArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);
 
     for (size_t i = 0; i < objectCount; i++)
     {
-        EXPECT_EQ(arr[i].a, 1);
-        EXPECT_EQ(arr[i].b, 2.1f);
-        EXPECT_EQ(arr[i].c, 'a');
-        EXPECT_EQ(arr[i].d, false);
-        EXPECT_EQ(arr[i].e, 10.6f);
+        EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
     }
     return arr;
 }
 
 TEST_F(StackAllocatorTest, Initialize) { EXPECT_EQ(stackAllocator.GetUsedSize(), 0); }
 
-TEST_F(StackAllocatorTest, RawNewSingleObject) { CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
+TEST_F(StackAllocatorTest, RawNewSingleObject) { CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
 
-TEST_F(StackAllocatorTest, RawNewMultipleSameObjects)
+TEST_F(StackAllocatorTest, RawNewMultipleObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
-        CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
-    }
-}
-
-TEST_F(StackAllocatorTest, RawNewMultipleDifferentObjects)
-{
-    for (size_t i = 0; i < 10; i++)
-    {
-        CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
     for (size_t i = 0; i < 10; i++)
     {
-        CheckTestObjectNewRaw2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
+        CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
     }
 }
 
 TEST_F(StackAllocatorTest, RawNewDeleteSingleObject)
 {
-    TestObject* object = CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.Delete(object);
 }
 
-TEST_F(StackAllocatorTest, RawNewDeleteMultipleSameObjects)
-{
-    std::vector<TestObject*> objects;
-
-    for (size_t i = 0; i < 10; i++)
-    {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
-
-        objects.push_back(object);
-    }
-
-    // Remember to delete in reverse order
-    for (int i = objects.size() - 1; i >= 0; i--)
-    {
-        stackAllocator.Delete(objects[i]);
-    }
-}
-
-TEST_F(StackAllocatorTest, RawNewDeleteMultipleDifferentObjects)
+TEST_F(StackAllocatorTest, RawNewDeleteMultipleObjects)
 {
     std::vector<TestObject*>  objects1;
     std::vector<TestObject2*> objects2;
 
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
 
         objects1.push_back(object);
     }
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject2* object = CheckTestObjectNewRaw2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
+        TestObject2* object = CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2});
 
         objects2.push_back(object);
     }
@@ -178,61 +113,54 @@ TEST_F(StackAllocatorTest, RawNewDeleteMultipleDifferentObjects)
 
 TEST_F(StackAllocatorTest, RawNewDeleteNewSingleObject)
 {
-    TestObject* object = CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.Delete(object);
 
-    TestObject* object2 = CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object2 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 }
 
-TEST_F(StackAllocatorTest, RawNewDeleteNewMultipleSameObjects)
+TEST_F(StackAllocatorTest, RawNewDeleteNewMultipleObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+
+        stackAllocator.Delete(object);
+    }
+    for (size_t i = 0; i < 10; i++)
+    {
+        TestObject2* object = CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
 
         stackAllocator.Delete(object);
     }
 }
 
-TEST_F(StackAllocatorTest, RawNewDeleteNewMultipleDifferentObjects)
+TEST_F(StackAllocatorTest, RawNewArrayRaw)
 {
-    for (size_t i = 0; i < 10; i++)
-    {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
-
-        stackAllocator.Delete(object);
-    }
-    for (size_t i = 0; i < 10; i++)
-    {
-        TestObject2* object = CheckTestObjectNewRaw2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
-
-        stackAllocator.Delete(object);
-    }
+    TestObject* arr = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
 }
-
-TEST_F(StackAllocatorTest, RawNewArrayRaw) { TestObject* arr = CheckTestObjectNewArrayRaw(stackAllocator, 10); }
 
 TEST_F(StackAllocatorTest, RawNewDeleteArray)
 {
-    TestObject* arr = CheckTestObjectNewArrayRaw(stackAllocator, 10);
+    TestObject* arr = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
     stackAllocator.DeleteArray(arr);
 }
 
 TEST_F(StackAllocatorTest, RawNewMixed)
 {
-    TestObject* arr1    = CheckTestObjectNewArrayRaw(stackAllocator, 10);
-    TestObject* object1 = CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    TestObject* object2 = CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    TestObject* arr2    = CheckTestObjectNewArrayRaw(stackAllocator, 10);
+    TestObject* arr1    = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object1 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object2 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* arr2    = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
 }
 
 TEST_F(StackAllocatorTest, RawNewDeleteMixed)
 {
-    TestObject* arr1    = CheckTestObjectNewArrayRaw(stackAllocator, 10);
-    TestObject* object1 = CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    TestObject* object2 = CheckTestObjectNewRaw(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    TestObject* arr2    = CheckTestObjectNewArrayRaw(stackAllocator, 10);
+    TestObject* arr1    = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object1 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* object2 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    TestObject* arr2    = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.DeleteArray(arr2);
     stackAllocator.Delete(object2);
@@ -240,67 +168,41 @@ TEST_F(StackAllocatorTest, RawNewDeleteMixed)
     stackAllocator.DeleteArray(arr1);
 }
 
-TEST_F(StackAllocatorTest, NewSingleObject) { StackPtr object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
+TEST_F(StackAllocatorTest, NewSingleObject) { StackPtr object = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f); }
 
-TEST_F(StackAllocatorTest, NewMultipleSameObjects)
+TEST_F(StackAllocatorTest, NewMultipleObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
-    }
-}
-
-TEST_F(StackAllocatorTest, NewMultipleDifferentObjects)
-{
-    for (size_t i = 0; i < 10; i++)
-    {
-        StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr<TestObject2> object = CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
+        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
     }
 }
 
 TEST_F(StackAllocatorTest, NewDeleteSingleObject)
 {
-    StackPtr object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr object = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.Delete(object);
 }
 
-TEST_F(StackAllocatorTest, NewDeleteMultipleSameObjects)
-{
-    std::vector<StackPtr<TestObject>> objects;
-
-    for (size_t i = 0; i < 10; i++)
-    {
-        StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
-
-        objects.push_back(object);
-    }
-
-    // Remember to delete in reverse order
-    for (int i = objects.size() - 1; i >= 0; i--)
-    {
-        stackAllocator.Delete(objects[i]);
-    }
-}
-
-TEST_F(StackAllocatorTest, NewDeleteMultipleDifferentObjects)
+TEST_F(StackAllocatorTest, NewDeleteMultipleObjects)
 {
     std::vector<StackPtr<TestObject>>  objects1;
     std::vector<StackPtr<TestObject2>> objects2;
 
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
 
         objects1.push_back(object);
     }
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr<TestObject2> object = CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
+        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
 
         objects2.push_back(object);
     }
@@ -317,61 +219,54 @@ TEST_F(StackAllocatorTest, NewDeleteMultipleDifferentObjects)
 
 TEST_F(StackAllocatorTest, NewDeleteNewSingleObject)
 {
-    StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.Delete(object);
 
-    StackPtr<TestObject> object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject> object2 = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
 }
 
-TEST_F(StackAllocatorTest, NewDeleteNewMultipleSameObjects)
+TEST_F(StackAllocatorTest, NewDeleteNewMultipleObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+
+        stackAllocator.Delete(object);
+    }
+    for (size_t i = 0; i < 10; i++)
+    {
+        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
 
         stackAllocator.Delete(object);
     }
 }
 
-TEST_F(StackAllocatorTest, NewDeleteNewMultipleDifferentObjects)
+TEST_F(StackAllocatorTest, NewArray)
 {
-    for (size_t i = 0; i < 10; i++)
-    {
-        StackPtr<TestObject> object = CheckTestObjectNew(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
-
-        stackAllocator.Delete(object);
-    }
-    for (size_t i = 0; i < 10; i++)
-    {
-        StackPtr<TestObject2> object = CheckTestObjectNew2(stackAllocator, i, i + 1.5, i + 2.5, i % 2, std::vector<int>(i));
-
-        stackAllocator.Delete(object);
-    }
+    StackArrayPtr<TestObject> arr = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
 }
-
-TEST_F(StackAllocatorTest, NewArray) { StackArrayPtr<TestObject> arr = CheckTestObjectNewArray(stackAllocator, 10); }
 
 TEST_F(StackAllocatorTest, NewDeleteArray)
 {
-    StackArrayPtr<TestObject> arr = CheckTestObjectNewArray(stackAllocator, 10);
+    StackArrayPtr<TestObject> arr = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
     stackAllocator.DeleteArray(arr);
 }
 
 TEST_F(StackAllocatorTest, NewMixed)
 {
-    StackArrayPtr<TestObject> arr1    = CheckTestObjectNewArray(stackAllocator, 10);
-    StackPtr<TestObject>      object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackPtr<TestObject>      object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackArrayPtr<TestObject> arr2    = CheckTestObjectNewArray(stackAllocator, 10);
+    StackArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject>      object1 = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject>      object2 = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackArrayPtr<TestObject> arr2    = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
 }
 
 TEST_F(StackAllocatorTest, NewDeleteMixed)
 {
-    StackArrayPtr<TestObject> arr1    = CheckTestObjectNewArray(stackAllocator, 10);
-    StackPtr<TestObject>      object1 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackPtr<TestObject>      object2 = CheckTestObjectNew(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
-    StackArrayPtr<TestObject> arr2    = CheckTestObjectNewArray(stackAllocator, 10);
+    StackArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject>      object1 = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackPtr<TestObject>      object2 = CheckNew<TestObject>(stackAllocator, 1, 2.1f, 'a', false, 10.6f);
+    StackArrayPtr<TestObject> arr2    = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.DeleteArray(arr2);
     stackAllocator.Delete(object2);
@@ -384,14 +279,14 @@ TEST_F(StackAllocatorTest, Reset)
     StackAllocator<> stackAllocator2 = StackAllocator<>(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(1))), nullptr);
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        TestObject* object = CheckNewRaw<TestObject>(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
 
     stackAllocator2.Reset();
 
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        TestObject* object = CheckNewRaw<TestObject>(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
 }
 
@@ -400,7 +295,7 @@ TEST_F(StackAllocatorTest, GetUsedSizeNew)
     const int numObjects = 10;
     for (size_t i = 0; i < numObjects; i++)
     {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
 
     EXPECT_EQ(stackAllocator.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(1))));
@@ -412,7 +307,7 @@ TEST_F(StackAllocatorTest, GetUsedSizeNewDelete)
     std::vector<TestObject*> objects;
     for (size_t i = 0; i < numObjects; i++)
     {
-        TestObject* object = CheckTestObjectNewRaw(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
+        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
         objects.push_back(object);
     }
 
@@ -428,7 +323,7 @@ TEST_F(StackAllocatorTest, GetUsedSizeNewArray)
 {
     const int numObjects = 10;
 
-    TestObject* arr = CheckTestObjectNewArrayRaw(stackAllocator, numObjects);
+    TestObject* arr = CheckNewArrayRaw<TestObject>(stackAllocator, numObjects, 1, 2.1f, 'a', false, 10.6f);
 
     EXPECT_EQ(stackAllocator.GetUsedSize(), std::max(alignof(TestObject), size_t(8) + numObjects * sizeof(TestObject)));
 }
@@ -436,7 +331,7 @@ TEST_F(StackAllocatorTest, GetUsedSizeNewArray)
 TEST_F(StackAllocatorTest, GetUsedSizeNewDeleteArray)
 {
     const int   numObjects = 10;
-    TestObject* arr        = CheckTestObjectNewArrayRaw(stackAllocator, numObjects);
+    TestObject* arr        = CheckNewArrayRaw<TestObject>(stackAllocator, numObjects, 1, 2.1f, 'a', false, 10.6f);
 
     stackAllocator.DeleteArray(arr);
 
@@ -462,9 +357,7 @@ TEST_F(StackAllocatorDeathTest, MaxSizeAllocation)
 
 TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
 {
-    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(SizeCheckPolicy::Check);
-
-    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(10);
+    StackAllocator stackAllocator2{10};
 
     // TODO Write proper exit messages
     ASSERT_DEATH({ TestObject* object = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f); }, ".*");
@@ -472,26 +365,18 @@ TEST_F(StackAllocatorDeathTest, NewOutOfMemory)
 
 TEST_F(StackAllocatorDeathTest, DeleteNullPointer)
 {
-    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(NullCheckPolicy::Check);
-
-    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
-
     int* nullPointer = nullptr;
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ stackAllocator2.Delete(nullPointer); }, ".*");
+    ASSERT_DEATH({ stackAllocator.Delete(nullPointer); }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 {
-    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(OwnershipCheckPolicy::Check);
-
-    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
-
     int* pointer = new int(10);
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ stackAllocator2.Delete(pointer); }, ".*");
+    ASSERT_DEATH({ stackAllocator.Delete(pointer); }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
@@ -500,25 +385,16 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 
     StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
 
-    TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
 
-    EXPECT_EQ(testObject->a, 1);
-    EXPECT_EQ(testObject->b, 2.1f);
-    EXPECT_EQ(testObject->c, 'a');
-    EXPECT_EQ(testObject->d, false);
-    EXPECT_EQ(testObject->e, 10.6f);
-
-    TestObject* testObject2 = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
-
-    EXPECT_EQ(testObject2->a, 1);
-    EXPECT_EQ(testObject2->b, 2.1f);
-    EXPECT_EQ(testObject2->c, 'a');
-    EXPECT_EQ(testObject2->d, false);
-    EXPECT_EQ(testObject2->e, 10.6f);
+    TestObject* testObject2 = stackAllocator2.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject2, TestObject(1, 1.5f, 'a', false, 2.5f));
 
     stackAllocator2.Delete(testObject);
 
-    TestObject2* testObject3 = stackAllocator2.NewRaw<TestObject2>(1, 2.1, 3.4, false, std::vector<int>());
+    TestObject2* testObject3 = stackAllocator2.NewRaw<TestObject2>(1, 1.5f, 'a', false, Pair(1, 2.5f));
+    EXPECT_EQ(*testObject3, TestObject2(1, 1.5f, 'a', false, Pair(1, 2.5f)));
 
     // TODO Write proper exit messages
     stackAllocator2.Delete(testObject3);
@@ -532,8 +408,11 @@ TEST_F(StackAllocatorDeathTest, DeleteWrongOrder)
 
     StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
 
-    TestObject* testObject  = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
-    TestObject* testObject2 = stackAllocator2.NewRaw<TestObject>(1, 2.1f, 'a', false, 10.6f);
+    TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+
+    TestObject* testObject2 = stackAllocator2.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject2, TestObject(1, 1.5f, 'a', false, 2.5f));
 
     // TODO Write proper exit messages
     ASSERT_DEATH({ stackAllocator2.Delete(testObject); }, ".*");

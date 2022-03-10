@@ -27,7 +27,7 @@ static void UniquePtr(benchmark::State& state)
 }
 BENCHMARK(UniquePtr);
 
-static void StackAllocatorRawNewDelete(benchmark::State& state)
+static void StackAllocatorNewDeleteRaw(benchmark::State& state)
 {
     StackAllocator stackAllocator = StackAllocator(8 + sizeof(TestObject));
 
@@ -38,7 +38,7 @@ static void StackAllocatorRawNewDelete(benchmark::State& state)
     }
 }
 
-BENCHMARK(StackAllocatorRawNewDelete);
+BENCHMARK(StackAllocatorNewDeleteRaw);
 
 static void StackAllocatorNewDelete(benchmark::State& state)
 {
@@ -52,3 +52,16 @@ static void StackAllocatorNewDelete(benchmark::State& state)
 }
 
 BENCHMARK(StackAllocatorNewDelete);
+
+static void LinearAllocatorNewResetRaw(benchmark::State& state)
+{
+    LinearAllocator linearAllocator = LinearAllocator(sizeof(TestObject));
+
+    for (auto _ : state)
+    {
+        TestObject* object = linearAllocator.NewRaw<TestObject>(1, 1.5f, 'c', false, 10.5f);
+        linearAllocator.Reset();
+    }
+}
+
+BENCHMARK(LinearAllocatorNewResetRaw);

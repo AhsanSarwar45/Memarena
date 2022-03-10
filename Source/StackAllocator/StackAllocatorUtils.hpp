@@ -50,12 +50,15 @@ void DestructArray(Object* ptr, const Offset objectCount)
 template <typename Header, typename... Args>
 void AllocateHeader(void* ptr, Args&&... argList)
 {
-    const UIntPtr address = reinterpret_cast<UIntPtr>(ptr);
-
+    const UIntPtr address       = reinterpret_cast<UIntPtr>(ptr);
     const UIntPtr headerAddress = address - sizeof(Header);
-    // Construct the header at 'headerAdress' using placement new operator
+
     void* headerPtr = reinterpret_cast<void*>(headerAddress);
     new (headerPtr) Header(std::forward<Args>(argList)...);
+
+    // Header  header    = Header(std::forward<Args>(argList)...);
+    // Header* headerPtr = reinterpret_cast<Header*>(headerAddress);
+    // memcpy(headerPtr, &header, sizeof(Header));
 }
 
 template <typename Header>
