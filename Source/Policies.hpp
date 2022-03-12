@@ -60,27 +60,27 @@ struct AllocatorPolicy
     BoundsCheckPolicy    boundsCheckPolicy    = BoundsCheckPolicy::None;
 
   protected:
-    constexpr AllocatorPolicy(BoundsCheckPolicy _boundsCheckPolicy, OwnershipCheckPolicy _ownershipCheckPolicy,
-                              NullCheckPolicy _nullCheckPolicy, SizeCheckPolicy _sizeCheckPolicy)
+    explicit constexpr AllocatorPolicy(BoundsCheckPolicy _boundsCheckPolicy, OwnershipCheckPolicy _ownershipCheckPolicy,
+                                       NullCheckPolicy _nullCheckPolicy, SizeCheckPolicy _sizeCheckPolicy)
         : ownershipCheckPolicy(_ownershipCheckPolicy), nullCheckPolicy(_nullCheckPolicy), sizeCheckPolicy(_sizeCheckPolicy),
           boundsCheckPolicy(_boundsCheckPolicy)
     {
     }
 
-    constexpr AllocatorPolicy(OwnershipCheckPolicy _ownershipCheckPolicy) : ownershipCheckPolicy(_ownershipCheckPolicy) {}
-    constexpr AllocatorPolicy(NullCheckPolicy _nullCheckPolicy) : nullCheckPolicy(_nullCheckPolicy) {}
-    constexpr AllocatorPolicy(SizeCheckPolicy _sizeCheckPolicy) : sizeCheckPolicy(_sizeCheckPolicy) {}
-    constexpr AllocatorPolicy(BoundsCheckPolicy _boundsCheckPolicy) : boundsCheckPolicy(_boundsCheckPolicy) {}
+    explicit constexpr AllocatorPolicy(OwnershipCheckPolicy _ownershipCheckPolicy) : ownershipCheckPolicy(_ownershipCheckPolicy) {}
+    explicit constexpr AllocatorPolicy(NullCheckPolicy _nullCheckPolicy) : nullCheckPolicy(_nullCheckPolicy) {}
+    explicit constexpr AllocatorPolicy(SizeCheckPolicy _sizeCheckPolicy) : sizeCheckPolicy(_sizeCheckPolicy) {}
+    explicit constexpr AllocatorPolicy(BoundsCheckPolicy _boundsCheckPolicy) : boundsCheckPolicy(_boundsCheckPolicy) {}
 
-    constexpr AllocatorPolicy() {}
+    constexpr AllocatorPolicy() = default;
 };
 
 struct LinearAllocatorPolicy : public AllocatorPolicy
 {
-    constexpr LinearAllocatorPolicy(BoundsCheckPolicy    boundsCheckPolicy     = BoundsCheckPolicy::None,
-                                    OwnershipCheckPolicy _ownershipCheckPolicy = OwnershipCheckPolicy::Check,
-                                    NullCheckPolicy      _nullCheckPolicy      = NullCheckPolicy::Check,
-                                    SizeCheckPolicy      _sizeCheckPolicy      = SizeCheckPolicy::Check)
+    explicit constexpr LinearAllocatorPolicy(BoundsCheckPolicy    boundsCheckPolicy     = BoundsCheckPolicy::None,
+                                             OwnershipCheckPolicy _ownershipCheckPolicy = OwnershipCheckPolicy::Check,
+                                             NullCheckPolicy      _nullCheckPolicy      = NullCheckPolicy::Check,
+                                             SizeCheckPolicy      _sizeCheckPolicy      = SizeCheckPolicy::Check)
         : AllocatorPolicy(boundsCheckPolicy, _ownershipCheckPolicy, _nullCheckPolicy, _sizeCheckPolicy)
     {
     }
@@ -94,11 +94,11 @@ struct StackAllocatorPolicy : public AllocatorPolicy
 {
     StackCheckPolicy stackCheckPolicy = StackCheckPolicy::None;
 
-    constexpr StackAllocatorPolicy(BoundsCheckPolicy    _boundsCheckPolicy    = BoundsCheckPolicy::None,
-                                   StackCheckPolicy     _stackCheckPolicy     = StackCheckPolicy::None,
-                                   OwnershipCheckPolicy _ownershipCheckPolicy = OwnershipCheckPolicy::Check,
-                                   NullCheckPolicy      _nullCheckPolicy      = NullCheckPolicy::Check,
-                                   SizeCheckPolicy      _sizeCheckPolicy      = SizeCheckPolicy::Check)
+    explicit constexpr StackAllocatorPolicy(BoundsCheckPolicy    _boundsCheckPolicy    = BoundsCheckPolicy::None,
+                                            StackCheckPolicy     _stackCheckPolicy     = StackCheckPolicy::None,
+                                            OwnershipCheckPolicy _ownershipCheckPolicy = OwnershipCheckPolicy::Check,
+                                            NullCheckPolicy      _nullCheckPolicy      = NullCheckPolicy::Check,
+                                            SizeCheckPolicy      _sizeCheckPolicy      = SizeCheckPolicy::Check)
         : AllocatorPolicy(_boundsCheckPolicy, _ownershipCheckPolicy, _nullCheckPolicy, _sizeCheckPolicy),
           stackCheckPolicy(_stackCheckPolicy)
     {

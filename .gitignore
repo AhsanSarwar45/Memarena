@@ -2,10 +2,11 @@
 *.d
 
 # Directories
-/build
+/build 
 /.vscode
 /out
 /.vs
+/.cache
 
 # Compiled Object file
 *.slo

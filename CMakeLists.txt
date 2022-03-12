@@ -21,7 +21,7 @@ set(CMAKE_CXX_CPPCHECK "cppcheck")
 endif()
 
 add_library(${PROJECT_NAME} STATIC
-"Source/StackAllocator/StackAllocatorBase.cpp"
+"Source/Allocator.cpp"
 "Source/StackAllocator/StackAllocatorUtils.cpp"
 "Source/MemoryManager.cpp"
 "Source/Utility/Alignment.cpp"

@@ -1,10 +1,11 @@
 #pragma once
 
+#include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/Assert.hpp"
-#include "Source/StackAllocator/StackAllocatorBase.hpp"
 #include "Source/StackAllocator/StackAllocatorUtils.hpp"
 #include "Source/Utility/Alignment.hpp"
+#include <bit>
 
 #define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
 
@@ -28,21 +29,24 @@ namespace Memarena
  * @tparam allocatorPolicy The StackAllocatorPolicy object to define the behaviour of this allocator
  */
 template <LinearAllocatorPolicy allocatorPolicy = LinearAllocatorPolicy()>
-class LinearAllocator : public Internal::StackAllocatorBase
+class LinearAllocator : public Internal::Allocator
 {
   public:
     // Prohibit default construction, moving and assignment
     LinearAllocator()                       = delete;
     LinearAllocator(const LinearAllocator&) = delete;
+    LinearAllocator(LinearAllocator&)       = delete;
     LinearAllocator(LinearAllocator&&)      = delete;
     LinearAllocator& operator=(const LinearAllocator&) = delete;
     LinearAllocator& operator=(LinearAllocator&&) = delete;
 
     explicit LinearAllocator(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr,
                              const std::string& debugName = "LinearAllocator")
-        : Internal::StackAllocatorBase(totalSize, memoryManager, debugName)
+        : Internal::Allocator(totalSize, memoryManager, debugName), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr()))
     {
     }
+
+    ~LinearAllocator() = default;
 
     template <typename Object, typename... Args>
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
@@ -69,13 +73,13 @@ class LinearAllocator : public Internal::StackAllocatorBase
 
         if constexpr (allocatorPolicy.sizeCheckPolicy == SizeCheckPolicy::Check)
         {
-            MEMARENA_ASSERT(totalSizeAfterAllocation <= m_Data->totalSize, "Error: The allocator %s is out of memory!\n",
-                            m_Data->debugName.c_str());
+            MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator %s is out of memory!\n",
+                            GetDebugName().c_str());
         }
 
         SetCurrentOffset(totalSizeAfterAllocation);
 
-        return reinterpret_cast<void*>(alignedAddress);
+        return std::bit_cast<void*>(alignedAddress);
     }
 
     template <typename Object>
@@ -96,7 +100,21 @@ class LinearAllocator : public Internal::StackAllocatorBase
         return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
     }
 
+    /**
+     * @brief Resets the allocator to its initial state. Since LinearAllocators dont support de-alllocating separate allocation, this is how
+     * you clean the memory
+     *
+     */
+    inline void Reset() { SetCurrentOffset(0); };
+
   private:
-    LinearAllocator(LinearAllocator& linearAllocator); // Restrict copying
+    void SetCurrentOffset(const Offset offset)
+    {
+        m_CurrentOffset = offset;
+        SetUsedSize(offset);
+    }
+
+    UIntPtr m_StartAddress;
+    Offset  m_CurrentOffset = 0;
 };
 } // namespace Memarena

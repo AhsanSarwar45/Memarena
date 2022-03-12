@@ -16,6 +16,7 @@ struct AllocatorData
     Size                                  peakUsage = 0;
 
     AllocatorData(const std::string& _debugName, Size _totalSize) : debugName(_debugName), totalSize(_totalSize) {}
+    AllocatorData(std::string&& _debugName, Size _totalSize) : debugName(std::move(_debugName)), totalSize(_totalSize) {}
 };
 
 enum class ResizePolicy : UInt8

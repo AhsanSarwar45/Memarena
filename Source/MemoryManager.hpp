@@ -3,7 +3,6 @@
 #include <memory>
 #include <vector>
 
-
 #include "Aliases.hpp"
 
 namespace Memarena
@@ -16,17 +15,16 @@ class MemoryManager
 {
   public:
     explicit MemoryManager(Size applicationBudget = 0);
-    ~MemoryManager();
 
-    void RegisterAllocator(std::shared_ptr<AllocatorData> allocatorData);
-    void UnRegisterAllocator(std::shared_ptr<AllocatorData> allocatorData);
+    void RegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData);
+    void UnRegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData);
 
     inline void IncreaseTotalSize(const Size size) { m_TotalAllocatedSize += size; }
 
-    Size                          GetUsedAllocatedSize() const;
-    inline Size                   GetTotalAllocatedSize() const { return m_TotalAllocatedSize; }
-    inline Size                   GetApplicationMemoryBudget() const { return m_ApplicationBudget; }
-    inline const AllocatorVector& GetAllocators() const { return m_Allocators; }
+    [[nodiscard]] Size                          GetUsedAllocatedSize() const;
+    [[nodiscard]] inline Size                   GetTotalAllocatedSize() const { return m_TotalAllocatedSize; }
+    [[nodiscard]] inline Size                   GetApplicationMemoryBudget() const { return m_ApplicationBudget; }
+    [[nodiscard]] inline const AllocatorVector& GetAllocators() const { return m_Allocators; }
 
   private:
     AllocatorVector m_Allocators;

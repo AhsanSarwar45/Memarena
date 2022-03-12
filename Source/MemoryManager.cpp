@@ -8,16 +8,13 @@ namespace Memarena
 {
 MemoryManager::MemoryManager(Size applicationBudget) : m_ApplicationBudget(applicationBudget), m_TotalAllocatedSize(0) {}
 
-MemoryManager::~MemoryManager() {}
-
-void MemoryManager::RegisterAllocator(std::shared_ptr<AllocatorData> allocatorData)
+void MemoryManager::RegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData)
 {
     m_TotalAllocatedSize += allocatorData->totalSize;
-
     m_Allocators.push_back(allocatorData);
 }
 
-void MemoryManager::UnRegisterAllocator(std::shared_ptr<AllocatorData> allocatorData)
+void MemoryManager::UnRegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData)
 {
     m_Allocators.erase(std::remove(m_Allocators.begin(), m_Allocators.end(), allocatorData), m_Allocators.end());
 

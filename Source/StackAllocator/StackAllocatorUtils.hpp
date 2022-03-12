@@ -2,12 +2,11 @@
 
 #include "Source/Policies.hpp"
 #include "Source/TypeAliases.hpp"
+#include <bit>
 
-namespace Memarena
+namespace Memarena::Internal
 {
-namespace Internal
-{
-Offset GetArrayEndOffset(const UIntPtr ptrAddress, const UIntPtr startAddress, const Offset objectCount, const Size objectSize);
+Offset GetArrayEndOffset(UIntPtr ptrAddress, UIntPtr startAddress, Offset objectCount, Size objectSize);
 
 template <Size headerSize, StackAllocatorPolicy allocatorPolicy>
 consteval Size GetTotalHeaderSize()
@@ -50,10 +49,10 @@ void DestructArray(Object* ptr, const Offset objectCount)
 template <typename Header, typename... Args>
 void AllocateHeader(void* ptr, Args&&... argList)
 {
-    const UIntPtr address       = reinterpret_cast<UIntPtr>(ptr);
+    const UIntPtr address       = std::bit_cast<UIntPtr>(ptr);
     const UIntPtr headerAddress = address - sizeof(Header);
 
-    void* headerPtr = reinterpret_cast<void*>(headerAddress);
+    void* headerPtr = std::bit_cast<void*>(headerAddress);
     new (headerPtr) Header(std::forward<Args>(argList)...);
 
     // Header  header    = Header(std::forward<Args>(argList)...);
@@ -65,11 +64,10 @@ template <typename Header>
 Header GetHeaderFromPtr(UIntPtr& address)
 {
     const UIntPtr headerAddress = address - sizeof(Header);
-    const Header* headerPtr     = reinterpret_cast<Header*>(headerAddress);
+    const Header* headerPtr     = std::bit_cast<Header*>(headerAddress);
     address                     = headerAddress;
 
     return *headerPtr;
 }
 
-} // namespace Internal
-} // namespace Memarena
+} // namespace Memarena::Internal
