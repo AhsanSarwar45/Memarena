@@ -1,9 +1,13 @@
 #include <gtest/gtest.h>
 
+#include <thread>
+
 #include <Memarena/Memarena.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/LinearAllocator/LinearAllocator.hpp"
+#include "Source/Policies.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -50,7 +54,7 @@ TEST_F(LinearAllocatorTest, RawNewMultipleObjects)
     }
     for (size_t i = 0; i < 10; i++)
     {
-        CheckNewRaw<TestObject2>(linearAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(1, 2.5f));
+        CheckNewRaw<TestObject2>(linearAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5f});
     }
 }
 
@@ -96,6 +100,36 @@ TEST_F(LinearAllocatorTest, GetUsedSizeNewArray)
     TestObject* arr = CheckNewArrayRaw<TestObject>(linearAllocator, numObjects, 1, 2.1f, 'a', false, 10.6f);
 
     EXPECT_EQ(linearAllocator.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
+}
+
+void ThreadFunction(LinearAllocator<LinearAllocatorPolicy::MultiThreaded>& linearAllocator)
+{
+    std::vector<TestObject*> objects;
+
+    for (size_t i = 0; i < 10000; i++)
+    {
+        TestObject* testObject = linearAllocator.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
+        EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5f));
+
+        objects.push_back(testObject);
+    }
+}
+
+TEST_F(LinearAllocatorTest, NewMultithreaded)
+{
+    LinearAllocator<LinearAllocatorPolicy::MultiThreaded> linearAllocator2{sizeof(TestObject) * 5 * 10000};
+
+    std::thread thread1(&ThreadFunction, std::ref(linearAllocator2));
+    std::thread thread2(&ThreadFunction, std::ref(linearAllocator2));
+    std::thread thread3(&ThreadFunction, std::ref(linearAllocator2));
+    std::thread thread4(&ThreadFunction, std::ref(linearAllocator2));
+
+    thread1.join();
+    thread2.join();
+    thread3.join();
+    thread4.join();
+
+    EXPECT_EQ(linearAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS

@@ -16,7 +16,7 @@ option(MEMARENA_CPPCHECK "Run the cppcheck static analyzer." ON)
 
 set(CMAKE_CXX_STANDARD 20)
 
-if (MEMARENA_CPP_CHECK)
+if (MEMARENA_CPPCHECK)
 set(CMAKE_CXX_CPPCHECK "cppcheck")
 endif()
 

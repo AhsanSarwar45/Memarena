@@ -8,10 +8,10 @@ namespace Memarena::Internal
 {
 Offset GetArrayEndOffset(UIntPtr ptrAddress, UIntPtr startAddress, Offset objectCount, Size objectSize);
 
-template <Size headerSize, StackAllocatorPolicy allocatorPolicy>
+template <Size headerSize, StackAllocatorPolicy policy>
 consteval Size GetTotalHeaderSize()
 {
-    if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
+    if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
     {
         return headerSize + sizeof(BoundGuardFront);
     }

@@ -1,11 +1,13 @@
 #pragma once
 
+#include <bit>
+
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/Assert.hpp"
+#include "Source/Policies.hpp"
 #include "Source/StackAllocator/StackAllocatorUtils.hpp"
 #include "Source/Utility/Alignment.hpp"
-#include <bit>
 
 #define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
 
@@ -26,11 +28,23 @@ namespace Memarena
  * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
  * Allocation and deallocation complexity: O(1)
  *
- * @tparam allocatorPolicy The StackAllocatorPolicy object to define the behaviour of this allocator
+ * @tparam policy The StackAllocatorPolicy object to define the behaviour of this allocator
  */
-template <LinearAllocatorPolicy allocatorPolicy = LinearAllocatorPolicy()>
+template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
 class LinearAllocator : public Internal::Allocator
 {
+  private:
+    template <typename SyncPrimitive>
+    class EmptyGuard
+    {
+      public:
+        explicit EmptyGuard(const SyncPrimitive& syncPrimitive) {}
+    };
+
+    template <typename SyncPrimitive>
+    using LockGuard = typename std::conditional<PolicyContains(policy, LinearAllocatorPolicy::MultiThreaded),
+                                                std::lock_guard<SyncPrimitive>, EmptyGuard<SyncPrimitive>>::type;
+
   public:
     // Prohibit default construction, moving and assignment
     LinearAllocator()                       = delete;
@@ -64,6 +78,8 @@ class LinearAllocator : public Internal::Allocator
 
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
     {
+        LockGuard<std::mutex> guard(m_Mutex);
+
         const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
         UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
@@ -71,7 +87,7 @@ class LinearAllocator : public Internal::Allocator
 
         Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
-        if constexpr (allocatorPolicy.sizeCheckPolicy == SizeCheckPolicy::Check)
+        if constexpr (PolicyContains(policy, LinearAllocatorPolicy::SizeCheck))
         {
             MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator %s is out of memory!\n",
                             GetDebugName().c_str());
@@ -114,7 +130,8 @@ class LinearAllocator : public Internal::Allocator
         SetUsedSize(offset);
     }
 
-    UIntPtr m_StartAddress;
-    Offset  m_CurrentOffset = 0;
+    std::mutex m_Mutex;
+    UIntPtr    m_StartAddress;
+    Offset     m_CurrentOffset = 0;
 };
 } // namespace Memarena

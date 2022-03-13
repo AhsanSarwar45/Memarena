@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <functional>
 #include <memory>

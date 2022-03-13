@@ -1,9 +1,14 @@
+#include <functional>
 #include <gtest/gtest.h>
+
+#include <thread>
 
 #include <Memarena/Memarena.hpp>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/Policies.hpp"
+#include "Source/StackAllocator/StackAllocator.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -72,7 +77,7 @@ TEST_F(StackAllocatorTest, RawNewMultipleObjects)
     }
     for (size_t i = 0; i < 10; i++)
     {
-        CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
+        CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
     }
 }
 
@@ -130,7 +135,7 @@ TEST_F(StackAllocatorTest, RawNewDeleteNewMultipleObjects)
     }
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject2* object = CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
+        TestObject2* object = CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
 
         stackAllocator.Delete(object);
     }
@@ -178,7 +183,7 @@ TEST_F(StackAllocatorTest, NewMultipleObjects)
     }
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
+        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
     }
 }
 
@@ -202,7 +207,7 @@ TEST_F(StackAllocatorTest, NewDeleteMultipleObjects)
     }
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
+        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
 
         objects2.push_back(object);
     }
@@ -236,7 +241,7 @@ TEST_F(StackAllocatorTest, NewDeleteNewMultipleObjects)
     }
     for (size_t i = 0; i < 10; i++)
     {
-        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair(i, i + 1.2f));
+        StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
 
         stackAllocator.Delete(object);
     }
@@ -272,6 +277,36 @@ TEST_F(StackAllocatorTest, NewDeleteMixed)
     stackAllocator.Delete(object2);
     stackAllocator.Delete(object1);
     stackAllocator.DeleteArray(arr1);
+}
+
+void ThreadFunction(StackAllocator<StackAllocatorPolicy::MultiThreaded>& stackAllocator)
+{
+    std::vector<StackPtr<TestObject>> objects;
+
+    for (size_t i = 0; i < 10000; i++)
+    {
+        StackPtr<TestObject> testObject = stackAllocator.New<TestObject>(1, 1.5f, 'a', false, 2.5f);
+        EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5f));
+
+        objects.push_back(testObject);
+    }
+}
+
+TEST_F(StackAllocatorTest, NewMultithreaded)
+{
+    StackAllocator<StackAllocatorPolicy::MultiThreaded> stackAllocator2{sizeof(TestObject) * 5 * 10000};
+
+    std::thread thread1(&ThreadFunction, std::ref(stackAllocator2));
+    std::thread thread2(&ThreadFunction, std::ref(stackAllocator2));
+    std::thread thread3(&ThreadFunction, std::ref(stackAllocator2));
+    std::thread thread4(&ThreadFunction, std::ref(stackAllocator2));
+
+    thread1.join();
+    thread2.join();
+    thread3.join();
+    thread4.join();
+
+    EXPECT_EQ(stackAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
 TEST_F(StackAllocatorTest, Reset)
@@ -381,9 +416,7 @@ TEST_F(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 
 TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 {
-    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(BoundsCheckPolicy::Basic);
-
-    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
+    StackAllocator<StackAllocatorPolicy::BoundsCheck> stackAllocator2{1_KB};
 
     TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
     EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
@@ -393,8 +426,8 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 
     stackAllocator2.Delete(testObject);
 
-    TestObject2* testObject3 = stackAllocator2.NewRaw<TestObject2>(1, 1.5f, 'a', false, Pair(1, 2.5f));
-    EXPECT_EQ(*testObject3, TestObject2(1, 1.5f, 'a', false, Pair(1, 2.5f)));
+    TestObject2* testObject3 = stackAllocator2.NewRaw<TestObject2>(1, 1.5f, 'a', false, Pair{1, 2.5});
+    EXPECT_EQ(*testObject3, TestObject2(1, 1.5f, 'a', false, Pair{1, 2.5}));
 
     // TODO Write proper exit messages
     stackAllocator2.Delete(testObject3);
@@ -404,9 +437,7 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 
 TEST_F(StackAllocatorDeathTest, DeleteWrongOrder)
 {
-    constexpr StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy(StackCheckPolicy::Check);
-
-    StackAllocator<allocatorPolicy> stackAllocator2 = StackAllocator<allocatorPolicy>(1_KB);
+    StackAllocator<StackAllocatorPolicy::StackCheck> stackAllocator2{1_KB};
 
     TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
     EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));

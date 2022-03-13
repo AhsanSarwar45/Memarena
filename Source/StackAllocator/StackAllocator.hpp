@@ -1,8 +1,11 @@
 #pragma once
 
+#include <mutex>
+
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/Assert.hpp"
+#include "Source/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
 #include "StackAllocatorUtils.hpp"
 
@@ -44,7 +47,7 @@ struct StackArrayHeader
 template <typename T>
 class StackPtr : public Ptr<T>
 {
-    template <StackAllocatorPolicy allocatorPolicy>
+    template <StackAllocatorPolicy policy>
     friend class StackAllocator;
 
   public:
@@ -58,7 +61,7 @@ class StackPtr : public Ptr<T>
 template <typename T>
 class StackArrayPtr : public Ptr<T>
 {
-    template <StackAllocatorPolicy allocatorPolicy>
+    template <StackAllocatorPolicy policy>
     friend class StackAllocator;
 
   public:
@@ -86,14 +89,14 @@ class StackArrayPtr : public Ptr<T>
  * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
  * Allocation and deallocation complexity: O(1)
  *
- * @tparam allocatorPolicy The StackAllocatorPolicy object to define the behaviour of this allocator
+ * @tparam policy The StackAllocatorPolicy object to define the behaviour of this allocator
  */
-template <StackAllocatorPolicy allocatorPolicy = StackAllocatorPolicy()>
+template <StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
 class StackAllocator : public Internal::Allocator
 {
   private:
-    using HeaderBase = typename std::conditional<allocatorPolicy.stackCheckPolicy == StackCheckPolicy::None, Internal::UnsafeHeaderBase,
-                                                 Internal::SafeHeaderBase>::type;
+    using HeaderBase = typename std::conditional<PolicyContains(policy, StackAllocatorPolicy::StackCheck), Internal::SafeHeaderBase,
+                                                 Internal::UnsafeHeaderBase>::type;
 
     struct InplaceHeader : public HeaderBase
     {
@@ -101,9 +104,21 @@ class StackAllocator : public Internal::Allocator
 
         InplaceHeader(Offset _startOffset, Offset _endOffset) : HeaderBase(_endOffset), startOffset(_startOffset) {}
     };
+
     using Header             = Internal::StackHeader;
     using InplaceArrayHeader = Internal::StackArrayHeader;
     using ArrayHeader        = Internal::StackArrayHeader;
+
+    template <typename SyncPrimitive>
+    class EmptyGuard
+    {
+      public:
+        explicit EmptyGuard(const SyncPrimitive& syncPrimitive) {}
+    };
+
+    template <typename SyncPrimitive>
+    using LockGuard = typename std::conditional<PolicyContains(policy, StackAllocatorPolicy::MultiThreaded), std::lock_guard<SyncPrimitive>,
+                                                EmptyGuard<SyncPrimitive>>::type;
 
   public:
     // Prohibit default construction, moving and assignment
@@ -126,9 +141,9 @@ class StackAllocator : public Internal::Allocator
     template <typename Object, typename... Args>
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackPtr<Object> New(Args&&... argList)
     {
-        auto [voidPtr, startOffset] = AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
-        Object* objectPtr           = new (voidPtr) Object(std::forward<Args>(argList)...);
-        return StackPtr<Object>(objectPtr, startOffset, m_CurrentOffset);
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
+        Object* objectPtr                      = new (voidPtr) Object(std::forward<Args>(argList)...);
+        return StackPtr<Object>(objectPtr, startOffset, endOffset);
     }
 
     template <typename Object, typename... Args>
@@ -156,7 +171,7 @@ class StackAllocator : public Internal::Allocator
     template <typename Object, typename... Args>
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
-        auto [voidPtr, startOffset] = AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
         return StackArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
                                      objectCount);
     }
@@ -184,8 +199,8 @@ class StackAllocator : public Internal::Allocator
 
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
     {
-        auto [voidPtr, startOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment);
-        Internal::AllocateHeader<InplaceHeader>(voidPtr, startOffset, m_CurrentOffset);
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment);
+        Internal::AllocateHeader<InplaceHeader>(voidPtr, startOffset, endOffset);
         return voidPtr;
     }
 
@@ -212,8 +227,8 @@ class StackAllocator : public Internal::Allocator
 
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
     {
-        const Size allocationSize   = objectCount * objectSize;
-        auto [voidPtr, startOffset] = AllocateInternal<sizeof(InplaceArrayHeader)>(allocationSize, alignment);
+        const Size allocationSize              = objectCount * objectSize;
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceArrayHeader)>(allocationSize, alignment);
         Internal::AllocateHeader<InplaceArrayHeader>(voidPtr, startOffset, objectCount);
         return voidPtr;
     }
@@ -256,15 +271,17 @@ class StackAllocator : public Internal::Allocator
 
   private:
     template <Size headerSize>
-    std::tuple<void*, Offset> AllocateInternal(const Size size, const Alignment& alignment)
+    std::tuple<void*, Offset, Offset> AllocateInternal(const Size size, const Alignment& alignment)
     {
+        LockGuard<std::mutex> guard(m_Mutex);
+
         const Offset  startOffset = m_CurrentOffset;
         const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
         Padding padding{0};
         UIntPtr alignedAddress{0};
 
-        constexpr Size totalHeaderSize = Internal::GetTotalHeaderSize<headerSize, allocatorPolicy>();
+        constexpr Size totalHeaderSize = Internal::GetTotalHeaderSize<headerSize, policy>();
 
         if constexpr (totalHeaderSize > 0)
         {
@@ -279,13 +296,13 @@ class StackAllocator : public Internal::Allocator
 
         Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
-        if constexpr (allocatorPolicy.sizeCheckPolicy == SizeCheckPolicy::Check)
+        if constexpr (PolicyContains(policy, StackAllocatorPolicy::SizeCheck))
         {
             MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator %s is out of memory!\n",
                             GetDebugName().c_str());
         }
 
-        if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
+        if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
         {
             totalSizeAfterAllocation += sizeof(BoundGuardBack);
 
@@ -298,22 +315,27 @@ class StackAllocator : public Internal::Allocator
 
         SetCurrentOffset(totalSizeAfterAllocation);
 
+        const Offset endOffset = m_CurrentOffset;
+
         void* allocatedPtr = std::bit_cast<void*>(alignedAddress);
-        return {allocatedPtr, startOffset};
+
+        return {allocatedPtr, startOffset, endOffset};
     }
 
     template <typename Header>
     void DeallocateInternal(const UIntPtr address, const UIntPtr addressMarker, const Header& header)
     {
+        LockGuard<std::mutex> guard(m_Mutex);
+
         const Offset newOffset = header.startOffset;
 
-        if constexpr (allocatorPolicy.stackCheckPolicy == StackCheckPolicy::Check)
+        if constexpr (PolicyContains(policy, StackAllocatorPolicy::StackCheck))
         {
             MEMARENA_ASSERT(header.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
                             GetDebugName().c_str());
         }
 
-        if constexpr (allocatorPolicy.boundsCheckPolicy == BoundsCheckPolicy::Basic)
+        if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
         {
             const UIntPtr          frontGuardAddress = addressMarker - sizeof(BoundGuardFront);
             const BoundGuardFront* frontGuard        = std::bit_cast<BoundGuardFront*>(frontGuardAddress);
@@ -329,16 +351,16 @@ class StackAllocator : public Internal::Allocator
         SetCurrentOffset(newOffset);
     }
 
-    UIntPtr GetAddressFromPtr(const void* ptr)
+    UIntPtr GetAddressFromPtr(const void* ptr) const
     {
-        if constexpr (allocatorPolicy.nullCheckPolicy == NullCheckPolicy::Check)
+        if constexpr (PolicyContains(policy, StackAllocatorPolicy::NullCheck))
         {
             MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
         }
 
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
-        if constexpr (allocatorPolicy.ownershipCheckPolicy == OwnershipCheckPolicy::Check)
+        if constexpr (PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck))
         {
             MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(),
                             address);
@@ -354,6 +376,8 @@ class StackAllocator : public Internal::Allocator
     }
 
     [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
+
+    std::mutex m_Mutex;
 
     UIntPtr m_StartAddress;
     UIntPtr m_EndAddress;

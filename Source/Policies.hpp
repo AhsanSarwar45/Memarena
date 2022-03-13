@@ -21,92 +21,72 @@ struct BoundGuardBack
     explicit BoundGuardBack(Offset _offset) : offset(_offset) {}
 };
 
-enum class BoundsCheckPolicy
+constexpr int Bit(int x) { return 1 << x; }
+
+template <typename Enum>
+struct EnableBitMaskOperators
 {
-    None,
-    Basic
+    static const bool enable = false;
 };
 
-enum class StackCheckPolicy
+template <typename Enum>
+typename std::enable_if<EnableBitMaskOperators<Enum>::enable, Enum>::type constexpr operator|(Enum lhs, Enum rhs)
 {
-    None,
-    Check
+    using UnderlyingType = typename std::underlying_type<Enum>::type;
+    return static_cast<Enum>(static_cast<UnderlyingType>(lhs) | static_cast<UnderlyingType>(rhs));
+}
+
+template <typename Enum>
+typename std::enable_if<EnableBitMaskOperators<Enum>::enable, Enum>::type constexpr operator&(Enum lhs, Enum rhs)
+{
+    using UnderlyingType = typename std::underlying_type<Enum>::type;
+    return static_cast<Enum>(static_cast<UnderlyingType>(lhs) & static_cast<UnderlyingType>(rhs));
+}
+
+template <typename Enum>
+constexpr bool PolicyContains(Enum policy, Enum value)
+{
+    using UnderlyingType = typename std::underlying_type<Enum>::type;
+    return static_cast<UnderlyingType>(policy) & static_cast<UnderlyingType>(value);
+}
+
+#define ENABLE_BITMASK_OPERATORS(x)      \
+    template <>                          \
+    struct EnableBitMaskOperators<x>     \
+    {                                    \
+        static const bool enable = true; \
+    };
+
+enum class StackAllocatorPolicy : UInt32
+{
+    Empty          = 0,
+    NullCheck      = Bit(0),
+    OwnershipCheck = Bit(1),
+    SizeCheck      = Bit(2),
+    BoundsCheck    = Bit(3),
+    MultiThreaded  = Bit(4),
+    StackCheck     = Bit(5),
+
+    Default  = NullCheck | OwnershipCheck | SizeCheck,
+    Release  = Empty,
+    RelDebug = NullCheck | OwnershipCheck | SizeCheck | StackCheck,
+    Debug    = NullCheck | OwnershipCheck | SizeCheck | StackCheck | BoundsCheck,
 };
 
-enum class NullCheckPolicy
+ENABLE_BITMASK_OPERATORS(StackAllocatorPolicy)
+
+enum class LinearAllocatorPolicy : UInt32
 {
-    None,
-    Check
+    Empty         = 0,
+    SizeCheck     = Bit(0),
+    MultiThreaded = Bit(1),
+
+    Default  = SizeCheck,
+    Release  = Empty,
+    RelDebug = SizeCheck,
+    Debug    = SizeCheck,
 };
 
-enum class OwnershipCheckPolicy
-{
-    None,
-    Check
-};
-
-enum class SizeCheckPolicy
-{
-    None,
-    Check
-};
-
-struct AllocatorPolicy
-{
-  public:
-    OwnershipCheckPolicy ownershipCheckPolicy = OwnershipCheckPolicy::Check;
-    NullCheckPolicy      nullCheckPolicy      = NullCheckPolicy::Check;
-    SizeCheckPolicy      sizeCheckPolicy      = SizeCheckPolicy::Check;
-    BoundsCheckPolicy    boundsCheckPolicy    = BoundsCheckPolicy::None;
-
-  protected:
-    explicit constexpr AllocatorPolicy(BoundsCheckPolicy _boundsCheckPolicy, OwnershipCheckPolicy _ownershipCheckPolicy,
-                                       NullCheckPolicy _nullCheckPolicy, SizeCheckPolicy _sizeCheckPolicy)
-        : ownershipCheckPolicy(_ownershipCheckPolicy), nullCheckPolicy(_nullCheckPolicy), sizeCheckPolicy(_sizeCheckPolicy),
-          boundsCheckPolicy(_boundsCheckPolicy)
-    {
-    }
-
-    explicit constexpr AllocatorPolicy(OwnershipCheckPolicy _ownershipCheckPolicy) : ownershipCheckPolicy(_ownershipCheckPolicy) {}
-    explicit constexpr AllocatorPolicy(NullCheckPolicy _nullCheckPolicy) : nullCheckPolicy(_nullCheckPolicy) {}
-    explicit constexpr AllocatorPolicy(SizeCheckPolicy _sizeCheckPolicy) : sizeCheckPolicy(_sizeCheckPolicy) {}
-    explicit constexpr AllocatorPolicy(BoundsCheckPolicy _boundsCheckPolicy) : boundsCheckPolicy(_boundsCheckPolicy) {}
-
-    constexpr AllocatorPolicy() = default;
-};
-
-struct LinearAllocatorPolicy : public AllocatorPolicy
-{
-    explicit constexpr LinearAllocatorPolicy(BoundsCheckPolicy    boundsCheckPolicy     = BoundsCheckPolicy::None,
-                                             OwnershipCheckPolicy _ownershipCheckPolicy = OwnershipCheckPolicy::Check,
-                                             NullCheckPolicy      _nullCheckPolicy      = NullCheckPolicy::Check,
-                                             SizeCheckPolicy      _sizeCheckPolicy      = SizeCheckPolicy::Check)
-        : AllocatorPolicy(boundsCheckPolicy, _ownershipCheckPolicy, _nullCheckPolicy, _sizeCheckPolicy)
-    {
-    }
-
-    explicit constexpr LinearAllocatorPolicy(OwnershipCheckPolicy _ownershipCheckPolicy) : AllocatorPolicy(_ownershipCheckPolicy) {}
-    explicit constexpr LinearAllocatorPolicy(NullCheckPolicy _nullCheckPolicy) : AllocatorPolicy(_nullCheckPolicy) {}
-    explicit constexpr LinearAllocatorPolicy(SizeCheckPolicy _sizeCheckPolicy) : AllocatorPolicy(_sizeCheckPolicy) {}
-};
-
-struct StackAllocatorPolicy : public AllocatorPolicy
-{
-    StackCheckPolicy stackCheckPolicy = StackCheckPolicy::None;
-
-    explicit constexpr StackAllocatorPolicy(BoundsCheckPolicy    _boundsCheckPolicy    = BoundsCheckPolicy::None,
-                                            StackCheckPolicy     _stackCheckPolicy     = StackCheckPolicy::None,
-                                            OwnershipCheckPolicy _ownershipCheckPolicy = OwnershipCheckPolicy::Check,
-                                            NullCheckPolicy      _nullCheckPolicy      = NullCheckPolicy::Check,
-                                            SizeCheckPolicy      _sizeCheckPolicy      = SizeCheckPolicy::Check)
-        : AllocatorPolicy(_boundsCheckPolicy, _ownershipCheckPolicy, _nullCheckPolicy, _sizeCheckPolicy),
-          stackCheckPolicy(_stackCheckPolicy)
-    {
-    }
-    explicit constexpr StackAllocatorPolicy(StackCheckPolicy _stackCheckPolicy) : stackCheckPolicy(_stackCheckPolicy) {}
-    explicit constexpr StackAllocatorPolicy(OwnershipCheckPolicy _ownershipCheckPolicy) : AllocatorPolicy(_ownershipCheckPolicy) {}
-    explicit constexpr StackAllocatorPolicy(NullCheckPolicy _nullCheckPolicy) : AllocatorPolicy(_nullCheckPolicy) {}
-    explicit constexpr StackAllocatorPolicy(SizeCheckPolicy _sizeCheckPolicy) : AllocatorPolicy(_sizeCheckPolicy) {}
-};
+ENABLE_BITMASK_OPERATORS(LinearAllocatorPolicy)
 
 } // namespace Memarena

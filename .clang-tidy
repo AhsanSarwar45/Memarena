@@ -5,8 +5,8 @@ Checks: >
   google-*,
   clang-analyzer-*,
   cppcoreguidelines-*,
-  -cppcoreguidelines-no-malloc
-  -cppcoreguidelines-owning-memory
+  -cppcoreguidelines-no-malloc,
+  -cppcoreguidelines-owning-memory.
   misc-*,
   modernize-*,
   -modernize-use-trailing-return-type,

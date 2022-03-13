@@ -7,6 +7,7 @@
 
 project(MemarenaTests)
 
+set(CMAKE_CXX_CLANG_TIDY "")
 
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
   message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
