@@ -22,7 +22,7 @@ endif()
 
 add_library(${PROJECT_NAME} STATIC
 "Source/Allocator.cpp"
-"Source/StackAllocator/StackAllocatorUtils.cpp"
+"Source/AllocatorUtils.cpp"
 "Source/MemoryManager.cpp"
 "Source/Utility/Alignment.cpp"
 )

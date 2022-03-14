@@ -7,8 +7,6 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
-#include "Source/Policies.hpp"
-#include "Source/StackAllocator/StackAllocator.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -279,7 +277,7 @@ TEST_F(StackAllocatorTest, NewDeleteMixed)
     stackAllocator.DeleteArray(arr1);
 }
 
-void ThreadFunction(StackAllocator<StackAllocatorPolicy::MultiThreaded>& stackAllocator)
+void ThreadFunction(StackAllocator<StackAllocatorPolicy::Multithreaded>& stackAllocator)
 {
     std::vector<StackPtr<TestObject>> objects;
 
@@ -294,7 +292,7 @@ void ThreadFunction(StackAllocator<StackAllocatorPolicy::MultiThreaded>& stackAl
 
 TEST_F(StackAllocatorTest, NewMultithreaded)
 {
-    StackAllocator<StackAllocatorPolicy::MultiThreaded> stackAllocator2{sizeof(TestObject) * 5 * 10000};
+    StackAllocator<StackAllocatorPolicy::Multithreaded> stackAllocator2{sizeof(TestObject) * 5 * 10000};
 
     std::thread thread1(&ThreadFunction, std::ref(stackAllocator2));
     std::thread thread2(&ThreadFunction, std::ref(stackAllocator2));

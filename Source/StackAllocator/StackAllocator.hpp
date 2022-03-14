@@ -1,13 +1,13 @@
 #pragma once
 
-#include <mutex>
-
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
+#include "Source/AllocatorUtils.hpp"
 #include "Source/Assert.hpp"
-#include "Source/Policies.hpp"
+#include "Source/Policies/BoundsCheckPolicy.hpp"
+#include "Source/Policies/MultithreadedPolicy.hpp"
+#include "Source/Policies/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
-#include "StackAllocatorUtils.hpp"
 
 #define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
 
@@ -109,16 +109,11 @@ class StackAllocator : public Internal::Allocator
     using InplaceArrayHeader = Internal::StackArrayHeader;
     using ArrayHeader        = Internal::StackArrayHeader;
 
-    template <typename SyncPrimitive>
-    class EmptyGuard
-    {
-      public:
-        explicit EmptyGuard(const SyncPrimitive& syncPrimitive) {}
-    };
+    using ThreadPolicy = MultithreadedPolicy<policy>;
 
     template <typename SyncPrimitive>
-    using LockGuard = typename std::conditional<PolicyContains(policy, StackAllocatorPolicy::MultiThreaded), std::lock_guard<SyncPrimitive>,
-                                                EmptyGuard<SyncPrimitive>>::type;
+    using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
+    using Mutex     = typename ThreadPolicy::Mutex;
 
   public:
     // Prohibit default construction, moving and assignment
@@ -273,7 +268,7 @@ class StackAllocator : public Internal::Allocator
     template <Size headerSize>
     std::tuple<void*, Offset, Offset> AllocateInternal(const Size size, const Alignment& alignment)
     {
-        LockGuard<std::mutex> guard(m_Mutex);
+        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
         const Offset  startOffset = m_CurrentOffset;
         const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
@@ -281,7 +276,7 @@ class StackAllocator : public Internal::Allocator
         Padding padding{0};
         UIntPtr alignedAddress{0};
 
-        constexpr Size totalHeaderSize = Internal::GetTotalHeaderSize<headerSize, policy>();
+        constexpr Size totalHeaderSize = GetTotalHeaderSize<headerSize>();
 
         if constexpr (totalHeaderSize > 0)
         {
@@ -325,7 +320,7 @@ class StackAllocator : public Internal::Allocator
     template <typename Header>
     void DeallocateInternal(const UIntPtr address, const UIntPtr addressMarker, const Header& header)
     {
-        LockGuard<std::mutex> guard(m_Mutex);
+        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
         const Offset newOffset = header.startOffset;
 
@@ -369,6 +364,19 @@ class StackAllocator : public Internal::Allocator
         return address;
     }
 
+    template <Size headerSize>
+    static consteval Size GetTotalHeaderSize()
+    {
+        if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
+        {
+            return headerSize + sizeof(BoundGuardFront);
+        }
+        else
+        {
+            return headerSize;
+        }
+    }
+
     void SetCurrentOffset(const Offset offset)
     {
         m_CurrentOffset = offset;
@@ -377,7 +385,7 @@ class StackAllocator : public Internal::Allocator
 
     [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
 
-    std::mutex m_Mutex;
+    ThreadPolicy m_MultithreadedPolicy;
 
     UIntPtr m_StartAddress;
     UIntPtr m_EndAddress;

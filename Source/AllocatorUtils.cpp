@@ -1,5 +1,5 @@
 
-#include "StackAllocatorUtils.hpp"
+#include "AllocatorUtils.hpp"
 
 namespace Memarena::Internal
 {

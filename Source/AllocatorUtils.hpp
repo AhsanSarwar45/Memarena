@@ -1,25 +1,12 @@
 #pragma once
 
-#include "Source/Policies.hpp"
-#include "Source/TypeAliases.hpp"
 #include <bit>
+
+#include "Source/TypeAliases.hpp"
 
 namespace Memarena::Internal
 {
 Offset GetArrayEndOffset(UIntPtr ptrAddress, UIntPtr startAddress, Offset objectCount, Size objectSize);
-
-template <Size headerSize, StackAllocatorPolicy policy>
-consteval Size GetTotalHeaderSize()
-{
-    if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
-    {
-        return headerSize + sizeof(BoundGuardFront);
-    }
-    else
-    {
-        return headerSize;
-    }
-}
 
 template <typename Object, typename... Args>
 Object* ConstructArray(void* voidPtr, const Offset objectCount, Args&&... argList)

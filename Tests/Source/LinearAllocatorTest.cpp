@@ -6,8 +6,6 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
-#include "Source/LinearAllocator/LinearAllocator.hpp"
-#include "Source/Policies.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -102,7 +100,7 @@ TEST_F(LinearAllocatorTest, GetUsedSizeNewArray)
     EXPECT_EQ(linearAllocator.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
 }
 
-void ThreadFunction(LinearAllocator<LinearAllocatorPolicy::MultiThreaded>& linearAllocator)
+void ThreadFunction(LinearAllocator<LinearAllocatorPolicy::Multithreaded>& linearAllocator)
 {
     std::vector<TestObject*> objects;
 
@@ -117,7 +115,7 @@ void ThreadFunction(LinearAllocator<LinearAllocatorPolicy::MultiThreaded>& linea
 
 TEST_F(LinearAllocatorTest, NewMultithreaded)
 {
-    LinearAllocator<LinearAllocatorPolicy::MultiThreaded> linearAllocator2{sizeof(TestObject) * 5 * 10000};
+    LinearAllocator<LinearAllocatorPolicy::Multithreaded> linearAllocator2{sizeof(TestObject) * 5 * 10000};
 
     std::thread thread1(&ThreadFunction, std::ref(linearAllocator2));
     std::thread thread2(&ThreadFunction, std::ref(linearAllocator2));

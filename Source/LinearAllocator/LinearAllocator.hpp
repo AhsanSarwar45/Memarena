@@ -4,9 +4,10 @@
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
+#include "Source/AllocatorUtils.hpp"
 #include "Source/Assert.hpp"
-#include "Source/Policies.hpp"
-#include "Source/StackAllocator/StackAllocatorUtils.hpp"
+#include "Source/Policies/MultithreadedPolicy.hpp"
+#include "Source/Policies/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
 
 #define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
@@ -34,16 +35,11 @@ template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
 class LinearAllocator : public Internal::Allocator
 {
   private:
-    template <typename SyncPrimitive>
-    class EmptyGuard
-    {
-      public:
-        explicit EmptyGuard(const SyncPrimitive& syncPrimitive) {}
-    };
+    using ThreadPolicy = MultithreadedPolicy<policy>;
 
     template <typename SyncPrimitive>
-    using LockGuard = typename std::conditional<PolicyContains(policy, LinearAllocatorPolicy::MultiThreaded),
-                                                std::lock_guard<SyncPrimitive>, EmptyGuard<SyncPrimitive>>::type;
+    using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
+    using Mutex     = typename ThreadPolicy::Mutex;
 
   public:
     // Prohibit default construction, moving and assignment
@@ -78,7 +74,7 @@ class LinearAllocator : public Internal::Allocator
 
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
     {
-        LockGuard<std::mutex> guard(m_Mutex);
+        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
         const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
 
@@ -130,8 +126,9 @@ class LinearAllocator : public Internal::Allocator
         SetUsedSize(offset);
     }
 
-    std::mutex m_Mutex;
-    UIntPtr    m_StartAddress;
-    Offset     m_CurrentOffset = 0;
+    ThreadPolicy m_MultithreadedPolicy;
+
+    UIntPtr m_StartAddress;
+    Offset  m_CurrentOffset = 0;
 };
 } // namespace Memarena

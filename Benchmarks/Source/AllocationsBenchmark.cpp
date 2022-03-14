@@ -3,7 +3,6 @@
 #include <Memarena/Memarena.hpp>
 
 #include "MemoryTestObjects.hpp"
-#include "Source/Policies.hpp"
 
 using namespace Memarena;
 
@@ -56,7 +55,7 @@ BENCHMARK(StackAllocatorNewDelete);
 
 static void StackAllocatorNewDeleteRawMultithreaded(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release | StackAllocatorPolicy::MultiThreaded> stackAllocator{sizeof(TestObject)};
+    StackAllocator<StackAllocatorPolicy::Release | StackAllocatorPolicy::Multithreaded> stackAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -69,7 +68,7 @@ BENCHMARK(StackAllocatorNewDeleteRawMultithreaded);
 
 static void StackAllocatorNewDeleteMultithreaded(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release | StackAllocatorPolicy::MultiThreaded> stackAllocator{sizeof(TestObject)};
+    StackAllocator<StackAllocatorPolicy::Release | StackAllocatorPolicy::Multithreaded> stackAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -95,7 +94,7 @@ BENCHMARK(LinearAllocatorNewResetRaw);
 
 static void LinearAllocatorNewResetRawMultithreaded(benchmark::State& state)
 {
-    LinearAllocator<LinearAllocatorPolicy::Release | LinearAllocatorPolicy::MultiThreaded> linearAllocator{sizeof(TestObject)};
+    LinearAllocator<LinearAllocatorPolicy::Release | LinearAllocatorPolicy::Multithreaded> linearAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
