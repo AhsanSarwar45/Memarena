@@ -7,6 +7,7 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/Allocators/StackAllocator.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -275,6 +276,28 @@ TEST_F(StackAllocatorTest, NewDeleteMixed)
     stackAllocator.Delete(object2);
     stackAllocator.Delete(object1);
     stackAllocator.DeleteArray(arr1);
+}
+
+TEST_F(StackAllocatorTest, Templated)
+{
+    StackAllocatorTemplated<TestObject> stackAllocatorTemplated{10_KB};
+
+    TestObject* testObject = stackAllocatorTemplated.NewRaw(1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+    StackPtr<TestObject> testObject2 = stackAllocatorTemplated.New(1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+
+    TestObject* testObject3 = stackAllocatorTemplated.NewArrayRaw(10, 1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+    StackArrayPtr<TestObject> testObject4 = stackAllocatorTemplated.NewArray(10, 1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+
+    stackAllocatorTemplated.DeleteArray(testObject4);
+    stackAllocatorTemplated.DeleteArray(testObject3);
+    stackAllocatorTemplated.Delete(testObject2);
+    stackAllocatorTemplated.Delete(testObject);
+
+    EXPECT_EQ(stackAllocatorTemplated.GetUsedSize(), 0);
 }
 
 void ThreadFunction(StackAllocator<StackAllocatorPolicy::Multithreaded>& stackAllocator)

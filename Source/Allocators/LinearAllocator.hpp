@@ -15,22 +15,6 @@
 namespace Memarena
 {
 
-/**
- * @brief A custom memory allocator which allocates in a stack-like manner.
- * All the memory will be allocated up-front. This means it will have
- * zero allocations during runtime. This also means that it will take the same
- * amount of memory whether it is full or empty. Allocations and Deallocations
- * also need to be done in a stack-like manner. It is the responsibility of the
- * user to make sure that deallocations happen in an order that is the reverse
- * of the allocation order. If a pointer p1 that was not allocated last is deallocated,
- * future allocations will overwrite the memory of all allocations that were made
- * between the allocation and deallocation of p1.
- *
- * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
- * Allocation and deallocation complexity: O(1)
- *
- * @tparam policy The StackAllocatorPolicy object to define the behaviour of this allocator
- */
 template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
 class LinearAllocator : public Internal::Allocator
 {
@@ -130,5 +114,69 @@ class LinearAllocator : public Internal::Allocator
 
     UIntPtr m_StartAddress;
     Offset  m_CurrentOffset = 0;
+};
+
+template <typename Object, LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
+class LinearAllocatorTemplated
+{
+  public:
+    LinearAllocatorTemplated()                                = delete;
+    LinearAllocatorTemplated(LinearAllocatorTemplated&)       = delete;
+    LinearAllocatorTemplated(const LinearAllocatorTemplated&) = delete;
+    LinearAllocatorTemplated(LinearAllocatorTemplated&&)      = delete;
+    LinearAllocatorTemplated& operator=(const LinearAllocatorTemplated&) = delete;
+    LinearAllocatorTemplated& operator=(LinearAllocatorTemplated&&) = delete;
+
+    explicit LinearAllocatorTemplated(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr,
+                                      const std::string& debugName = "LinearAllocator")
+        : m_LinearAllocator(totalSize, memoryManager, debugName)
+    {
+    }
+
+    ~LinearAllocatorTemplated() = default;
+
+    template <typename... Args>
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
+    {
+        return m_LinearAllocator.template NewRaw<Object>(std::forward<Args>(argList)...);
+    }
+
+    template <typename... Args>
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    {
+        return m_LinearAllocator.template NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
+    }
+
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
+    {
+        return m_LinearAllocator.Allocate(size, alignment);
+    }
+
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate() { return m_LinearAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object))); }
+
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
+    {
+        return m_LinearAllocator.AllocateArray(objectCount, objectSize, alignment);
+    }
+
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount)
+    {
+        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
+    }
+    /**
+     * @brief Resets the allocator to its initial state. Any further allocations
+     * will possibly overwrite all object allocated prior to calling this method.
+     * So make sure to only call this when you don't need any objects previously
+     * allocated by this allocator.
+     *
+     */
+    inline void Reset() { m_LinearAllocator.Reset(); }
+
+    [[nodiscard]] Size        GetUsedSize() const { return m_LinearAllocator.GetUsedSize(); }
+    [[nodiscard]] Size        GetTotalSize() const { return m_LinearAllocator.GetTotalSize(); }
+    [[nodiscard]] std::string GetDebugName() const { return m_LinearAllocator.GetDebugName(); }
+
+  private:
+    LinearAllocator<policy> m_LinearAllocator;
 };
 } // namespace Memarena

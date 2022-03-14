@@ -130,6 +130,21 @@ TEST_F(LinearAllocatorTest, NewMultithreaded)
     EXPECT_EQ(linearAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
+TEST_F(LinearAllocatorTest, Templated)
+{
+    LinearAllocatorTemplated<TestObject> LinearAllocatorTemplated{10_KB};
+
+    TestObject* testObject = LinearAllocatorTemplated.NewRaw(1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+
+    TestObject* testObject3 = LinearAllocatorTemplated.NewArrayRaw(10, 1, 1.5f, 'a', false, 2.5f);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+
+    LinearAllocatorTemplated.Reset();
+
+    EXPECT_EQ(LinearAllocatorTemplated.GetUsedSize(), 0);
+}
+
 #ifdef MEMARENA_ENABLE_ASSERTS
 
 class LinearAllocatorDeathTest : public ::testing::Test

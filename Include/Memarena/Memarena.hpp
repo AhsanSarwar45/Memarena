@@ -2,6 +2,6 @@
 
 #include "Source/Macros.hpp"
 
-#include "Source/LinearAllocator/LinearAllocator.hpp"
+#include "Source/Allocators/LinearAllocator.hpp"
+#include "Source/Allocators/StackAllocator.hpp"
 #include "Source/MemoryManager.hpp"
-#include "Source/StackAllocator/StackAllocator.hpp"

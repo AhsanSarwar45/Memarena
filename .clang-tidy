@@ -6,7 +6,7 @@ Checks: >
   clang-analyzer-*,
   cppcoreguidelines-*,
   -cppcoreguidelines-no-malloc,
-  -cppcoreguidelines-owning-memory.
+  -cppcoreguidelines-owning-memory,
   misc-*,
   modernize-*,
   -modernize-use-trailing-return-type,
