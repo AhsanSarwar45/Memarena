@@ -101,7 +101,11 @@ class LinearAllocator : public Internal::Allocator
      * you clean the memory
      *
      */
-    inline void Reset() { SetCurrentOffset(0); };
+    inline void Reset()
+    {
+        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
+        SetCurrentOffset(0);
+    };
 
   private:
     void SetCurrentOffset(const Offset offset)
