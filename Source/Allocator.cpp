@@ -2,15 +2,14 @@
 
 #include "Allocator.hpp"
 
-#include "Source/AllocatorData.hpp"
 #include "Source/MemoryManager.hpp"
 
 #include "Source/Assert.hpp"
 
 namespace Memarena::Internal
 {
-Allocator::Allocator(const Size totalSize, const std::shared_ptr<MemoryManager>& memoryManager, const std::string& debugName)
-    : m_MemoryManager(memoryManager)
+Allocator::Allocator(Size totalSize, const std::string& debugName, bool isMemoryTrackingEnabled)
+    : m_IsMemoryTrackingEnabled(isMemoryTrackingEnabled)
 {
     MEMARENA_ASSERT(totalSize <= std::numeric_limits<Offset>::max(),
                     "Error: Max size of allocator cannot be more than %d! Value passed was %d.\n", std::numeric_limits<Offset>::max(),
@@ -21,32 +20,30 @@ Allocator::Allocator(const Size totalSize, const std::shared_ptr<MemoryManager>&
     m_Data     = std::make_shared<AllocatorData>(debugName, totalSize);
     m_StartPtr = malloc(m_Data->totalSize);
 
-    if (m_MemoryManager)
+    if (isMemoryTrackingEnabled)
     {
-        // Allows the memory manager to keep track of total allocated memory
-        m_MemoryManager->RegisterAllocator(m_Data);
+        s_MemoryManager.RegisterAllocator(m_Data);
     }
 }
 
 Allocator::~Allocator()
 {
-    if (m_MemoryManager)
+    if (m_IsMemoryTrackingEnabled)
     {
-        m_MemoryManager->UnRegisterAllocator(m_Data);
+        s_MemoryManager.UnRegisterAllocator(m_Data);
     }
-
     free(m_StartPtr);
 }
 
-Size Allocator::GetUsedSize() const { return m_Data->usedSize; }
-
-Size Allocator::GetTotalSize() const { return m_Data->totalSize; }
-
-std::string Allocator::GetDebugName() const { return m_Data->debugName; }
-
-void Allocator::SetUsedSize(const Size size)
+void Allocator::SetUsedSize(Size size)
 {
     m_Data->usedSize  = size;
     m_Data->peakUsage = std::max(m_Data->peakUsage, m_Data->usedSize);
+
+    if (m_IsMemoryTrackingEnabled)
+    {
+        s_MemoryManager.InvalidateUsedSizeCache();
+    }
 }
+
 } // namespace Memarena::Internal

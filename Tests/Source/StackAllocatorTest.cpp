@@ -7,7 +7,6 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
-#include "Source/Allocators/StackAllocator.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -300,6 +299,23 @@ TEST_F(StackAllocatorTest, Templated)
     EXPECT_EQ(stackAllocatorTemplated.GetUsedSize(), 0);
 }
 
+TEST_F(StackAllocatorTest, PMR)
+{
+    StackAllocatorPMR stackAllocatorPMR{10_MB};
+
+    auto vec = std::pmr::vector<int>(0, &stackAllocatorPMR);
+
+    vec.reserve(3);
+
+    vec.push_back(5);
+    vec.push_back(8);
+    vec.push_back(2);
+
+    EXPECT_EQ(vec[0], 5);
+    EXPECT_EQ(vec[1], 8);
+    EXPECT_EQ(vec[2], 2);
+}
+
 void ThreadFunction(StackAllocator<StackAllocatorPolicy::Multithreaded>& stackAllocator)
 {
     std::vector<StackPtr<TestObject>> objects;
@@ -332,7 +348,7 @@ TEST_F(StackAllocatorTest, NewMultithreaded)
 
 TEST_F(StackAllocatorTest, Reset)
 {
-    StackAllocator<> stackAllocator2 = StackAllocator<>(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(1))), nullptr);
+    StackAllocator<> stackAllocator2 = StackAllocator<>(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(8))));
     for (size_t i = 0; i < 10; i++)
     {
         TestObject* object = CheckNewRaw<TestObject>(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
@@ -354,7 +370,7 @@ TEST_F(StackAllocatorTest, GetUsedSizeNew)
         TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
 
-    EXPECT_EQ(stackAllocator.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(1))));
+    EXPECT_EQ(stackAllocator.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(8))));
 }
 
 TEST_F(StackAllocatorTest, GetUsedSizeNewDelete)

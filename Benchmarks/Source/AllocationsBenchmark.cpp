@@ -53,6 +53,19 @@ static void StackAllocatorNewDelete(benchmark::State& state)
 
 BENCHMARK(StackAllocatorNewDelete);
 
+static void StackAllocatorTemplatedNewDelete(benchmark::State& state)
+{
+    StackAllocatorTemplated<TestObject, StackAllocatorPolicy::Release> stackAllocatorTemplated{sizeof(TestObject)};
+
+    for (auto _ : state)
+    {
+        StackPtr<TestObject> object = stackAllocatorTemplated.New(1, 1.5f, 'c', false, 10.5f);
+        stackAllocatorTemplated.Delete(object);
+    }
+}
+
+BENCHMARK(StackAllocatorTemplatedNewDelete);
+
 static void StackAllocatorNewDeleteRawMultithreaded(benchmark::State& state)
 {
     StackAllocator<StackAllocatorPolicy::Release | StackAllocatorPolicy::Multithreaded> stackAllocator{sizeof(TestObject)};

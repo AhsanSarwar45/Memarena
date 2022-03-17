@@ -1,18 +1,23 @@
 #pragma once
 
 #include <memory>
+#include <numeric>
 #include <string>
 
+#include "Source/AllocatorData.hpp"
+#include "Source/Assert.hpp"
+#include "Source/MemoryManager.hpp"
+#include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/TypeAliases.hpp"
 
 namespace Memarena
 {
 
-class MemoryManager;
 struct AllocatorData;
 
 namespace Internal
 {
+
 class Allocator
 {
   public:
@@ -22,23 +27,25 @@ class Allocator
     Allocator& operator=(const Allocator&) = delete;
     Allocator& operator=(Allocator&&) = delete;
 
-    [[nodiscard]] Size        GetUsedSize() const;
-    [[nodiscard]] Size        GetTotalSize() const;
-    [[nodiscard]] std::string GetDebugName() const;
+    [[nodiscard]] Size        GetUsedSize() const { return m_Data->usedSize; }
+    [[nodiscard]] Size        GetTotalSize() const { return m_Data->totalSize; }
+    [[nodiscard]] std::string GetDebugName() const { return m_Data->debugName; }
 
   protected:
-    Allocator(Size totalSize, const std::shared_ptr<MemoryManager>& memoryManager, const std::string& debugName);
+    Allocator(Size totalSize, const std::string& debugName, bool isMemoryTrackingEnabled);
 
     ~Allocator();
 
-    [[nodiscard]] const void* GetStartPtr() const { return m_StartPtr; }
-    void                      SetUsedSize(Size size);
-    [[nodiscard]] bool        OwnsAddress(UIntPtr address) const;
+    [[nodiscard]] inline const void* GetStartPtr() const { return m_StartPtr; }
+
+    void SetUsedSize(Size size);
+
+    inline static MemoryManager s_MemoryManager; // the memory manager that this allocator will report the memory usage to
 
   private:
-    std::shared_ptr<MemoryManager> m_MemoryManager; // the memory manager that this allocator will report the memory usage to
     void*                          m_StartPtr = nullptr;
     std::shared_ptr<AllocatorData> m_Data;
+    bool                           m_IsMemoryTrackingEnabled;
 };
 
 } // namespace Internal

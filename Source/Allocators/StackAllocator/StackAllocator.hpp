@@ -16,15 +16,12 @@ namespace Memarena
 
 namespace Internal
 {
-struct SafeHeaderBase
-{
-    Offset endOffset;
 
-    explicit SafeHeaderBase(Offset _endOffset) : endOffset(_endOffset) {}
-};
-struct UnsafeHeaderBase
+struct StackHeaderLite
 {
-    explicit UnsafeHeaderBase(Offset _endOffset) {}
+    Offset startOffset;
+
+    StackHeaderLite(Offset _startOffset, Offset /*_endOffset*/) : startOffset(_startOffset) {}
 };
 
 struct StackHeader
@@ -95,16 +92,14 @@ template <StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
 class StackAllocator : public Internal::Allocator
 {
   private:
-    using HeaderBase = typename std::conditional<PolicyContains(policy, StackAllocatorPolicy::StackCheck), Internal::SafeHeaderBase,
-                                                 Internal::UnsafeHeaderBase>::type;
+    static constexpr bool IsStackCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::StackCheck);
+    static constexpr bool IsBoundsCheckEnabled    = PolicyContains(policy, StackAllocatorPolicy::BoundsCheck);
+    static constexpr bool IsNullCheckEnabled      = PolicyContains(policy, StackAllocatorPolicy::NullCheck);
+    static constexpr bool IsSizeCheckEnabled      = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
+    static constexpr bool IsOwnershipCheckEnabled = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
+    static constexpr bool IsMemoryTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::MemoryTracking);
 
-    struct InplaceHeader : public HeaderBase
-    {
-        Offset startOffset;
-
-        InplaceHeader(Offset _startOffset, Offset _endOffset) : HeaderBase(_endOffset), startOffset(_startOffset) {}
-    };
-
+    using InplaceHeader      = typename std::conditional<IsStackCheckEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
     using Header             = Internal::StackHeader;
     using InplaceArrayHeader = Internal::StackArrayHeader;
     using ArrayHeader        = Internal::StackArrayHeader;
@@ -124,14 +119,15 @@ class StackAllocator : public Internal::Allocator
     StackAllocator& operator=(const StackAllocator&) = delete;
     StackAllocator& operator=(StackAllocator&&) = delete;
 
-    explicit StackAllocator(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr,
-                            const std::string& debugName = "StackAllocator")
-        : Internal::Allocator(totalSize, memoryManager, debugName), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr())),
+    explicit StackAllocator(const Size totalSize, const std::string& debugName = "StackAllocator")
+        : Internal::Allocator(totalSize, debugName, IsMemoryTrackingEnabled), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr())),
           m_EndAddress(m_StartAddress + totalSize)
     {
     }
 
     ~StackAllocator() = default;
+
+    friend bool operator==(const StackAllocator& s1, const StackAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
 
     template <typename Object, typename... Args>
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackPtr<Object> New(Args&&... argList)
@@ -262,7 +258,11 @@ class StackAllocator : public Internal::Allocator
      * allocated by this allocator.
      *
      */
-    inline void Reset() { SetCurrentOffset(0); };
+    inline void Reset()
+    {
+        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
+        SetCurrentOffset(0);
+    };
 
   private:
     template <Size headerSize>
@@ -291,13 +291,13 @@ class StackAllocator : public Internal::Allocator
 
         Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
-        if constexpr (PolicyContains(policy, StackAllocatorPolicy::SizeCheck))
+        if constexpr (IsSizeCheckEnabled)
         {
             MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator %s is out of memory!\n",
                             GetDebugName().c_str());
         }
 
-        if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
+        if constexpr (IsBoundsCheckEnabled)
         {
             totalSizeAfterAllocation += sizeof(BoundGuardBack);
 
@@ -324,13 +324,13 @@ class StackAllocator : public Internal::Allocator
 
         const Offset newOffset = header.startOffset;
 
-        if constexpr (PolicyContains(policy, StackAllocatorPolicy::StackCheck))
+        if constexpr (IsStackCheckEnabled)
         {
             MEMARENA_ASSERT(header.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
                             GetDebugName().c_str());
         }
 
-        if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
+        if constexpr (IsBoundsCheckEnabled)
         {
             const UIntPtr          frontGuardAddress = addressMarker - sizeof(BoundGuardFront);
             const BoundGuardFront* frontGuard        = std::bit_cast<BoundGuardFront*>(frontGuardAddress);
@@ -348,14 +348,14 @@ class StackAllocator : public Internal::Allocator
 
     UIntPtr GetAddressFromPtr(const void* ptr) const
     {
-        if constexpr (PolicyContains(policy, StackAllocatorPolicy::NullCheck))
+        if constexpr (IsNullCheckEnabled)
         {
             MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
         }
 
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
-        if constexpr (PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck))
+        if constexpr (IsOwnershipCheckEnabled)
         {
             MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(),
                             address);
@@ -367,7 +367,7 @@ class StackAllocator : public Internal::Allocator
     template <Size headerSize>
     static consteval Size GetTotalHeaderSize()
     {
-        if constexpr (PolicyContains(policy, StackAllocatorPolicy::BoundsCheck))
+        if constexpr (IsBoundsCheckEnabled)
         {
             return headerSize + sizeof(BoundGuardFront);
         }
@@ -391,101 +391,4 @@ class StackAllocator : public Internal::Allocator
     UIntPtr m_EndAddress;
     Offset  m_CurrentOffset = 0;
 };
-
-template <typename Object, StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
-class StackAllocatorTemplated
-{
-  public:
-    StackAllocatorTemplated()                               = delete;
-    StackAllocatorTemplated(StackAllocatorTemplated&)       = delete;
-    StackAllocatorTemplated(const StackAllocatorTemplated&) = delete;
-    StackAllocatorTemplated(StackAllocatorTemplated&&)      = delete;
-    StackAllocatorTemplated& operator=(const StackAllocatorTemplated&) = delete;
-    StackAllocatorTemplated& operator=(StackAllocatorTemplated&&) = delete;
-
-    explicit StackAllocatorTemplated(const Size totalSize, const std::shared_ptr<MemoryManager> memoryManager = nullptr,
-                                     const std::string& debugName = "StackAllocator")
-        : m_StackAllocator(totalSize, memoryManager, debugName)
-    {
-    }
-
-    ~StackAllocatorTemplated() = default;
-
-    template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackPtr<Object> New(Args&&... argList)
-    {
-        return m_StackAllocator.template New<Object>(std::forward<Args>(argList)...);
-    }
-
-    template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
-    {
-        return m_StackAllocator.template NewRaw<Object>(std::forward<Args>(argList)...);
-    }
-
-    void Delete(StackPtr<Object> ptr) { m_StackAllocator.Delete(ptr); }
-
-    void Delete(Object* ptr) { m_StackAllocator.Delete(ptr); }
-
-    template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
-    {
-        return m_StackAllocator.template NewArray<Object>(objectCount, std::forward<Args>(argList)...);
-    }
-
-    template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewArrayRaw(const Size objectCount, Args&&... argList)
-    {
-        return m_StackAllocator.template NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
-    }
-
-    void DeleteArray(Object* ptr) { m_StackAllocator.DeleteArray(ptr); }
-
-    void DeleteArray(StackArrayPtr<Object> ptr) { m_StackAllocator.DeleteArray(ptr); }
-
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
-    {
-        return m_StackAllocator.Allocate(size, alignment);
-    }
-
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate() { return m_StackAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object))); }
-
-    void Deallocate(void* ptr) { m_StackAllocator.Deallocate(ptr); }
-
-    void Deallocate(const StackPtr<void>& ptr) { m_StackAllocator.Deallocate(ptr); }
-
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
-    {
-        return m_StackAllocator.AllocateArray(objectCount, objectSize, alignment);
-    }
-
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount)
-    {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
-    }
-
-    Size DeallocateArray(void* ptr, const Size objectSize) { return m_StackAllocator.DeallocateArray(ptr, objectSize); }
-
-    Size DeallocateArray(const StackArrayPtr<void>& ptr, const Size objectSize)
-    {
-        return m_StackAllocator.DeallocateArray(ptr, objectSize);
-    }
-
-    /**
-     * @brief Resets the allocator to its initial state. Any further allocations
-     * will possibly overwrite all object allocated prior to calling this method.
-     * So make sure to only call this when you don't need any objects previously
-     * allocated by this allocator.
-     *
-     */
-    inline void Reset() { m_StackAllocator.Reset(); }
-
-    [[nodiscard]] Size        GetUsedSize() const {return m_StackAllocator.GetUsedSize();}
-    [[nodiscard]] Size        GetTotalSize() const{return m_StackAllocator.GetTotalSize();}
-    [[nodiscard]] std::string GetDebugName() const{return m_StackAllocator.GetDebugName();}
-
-  private:
-    StackAllocator<policy> m_StackAllocator;
-};
-
 } // namespace Memarena

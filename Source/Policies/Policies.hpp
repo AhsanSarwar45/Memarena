@@ -7,60 +7,90 @@
 namespace Memarena
 {
 
-enum class AllocatorPolicy : UInt32
+template <typename Enum>
+struct IsPolicy
 {
-    SizeCheck     = Bit(0),
-    Multithreaded = Bit(1),
+    static const bool value = false;
 };
 
-template <typename Enum>
-constexpr bool PolicyContains(Enum policy, Enum value)
+#define MARK_AS_POLICY(x)               \
+    ENABLE_BITMASK_OPERATORS(x)         \
+    template <>                         \
+    struct IsPolicy<x>                  \
+    {                                   \
+        static const bool value = true; \
+    };
+
+#define ALLOCATOR_POLICIES Empty = 0, SizeCheck = Bit(30), Multithreaded = Bit(29), MemoryTracking = Bit(28)
+
+enum class AllocatorPolicy : UInt32
 {
-    using UnderlyingType = typename std::underlying_type<Enum>::type;
-    return static_cast<UnderlyingType>(policy) & static_cast<UnderlyingType>(value);
+    ALLOCATOR_POLICIES,
+
+    Mask = SizeCheck | Multithreaded | MemoryTracking
+};
+
+MARK_AS_POLICY(AllocatorPolicy);
+
+template <typename Policy, typename Value>
+constexpr bool PolicyContains(Policy policy, Value value)
+{
+    return static_cast<typename std::underlying_type<Policy>::type>(policy) &
+           static_cast<typename std::underlying_type<Value>::type>(value);
 }
 
-template <typename Enum>
-constexpr bool PolicyContains(Enum policy, AllocatorPolicy value)
-{
-    using UnderlyingType = typename std::underlying_type<Enum>::type;
-    return static_cast<UnderlyingType>(policy) & static_cast<UnderlyingType>(value);
-}
-
-template <typename Enum>
-constexpr UInt32 PolicyToInt(Enum policy)
+template <typename Policy>
+constexpr UInt32 PolicyToInt(Policy policy)
 {
     return static_cast<UInt32>(policy);
 }
 
+template <typename Policy>
+constexpr AllocatorPolicy ToAllocatorPolicy(Policy policy)
+{
+    return static_cast<AllocatorPolicy>(policy) & AllocatorPolicy::Mask;
+}
+
 enum class StackAllocatorPolicy : UInt32
 {
-    Empty          = 0,
-    SizeCheck      = PolicyToInt(AllocatorPolicy::SizeCheck),
-    Multithreaded  = PolicyToInt(AllocatorPolicy::Multithreaded),
-    NullCheck      = Bit(2),
-    OwnershipCheck = Bit(3),
-    BoundsCheck    = Bit(4),
-    StackCheck     = Bit(5),
+    ALLOCATOR_POLICIES,
 
-    Default = NullCheck | OwnershipCheck | SizeCheck,
+    NullCheck      = Bit(0),
+    OwnershipCheck = Bit(1),
+    BoundsCheck    = Bit(2),
+    StackCheck     = Bit(3),
+
+    Default = NullCheck | OwnershipCheck | SizeCheck | StackCheck | MemoryTracking,
     Release = Empty,
-    Debug   = NullCheck | OwnershipCheck | SizeCheck | StackCheck | BoundsCheck,
+    Debug   = NullCheck | OwnershipCheck | SizeCheck | StackCheck | BoundsCheck | MemoryTracking,
 };
 
-ENABLE_BITMASK_OPERATORS(StackAllocatorPolicy)
+MARK_AS_POLICY(StackAllocatorPolicy);
+
+enum class PoolAllocatorPolicy : UInt32
+{
+    ALLOCATOR_POLICIES,
+
+    NullCheck      = Bit(0),
+    OwnershipCheck = Bit(1),
+    BoundsCheck    = Bit(2),
+
+    Default = NullCheck | OwnershipCheck | SizeCheck | MemoryTracking,
+    Release = Empty,
+    Debug   = NullCheck | OwnershipCheck | SizeCheck | BoundsCheck | MemoryTracking,
+};
+
+MARK_AS_POLICY(PoolAllocatorPolicy);
 
 enum class LinearAllocatorPolicy : UInt32
 {
-    Empty         = 0,
-    SizeCheck     = PolicyToInt(AllocatorPolicy::SizeCheck),
-    Multithreaded = PolicyToInt(AllocatorPolicy::Multithreaded),
+    ALLOCATOR_POLICIES,
 
     Default = SizeCheck,
     Release = Empty,
     Debug   = SizeCheck,
 };
 
-ENABLE_BITMASK_OPERATORS(LinearAllocatorPolicy)
+MARK_AS_POLICY(LinearAllocatorPolicy);
 
 } // namespace Memarena

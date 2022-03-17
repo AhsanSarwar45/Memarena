@@ -1,6 +1,7 @@
 #pragma once
 
-#include <bit>
+#include <bit>     // std::bit_cast
+#include <utility> //std::forward
 
 #include "Source/TypeAliases.hpp"
 
@@ -17,7 +18,7 @@ Object* ConstructArray(void* voidPtr, const Offset objectCount, Args&&... argLis
     Object* currentPtr = firstPtr;
     Object* lastPtr    = firstPtr + (objectCount - 1);
 
-    while (currentPtr <= lastPtr)
+    while (currentPtr != lastPtr + 1)
     {
         new (currentPtr++) Object(std::forward<Args>(argList)...);
     }
