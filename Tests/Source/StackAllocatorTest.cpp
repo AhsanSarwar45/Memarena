@@ -7,6 +7,7 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/AllocatorData.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -14,7 +15,7 @@ using namespace Memarena::SizeLiterals;
 class StackAllocatorTest : public ::testing::Test
 {
   protected:
-    void SetUp() override {}
+    void SetUp() override { MemoryTracker::Reset(); }
     void TearDown() override {}
 
     StackAllocator<> stackAllocator = StackAllocator<>(10_MB);
@@ -301,9 +302,9 @@ TEST_F(StackAllocatorTest, Templated)
 
 TEST_F(StackAllocatorTest, PMR)
 {
-    StackAllocatorPMR stackAllocatorPMR{10_MB};
+    StackAllocatorPMR stackAllocatorPMR{100};
 
-    auto vec = std::pmr::vector<int>(0, &stackAllocatorPMR);
+    auto vec = std::pmr::vector<int>(&stackAllocatorPMR);
 
     vec.reserve(3);
 
@@ -316,13 +317,14 @@ TEST_F(StackAllocatorTest, PMR)
     EXPECT_EQ(vec[2], 2);
 }
 
-void ThreadFunction(StackAllocator<StackAllocatorPolicy::Multithreaded>& stackAllocator)
+template <StackAllocatorPolicy policy>
+void ThreadFunction(StackAllocator<policy>& stackAllocator)
 {
     std::vector<StackPtr<TestObject>> objects;
 
     for (size_t i = 0; i < 10000; i++)
     {
-        StackPtr<TestObject> testObject = stackAllocator.New<TestObject>(1, 1.5f, 'a', false, 2.5f);
+        StackPtr<TestObject> testObject = stackAllocator.template New<TestObject>(1, 1.5f, 'a', false, 2.5f);
         EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5f));
 
         objects.push_back(testObject);
@@ -331,12 +333,14 @@ void ThreadFunction(StackAllocator<StackAllocatorPolicy::Multithreaded>& stackAl
 
 TEST_F(StackAllocatorTest, NewMultithreaded)
 {
-    StackAllocator<StackAllocatorPolicy::Multithreaded> stackAllocator2{sizeof(TestObject) * 5 * 10000};
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::Multithreaded;
 
-    std::thread thread1(&ThreadFunction, std::ref(stackAllocator2));
-    std::thread thread2(&ThreadFunction, std::ref(stackAllocator2));
-    std::thread thread3(&ThreadFunction, std::ref(stackAllocator2));
-    std::thread thread4(&ThreadFunction, std::ref(stackAllocator2));
+    StackAllocator<policy> stackAllocator2{sizeof(TestObject) * 5 * 10000};
+
+    std::thread thread1(&ThreadFunction<policy>, std::ref(stackAllocator2));
+    std::thread thread2(&ThreadFunction<policy>, std::ref(stackAllocator2));
+    std::thread thread3(&ThreadFunction<policy>, std::ref(stackAllocator2));
+    std::thread thread4(&ThreadFunction<policy>, std::ref(stackAllocator2));
 
     thread1.join();
     thread2.join();

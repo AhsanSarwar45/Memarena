@@ -16,11 +16,12 @@ namespace Memarena
 {
 
 template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
-class LinearAllocator : public Internal::Allocator
+class LinearAllocator : public Allocator
 {
   private:
-    static constexpr bool IsSizeCheckEnabled      = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
-    static constexpr bool IsMemoryTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::MemoryTracking);
+    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
+    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::UsageTracking);
+    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::AllocationTracking);
 
     using ThreadPolicy = MultithreadedPolicy<policy>;
 
@@ -38,7 +39,7 @@ class LinearAllocator : public Internal::Allocator
     LinearAllocator& operator=(LinearAllocator&&) = delete;
 
     explicit LinearAllocator(const Size totalSize, const std::string& debugName = "LinearAllocator")
-        : Internal::Allocator(totalSize, debugName, IsMemoryTrackingEnabled), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr()))
+        : Allocator(totalSize, debugName), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr()))
     {
     }
 
@@ -58,7 +59,8 @@ class LinearAllocator : public Internal::Allocator
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+                                                        const SourceLocation& sourceLocation = SourceLocation::current())
     {
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
@@ -77,25 +79,34 @@ class LinearAllocator : public Internal::Allocator
 
         SetCurrentOffset(totalSizeAfterAllocation);
 
+        if (IsAllocationTrackingEnabled)
+        {
+            AddAllocation(size, category, sourceLocation);
+        }
+
         return std::bit_cast<void*>(alignedAddress);
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate()
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const std::string&    category       = "",
+                                                        const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return Allocate(sizeof(Object), AlignOf(alignof(Object)));
+        return Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
+                                                             const std::string&    category       = "",
+                                                             const SourceLocation& sourceLocation = SourceLocation::current())
     {
         const Size allocationSize = objectCount * objectSize;
-        return Allocate(allocationSize, alignment);
+        return Allocate(allocationSize, alignment, category, sourceLocation);
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                                             const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
+        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
 
     /**
@@ -113,7 +124,11 @@ class LinearAllocator : public Internal::Allocator
     void SetCurrentOffset(const Offset offset)
     {
         m_CurrentOffset = offset;
-        SetUsedSize(offset);
+
+        if (IsUsageTrackingEnabled)
+        {
+            SetUsedSize(offset);
+        }
     }
 
     ThreadPolicy m_MultithreadedPolicy;

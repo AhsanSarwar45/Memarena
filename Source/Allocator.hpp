@@ -6,7 +6,7 @@
 
 #include "Source/AllocatorData.hpp"
 #include "Source/Assert.hpp"
-#include "Source/MemoryManager.hpp"
+#include "Source/MemoryTracker.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/TypeAliases.hpp"
 
@@ -14,9 +14,6 @@ namespace Memarena
 {
 
 struct AllocatorData;
-
-namespace Internal
-{
 
 class Allocator
 {
@@ -27,28 +24,27 @@ class Allocator
     Allocator& operator=(const Allocator&) = delete;
     Allocator& operator=(Allocator&&) = delete;
 
-    [[nodiscard]] Size        GetUsedSize() const { return m_Data->usedSize; }
-    [[nodiscard]] Size        GetTotalSize() const { return m_Data->totalSize; }
-    [[nodiscard]] std::string GetDebugName() const { return m_Data->debugName; }
+    [[nodiscard]] inline Size        GetUsedSize() const { return m_Data->usedSize; }
+    [[nodiscard]] inline Size        GetTotalSize() const { return m_TotalSize; }
+    [[nodiscard]] inline std::string GetDebugName() const { return m_DebugName; }
 
   protected:
-    Allocator(Size totalSize, const std::string& debugName, bool isMemoryTrackingEnabled);
+    Allocator(Size totalSize, const std::string& debugName);
 
     ~Allocator();
 
     [[nodiscard]] inline const void* GetStartPtr() const { return m_StartPtr; }
 
-    void SetUsedSize(Size size);
-
-    inline static MemoryManager s_MemoryManager; // the memory manager that this allocator will report the memory usage to
+    void        SetUsedSize(Size size);
+    void        AddAllocation(Size size, const std::string& category, const SourceLocation& sourceLocation = SourceLocation::current());
+    inline void AddDeallocation() { m_Data->deallocationCount++; }
 
   private:
+    Size                           m_TotalSize;
+    std::string                    m_DebugName;
     void*                          m_StartPtr = nullptr;
     std::shared_ptr<AllocatorData> m_Data;
-    bool                           m_IsMemoryTrackingEnabled;
 };
-
-} // namespace Internal
 
 template <typename T>
 class Ptr

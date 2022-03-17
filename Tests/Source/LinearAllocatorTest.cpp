@@ -100,13 +100,14 @@ TEST_F(LinearAllocatorTest, GetUsedSizeNewArray)
     EXPECT_EQ(linearAllocator.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
 }
 
-void ThreadFunction(LinearAllocator<LinearAllocatorPolicy::Multithreaded>& linearAllocator)
+template <LinearAllocatorPolicy policy>
+void ThreadFunction(LinearAllocator<policy>& linearAllocator)
 {
     std::vector<TestObject*> objects;
 
     for (size_t i = 0; i < 10000; i++)
     {
-        TestObject* testObject = linearAllocator.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
+        TestObject* testObject = linearAllocator.template NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
         EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5f));
 
         objects.push_back(testObject);
@@ -115,12 +116,14 @@ void ThreadFunction(LinearAllocator<LinearAllocatorPolicy::Multithreaded>& linea
 
 TEST_F(LinearAllocatorTest, NewMultithreaded)
 {
-    LinearAllocator<LinearAllocatorPolicy::Multithreaded> linearAllocator2{sizeof(TestObject) * 5 * 10000};
+    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Multithreaded;
 
-    std::thread thread1(&ThreadFunction, std::ref(linearAllocator2));
-    std::thread thread2(&ThreadFunction, std::ref(linearAllocator2));
-    std::thread thread3(&ThreadFunction, std::ref(linearAllocator2));
-    std::thread thread4(&ThreadFunction, std::ref(linearAllocator2));
+    LinearAllocator<policy> linearAllocator2{sizeof(TestObject) * 5 * 10000};
+
+    std::thread thread1(&ThreadFunction<policy>, std::ref(linearAllocator2));
+    std::thread thread2(&ThreadFunction<policy>, std::ref(linearAllocator2));
+    std::thread thread3(&ThreadFunction<policy>, std::ref(linearAllocator2));
+    std::thread thread4(&ThreadFunction<policy>, std::ref(linearAllocator2));
 
     thread1.join();
     thread2.join();

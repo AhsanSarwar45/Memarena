@@ -21,13 +21,13 @@ struct IsPolicy
         static const bool value = true; \
     };
 
-#define ALLOCATOR_POLICIES Empty = 0, SizeCheck = Bit(30), Multithreaded = Bit(29), MemoryTracking = Bit(28)
+#define ALLOCATOR_POLICIES Empty = 0, SizeCheck = Bit(30), Multithreaded = Bit(29), UsageTracking = Bit(28), AllocationTracking = Bit(27)
 
 enum class AllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
-    Mask = SizeCheck | Multithreaded | MemoryTracking
+    Mask = SizeCheck | Multithreaded | UsageTracking | AllocationTracking
 };
 
 MARK_AS_POLICY(AllocatorPolicy);
@@ -60,9 +60,9 @@ enum class StackAllocatorPolicy : UInt32
     BoundsCheck    = Bit(2),
     StackCheck     = Bit(3),
 
-    Default = NullCheck | OwnershipCheck | SizeCheck | StackCheck | MemoryTracking,
+    Default = NullCheck | OwnershipCheck | SizeCheck | StackCheck | UsageTracking,
     Release = Empty,
-    Debug   = NullCheck | OwnershipCheck | SizeCheck | StackCheck | BoundsCheck | MemoryTracking,
+    Debug   = NullCheck | OwnershipCheck | SizeCheck | StackCheck | UsageTracking | AllocationTracking | BoundsCheck,
 };
 
 MARK_AS_POLICY(StackAllocatorPolicy);
@@ -75,9 +75,9 @@ enum class PoolAllocatorPolicy : UInt32
     OwnershipCheck = Bit(1),
     BoundsCheck    = Bit(2),
 
-    Default = NullCheck | OwnershipCheck | SizeCheck | MemoryTracking,
+    Default = NullCheck | OwnershipCheck | SizeCheck | UsageTracking,
     Release = Empty,
-    Debug   = NullCheck | OwnershipCheck | SizeCheck | BoundsCheck | MemoryTracking,
+    Debug   = NullCheck | OwnershipCheck | SizeCheck | UsageTracking | AllocationTracking | BoundsCheck,
 };
 
 MARK_AS_POLICY(PoolAllocatorPolicy);
@@ -86,9 +86,9 @@ enum class LinearAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
-    Default = SizeCheck,
+    Default = SizeCheck | UsageTracking,
     Release = Empty,
-    Debug   = SizeCheck,
+    Debug   = SizeCheck | UsageTracking | AllocationTracking,
 };
 
 MARK_AS_POLICY(LinearAllocatorPolicy);

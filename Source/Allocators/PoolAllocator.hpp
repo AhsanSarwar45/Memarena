@@ -89,7 +89,7 @@ PoolAllocator<Object, Policy>::PoolAllocator(const char* debugName, Size blockSi
 {
     QMBT_CORE_ASSERT(blockSize > 0, "Block size has to be more than 0!");
 
-    MemoryManager::GetInstance().Register(m_Data);
+    MemoryTracker::GetInstance().Register(m_Data);
 
     m_AllocatedBlocks.push_back(m_CurrentPtr);
 }
@@ -97,7 +97,7 @@ PoolAllocator<Object, Policy>::PoolAllocator(const char* debugName, Size blockSi
 template <typename Object, ResizePolicy Policy>
 PoolAllocator<Object, Policy>::~PoolAllocator()
 {
-    MemoryManager::GetInstance().UnRegister(m_Data);
+    MemoryTracker::GetInstance().UnRegister(m_Data);
     for (auto& ptr : m_AllocatedBlocks)
     {
         free(ptr);
@@ -173,7 +173,7 @@ Chunk* PoolAllocator<Object, Policy>::AllocateBlock(Size chunkSize)
     Chunk* blockBegin = reinterpret_cast<Chunk*>(malloc(blockSize));
 
     m_Data->TotalSize += blockSize;
-    MemoryManager::GetInstance().UpdateTotalSize(blockSize);
+    MemoryTracker::GetInstance().UpdateTotalSize(blockSize);
 
     // Once the block is allocated, we need to chain all
     // the chunks in this block:

@@ -54,25 +54,33 @@ class StackAllocatorTemplated
 
     void DeleteArray(StackArrayPtr<Object> ptr) { m_StackAllocator.DeleteArray(ptr); }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+                                                        const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return m_StackAllocator.Allocate(size, alignment);
+        return m_StackAllocator.Allocate(size, alignment, category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate() { return m_StackAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object))); }
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const std::string&    category       = "",
+                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    {
+        return m_StackAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+    }
 
     void Deallocate(void* ptr) { m_StackAllocator.Deallocate(ptr); }
 
     void Deallocate(const StackPtr<void>& ptr) { m_StackAllocator.Deallocate(ptr); }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
+                                                             const std::string&    category       = "",
+                                                             const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return m_StackAllocator.AllocateArray(objectCount, objectSize, alignment);
+        return m_StackAllocator.AllocateArray(objectCount, objectSize, alignment, category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                                             const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
+        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
 
     Size DeallocateArray(void* ptr, const Size objectSize) { return m_StackAllocator.DeallocateArray(ptr, objectSize); }

@@ -2,27 +2,28 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
-#include "Aliases.hpp"
+#include "TypeAliases.hpp"
 
 namespace Memarena
 {
-struct AllocatorData
+struct AllocationData
 {
-    std::unordered_map<std::string, Size> allocations;
-    std::string                           debugName;
-    Size                                  totalSize = 0;
-    Size                                  usedSize  = 0;
-    Size                                  peakUsage = 0;
-
-    AllocatorData(const std::string& _debugName, Size _totalSize) : debugName(_debugName), totalSize(_totalSize) {}
-    AllocatorData(std::string&& _debugName, Size _totalSize) : debugName(std::move(_debugName)), totalSize(_totalSize) {}
+    SourceLocation sourceLocation;
+    std::string    category;
+    Size           size = 0;
 };
 
-enum class ResizePolicy : UInt8
+struct AllocatorData
 {
-    Fixed,
-    Resizable
+    std::vector<AllocationData> allocations;
+    std::string                 debugName;
+    UInt32                      allocationCount   = 0;
+    UInt32                      deallocationCount = 0;
+    Size                        totalSize         = 0;
+    Size                        usedSize          = 0;
+    Size                        peakUsage         = 0;
 };
 
 } // namespace Memarena

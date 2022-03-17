@@ -35,7 +35,7 @@ add_executable(${PROJECT_NAME}
 "Source/StackAllocatorTest.cpp"
 "Source/LinearAllocatorTest.cpp"
 "Source/AlignmentTest.cpp"
-"Source/MemoryManagerTest.cpp"
+"Source/MemoryTrackerTest.cpp"
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "Source")

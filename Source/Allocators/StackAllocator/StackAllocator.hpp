@@ -8,6 +8,7 @@
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
+#include <experimental/source_location>
 
 #define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
 
@@ -89,15 +90,16 @@ class StackArrayPtr : public Ptr<T>
  * @tparam policy The StackAllocatorPolicy object to define the behaviour of this allocator
  */
 template <StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
-class StackAllocator : public Internal::Allocator
+class StackAllocator : public Allocator
 {
   private:
-    static constexpr bool IsStackCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::StackCheck);
-    static constexpr bool IsBoundsCheckEnabled    = PolicyContains(policy, StackAllocatorPolicy::BoundsCheck);
-    static constexpr bool IsNullCheckEnabled      = PolicyContains(policy, StackAllocatorPolicy::NullCheck);
-    static constexpr bool IsSizeCheckEnabled      = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
-    static constexpr bool IsOwnershipCheckEnabled = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
-    static constexpr bool IsMemoryTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::MemoryTracking);
+    static constexpr bool IsStackCheckEnabled         = PolicyContains(policy, StackAllocatorPolicy::StackCheck);
+    static constexpr bool IsBoundsCheckEnabled        = PolicyContains(policy, StackAllocatorPolicy::BoundsCheck);
+    static constexpr bool IsNullCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::NullCheck);
+    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
+    static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
+    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::UsageTracking);
+    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::AllocationTracking);
 
     using InplaceHeader      = typename std::conditional<IsStackCheckEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
     using Header             = Internal::StackHeader;
@@ -120,8 +122,7 @@ class StackAllocator : public Internal::Allocator
     StackAllocator& operator=(StackAllocator&&) = delete;
 
     explicit StackAllocator(const Size totalSize, const std::string& debugName = "StackAllocator")
-        : Internal::Allocator(totalSize, debugName, IsMemoryTrackingEnabled), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr())),
-          m_EndAddress(m_StartAddress + totalSize)
+        : Allocator(totalSize, debugName), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr())), m_EndAddress(m_StartAddress + totalSize)
     {
     }
 
@@ -188,17 +189,19 @@ class StackAllocator : public Internal::Allocator
         Internal::DestructArray(ptr.GetPtr(), objectCount);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+                                                        const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment);
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment, category, sourceLocation);
         Internal::AllocateHeader<InplaceHeader>(voidPtr, startOffset, endOffset);
         return voidPtr;
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate()
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const std::string&    category       = "",
+                                                        const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return Allocate(sizeof(Object), AlignOf(alignof(Object)));
+        return Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
 
     void Deallocate(void* ptr)
@@ -216,18 +219,22 @@ class StackAllocator : public Internal::Allocator
         DeallocateInternal(currentAddress, currentAddress, ptr.header);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
+                                                             const std::string&    category       = "",
+                                                             const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        const Size allocationSize              = objectCount * objectSize;
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceArrayHeader)>(allocationSize, alignment);
+        const Size allocationSize = objectCount * objectSize;
+        auto [voidPtr, startOffset, endOffset] =
+            AllocateInternal<sizeof(InplaceArrayHeader)>(allocationSize, alignment, category, sourceLocation);
         Internal::AllocateHeader<InplaceArrayHeader>(voidPtr, startOffset, objectCount);
         return voidPtr;
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount)
+    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                                             const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)));
+        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
 
     Size DeallocateArray(void* ptr, const Size objectSize)
@@ -265,8 +272,9 @@ class StackAllocator : public Internal::Allocator
     };
 
   private:
-    template <Size headerSize>
-    std::tuple<void*, Offset, Offset> AllocateInternal(const Size size, const Alignment& alignment)
+    template <Size HeaderSize>
+    std::tuple<void*, Offset, Offset> AllocateInternal(const Size size, const Alignment& alignment, const std::string& category = "",
+                                                       const SourceLocation& sourceLocation = SourceLocation::current())
     {
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
@@ -276,7 +284,7 @@ class StackAllocator : public Internal::Allocator
         Padding padding{0};
         UIntPtr alignedAddress{0};
 
-        constexpr Size totalHeaderSize = GetTotalHeaderSize<headerSize>();
+        constexpr Size totalHeaderSize = GetTotalHeaderSize<HeaderSize>();
 
         if constexpr (totalHeaderSize > 0)
         {
@@ -314,6 +322,11 @@ class StackAllocator : public Internal::Allocator
 
         void* allocatedPtr = std::bit_cast<void*>(alignedAddress);
 
+        if (IsAllocationTrackingEnabled)
+        {
+            AddAllocation(size, category, sourceLocation);
+        }
+
         return {allocatedPtr, startOffset, endOffset};
     }
 
@@ -343,6 +356,11 @@ class StackAllocator : public Internal::Allocator
                             newOffset, address);
         }
 
+        if (IsAllocationTrackingEnabled)
+        {
+            AddDeallocation();
+        }
+
         SetCurrentOffset(newOffset);
     }
 
@@ -350,7 +368,7 @@ class StackAllocator : public Internal::Allocator
     {
         if constexpr (IsNullCheckEnabled)
         {
-            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr!\n");
+            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator %s!\n", GetDebugName().c_str());
         }
 
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
@@ -380,7 +398,11 @@ class StackAllocator : public Internal::Allocator
     void SetCurrentOffset(const Offset offset)
     {
         m_CurrentOffset = offset;
-        SetUsedSize(offset);
+
+        if (IsUsageTrackingEnabled)
+        {
+            SetUsedSize(offset);
+        }
     }
 
     [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
@@ -391,4 +413,7 @@ class StackAllocator : public Internal::Allocator
     UIntPtr m_EndAddress;
     Offset  m_CurrentOffset = 0;
 };
+
+// template <StackAllocatorPolicy policy>
+// function(StackAllocator<>)->function(StackAllocator<policy>);
 } // namespace Memarena
