@@ -25,8 +25,13 @@ class Allocator
     Allocator& operator=(Allocator&&) = delete;
 
     [[nodiscard]] inline Size        GetUsedSize() const { return m_Data->usedSize; }
-    [[nodiscard]] inline Size        GetTotalSize() const { return m_TotalSize; }
-    [[nodiscard]] inline std::string GetDebugName() const { return m_DebugName; }
+    [[nodiscard]] inline Size        GetTotalSize() const { return m_Data->totalSize; }
+    [[nodiscard]] inline Size        GetPeakUsedSize() const { return m_Data->peakUsage; }
+    [[nodiscard]] inline UInt32      GetAllocationCount() const { return m_Data->allocationCount; }
+    [[nodiscard]] inline UInt32      GetDeallocationCount() const { return m_Data->deallocationCount; }
+    [[nodiscard]] inline std::string GetDebugName() const { return m_Data->debugName; }
+
+    [[nodiscard]] inline const std::vector<AllocationData>& GetAllocations() const { return m_Data->allocations; }
 
   protected:
     Allocator(Size totalSize, const std::string& debugName);
@@ -40,8 +45,6 @@ class Allocator
     inline void AddDeallocation() { m_Data->deallocationCount++; }
 
   private:
-    Size                           m_TotalSize;
-    std::string                    m_DebugName;
     void*                          m_StartPtr = nullptr;
     std::shared_ptr<AllocatorData> m_Data;
 };

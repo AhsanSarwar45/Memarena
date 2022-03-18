@@ -8,7 +8,7 @@
 
 namespace Memarena
 {
-Allocator::Allocator(Size totalSize, const std::string& debugName) : m_TotalSize(totalSize), m_DebugName(debugName)
+Allocator::Allocator(Size totalSize, const std::string& debugName)
 {
     MEMARENA_ASSERT(totalSize <= std::numeric_limits<Offset>::max(),
                     "Error: Max size of allocator cannot be more than %d! Value passed was %d.\n", std::numeric_limits<Offset>::max(),
