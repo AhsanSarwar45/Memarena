@@ -99,6 +99,7 @@ class StackAllocator : public Allocator
     static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
     static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
     static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::UsageTracking);
+    static constexpr bool IsMultithreaded             = PolicyContains(policy, StackAllocatorPolicy::Multithreaded);
     static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::AllocationTracking);
 
     using InplaceHeader      = typename std::conditional<IsStackCheckEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
@@ -106,7 +107,7 @@ class StackAllocator : public Allocator
     using InplaceArrayHeader = Internal::StackArrayHeader;
     using ArrayHeader        = Internal::StackArrayHeader;
 
-    using ThreadPolicy = MultithreadedPolicy<policy>;
+    using ThreadPolicy = MultithreadedPolicy<IsMultithreaded>;
 
     template <typename SyncPrimitive>
     using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
@@ -122,11 +123,12 @@ class StackAllocator : public Allocator
     StackAllocator& operator=(StackAllocator&&) = delete;
 
     explicit StackAllocator(const Size totalSize, const std::string& debugName = "StackAllocator")
-        : Allocator(totalSize, debugName), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr())), m_EndAddress(m_StartAddress + totalSize)
+        : Allocator(totalSize, debugName), m_StartPtr(malloc(totalSize)), m_StartAddress(std::bit_cast<UIntPtr>(m_StartPtr)),
+          m_EndAddress(m_StartAddress + totalSize)
     {
     }
 
-    ~StackAllocator() = default;
+    ~StackAllocator() { free(m_StartPtr); };
 
     friend bool operator==(const StackAllocator& s1, const StackAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
 
@@ -259,13 +261,13 @@ class StackAllocator : public Allocator
     }
 
     /**
-     * @brief Resets the allocator to its initial state. Any further allocations
+     * @brief Releases the allocator to its initial state. Any further allocations
      * will possibly overwrite all object allocated prior to calling this method.
      * So make sure to only call this when you don't need any objects previously
      * allocated by this allocator.
      *
      */
-    inline void Reset()
+    inline void Release()
     {
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
         SetCurrentOffset(0);
@@ -409,9 +411,13 @@ class StackAllocator : public Allocator
 
     ThreadPolicy m_MultithreadedPolicy;
 
+    // Dont change member variable declaration order in this block!
+    void*   m_StartPtr = nullptr;
     UIntPtr m_StartAddress;
     UIntPtr m_EndAddress;
-    Offset  m_CurrentOffset = 0;
+    // -------------------
+
+    Offset m_CurrentOffset = 0;
 };
 
 // template <StackAllocatorPolicy policy>

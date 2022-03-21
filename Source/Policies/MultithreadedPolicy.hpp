@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <type_traits>
 
 #include "Policies.hpp"
 
@@ -15,7 +16,7 @@ struct PolicyWrapper
     constexpr PolicyWrapper(PolicyType _policy) : policy(_policy) {}
 };
 
-template <PolicyWrapper policyWrapper>
+template <bool IsMultithreaded, bool IsRecursive = false>
 class MultithreadedPolicy
 {
   private:
@@ -24,6 +25,7 @@ class MultithreadedPolicy
     {
       public:
         explicit DummyGuard(const SyncPrimitive& syncPrimitive) {}
+        void unlock() {}
     };
 
     class DummyMutex
@@ -32,11 +34,11 @@ class MultithreadedPolicy
 
   public:
     template <typename SyncPrimitive>
-    using LockGuard = typename std::conditional<PolicyContains(policyWrapper.policy, AllocatorPolicy::Multithreaded),
-                                                std::lock_guard<SyncPrimitive>, DummyGuard<SyncPrimitive>>::type;
+    using LockGuard = typename std::conditional<
+        IsMultithreaded, typename std::conditional<IsRecursive, std::unique_lock<SyncPrimitive>, std::lock_guard<SyncPrimitive>>::type,
+        DummyGuard<SyncPrimitive>>::type;
 
-    using Mutex =
-        typename std::conditional<PolicyContains(policyWrapper.policy, AllocatorPolicy::Multithreaded), std::mutex, DummyMutex>::type;
+    using Mutex = typename std::conditional<IsMultithreaded, std::mutex, DummyMutex>::type;
 
     Mutex m_Mutex;
 };

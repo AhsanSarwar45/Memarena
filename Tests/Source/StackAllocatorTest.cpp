@@ -350,7 +350,7 @@ TEST_F(StackAllocatorTest, NewMultithreaded)
     EXPECT_EQ(stackAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
-TEST_F(StackAllocatorTest, Reset)
+TEST_F(StackAllocatorTest, Release)
 {
     StackAllocator<> stackAllocator2 = StackAllocator<>(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(8))));
     for (size_t i = 0; i < 10; i++)
@@ -358,7 +358,7 @@ TEST_F(StackAllocatorTest, Reset)
         TestObject* object = CheckNewRaw<TestObject>(stackAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
 
-    stackAllocator2.Reset();
+    stackAllocator2.Release();
 
     for (size_t i = 0; i < 10; i++)
     {
@@ -428,7 +428,7 @@ class StackAllocatorDeathTest : public ::testing::Test
 TEST_F(StackAllocatorDeathTest, MaxSizeAllocation)
 {
     // TODO Write proper exit messages
-    ASSERT_DEATH({ StackAllocator<> stackAllocator2 = StackAllocator<>(std::numeric_limits<Offset>::max() + 1); }, ".*");
+    ASSERT_DEATH({ StackAllocator stackAllocator2{Size(std::numeric_limits<Offset>::max()) + 1}; }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, NewOutOfMemory)

@@ -86,6 +86,8 @@ enum class LinearAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
+    Resizable = Bit(1),
+
     Default = SizeCheck | UsageTracking,
     Release = Empty,
     Debug   = SizeCheck | UsageTracking | AllocationTracking,

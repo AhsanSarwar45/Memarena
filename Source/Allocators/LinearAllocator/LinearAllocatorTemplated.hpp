@@ -59,13 +59,13 @@ class LinearAllocatorTemplated
         return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
     /**
-     * @brief Resets the allocator to its initial state. Any further allocations
+     * @brief Releases the allocator to its initial state. Any further allocations
      * will possibly overwrite all object allocated prior to calling this method.
      * So make sure to only call this when you don't need any objects previously
      * allocated by this allocator.
      *
      */
-    inline void Reset() { m_LinearAllocator.Reset(); }
+    inline void Release() { m_LinearAllocator.Release(); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_LinearAllocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_LinearAllocator.GetTotalSize(); }

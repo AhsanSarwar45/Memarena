@@ -38,14 +38,12 @@ class Allocator
 
     ~Allocator();
 
-    [[nodiscard]] inline const void* GetStartPtr() const { return m_StartPtr; }
-
     void        SetUsedSize(Size size);
+    void        IncreaseTotalSize(Size size) { m_Data->totalSize += size; }
     void        AddAllocation(Size size, const std::string& category, const SourceLocation& sourceLocation = SourceLocation::current());
     inline void AddDeallocation() { m_Data->deallocationCount++; }
 
   private:
-    void*                          m_StartPtr = nullptr;
     std::shared_ptr<AllocatorData> m_Data;
 };
 

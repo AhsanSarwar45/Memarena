@@ -92,28 +92,28 @@ static void StackAllocatorNewDeleteMultithreaded(benchmark::State& state)
 
 BENCHMARK(StackAllocatorNewDeleteMultithreaded);
 
-static void LinearAllocatorNewResetRaw(benchmark::State& state)
+static void LinearAllocatorNewReleaseRaw(benchmark::State& state)
 {
     LinearAllocator<LinearAllocatorPolicy::Release> linearAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
         TestObject* object = linearAllocator.NewRaw<TestObject>(1, 1.5f, 'c', false, 10.5f);
-        linearAllocator.Reset();
+        linearAllocator.Release();
     }
 }
 
-BENCHMARK(LinearAllocatorNewResetRaw);
+BENCHMARK(LinearAllocatorNewReleaseRaw);
 
-static void LinearAllocatorNewResetRawMultithreaded(benchmark::State& state)
+static void LinearAllocatorNewReleaseRawMultithreaded(benchmark::State& state)
 {
     LinearAllocator<LinearAllocatorPolicy::Release | LinearAllocatorPolicy::Multithreaded> linearAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
         TestObject* object = linearAllocator.NewRaw<TestObject>(1, 1.5f, 'c', false, 10.5f);
-        linearAllocator.Reset();
+        linearAllocator.Release();
     }
 }
 
-BENCHMARK(LinearAllocatorNewResetRawMultithreaded);
+BENCHMARK(LinearAllocatorNewReleaseRawMultithreaded);

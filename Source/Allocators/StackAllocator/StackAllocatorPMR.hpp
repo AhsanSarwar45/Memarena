@@ -10,7 +10,7 @@ template <StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
 class StackAllocatorPMR : public std::pmr::memory_resource
 {
   public:
-    explicit StackAllocatorPMR(const Size totalSize, const std::string& debugName = "StackAllocator")
+    explicit StackAllocatorPMR(const Size totalSize, const std::string& debugName = "StackAllocatorPMR")
         : m_StackAllocator(totalSize, debugName)
     {
     }

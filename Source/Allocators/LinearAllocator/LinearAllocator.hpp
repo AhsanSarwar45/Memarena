@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bit>
+#include <vector>
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
@@ -19,11 +20,13 @@ template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
 class LinearAllocator : public Allocator
 {
   private:
-    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
-    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::UsageTracking);
-    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::AllocationTracking);
+    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, LinearAllocatorPolicy::SizeCheck);
+    static constexpr bool IsResizable                 = PolicyContains(policy, LinearAllocatorPolicy::Resizable);
+    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, LinearAllocatorPolicy::UsageTracking);
+    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, LinearAllocatorPolicy::AllocationTracking);
+    static constexpr bool IsMultithreaded             = PolicyContains(policy, LinearAllocatorPolicy::Multithreaded);
 
-    using ThreadPolicy = MultithreadedPolicy<policy>;
+    using ThreadPolicy = MultithreadedPolicy<IsMultithreaded, IsResizable>;
 
     template <typename SyncPrimitive>
     using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
@@ -38,9 +41,10 @@ class LinearAllocator : public Allocator
     LinearAllocator& operator=(const LinearAllocator&) = delete;
     LinearAllocator& operator=(LinearAllocator&&) = delete;
 
-    explicit LinearAllocator(const Size totalSize, const std::string& debugName = "LinearAllocator")
-        : Allocator(totalSize, debugName), m_StartAddress(std::bit_cast<UIntPtr>(GetStartPtr()))
+    explicit LinearAllocator(const Size blockSize, const std::string& debugName = "LinearAllocator")
+        : Allocator(blockSize, debugName), m_BlockSize(blockSize)
     {
+        AllocateBlock();
     }
 
     ~LinearAllocator() = default;
@@ -64,17 +68,27 @@ class LinearAllocator : public Allocator
     {
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
-        const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
+        const UIntPtr baseAddress = m_CurrentStartAddress + m_CurrentOffset;
 
         UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
         Padding padding        = alignedAddress - baseAddress;
 
         Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
-        if constexpr (IsSizeCheckEnabled)
+        if constexpr (IsResizable)
         {
-            MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator %s is out of memory!\n",
-                            GetDebugName().c_str());
+            // TODO: Check if allocation will be more than max possible size
+            if (totalSizeAfterAllocation > m_BlockSize)
+            {
+                AllocateBlock();
+                IncreaseTotalSize(m_BlockSize);
+                guard.unlock();
+                return Allocate(size, alignment, category, sourceLocation);
+            }
+        }
+        else if constexpr (IsSizeCheckEnabled)
+        {
+            MEMARENA_ASSERT(totalSizeAfterAllocation <= m_BlockSize, "Error: The allocator %s is out of memory!\n", GetDebugName().c_str());
         }
 
         SetCurrentOffset(totalSizeAfterAllocation);
@@ -110,11 +124,11 @@ class LinearAllocator : public Allocator
     }
 
     /**
-     * @brief Resets the allocator to its initial state. Since LinearAllocators dont support de-alllocating separate allocation, this is how
-     * you clean the memory
+     * @brief Releases the allocator to its initial state. Since LinearAllocators dont support de-alllocating separate allocation, this is
+     * how you clean the memory
      *
      */
-    inline void Reset()
+    inline void Release()
     {
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
         SetCurrentOffset(0);
@@ -127,13 +141,31 @@ class LinearAllocator : public Allocator
 
         if (IsUsageTrackingEnabled)
         {
-            SetUsedSize(offset);
+            SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize + offset);
+        }
+    }
+
+    inline void AllocateBlock()
+    {
+        void* newBlockPtr = malloc(m_BlockSize);
+        m_BlockPtrs.push_back(newBlockPtr);
+        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back());
+        m_CurrentOffset       = 0;
+
+        if (IsUsageTrackingEnabled)
+        {
+            SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize);
         }
     }
 
     ThreadPolicy m_MultithreadedPolicy;
 
-    UIntPtr m_StartAddress;
-    Offset  m_CurrentOffset = 0;
+    // Dont change member variable declaration order in this block!
+    std::vector<void*> m_BlockPtrs;
+    UIntPtr            m_CurrentStartAddress = 0;
+    // ---------------------------------------
+
+    Size   m_BlockSize;
+    Offset m_CurrentOffset = 0;
 };
 } // namespace Memarena

@@ -64,7 +64,7 @@ TEST_F(LinearAllocatorTest, RawNewMixed)
     TestObject* arr2    = CheckNewArrayRaw<TestObject>(linearAllocator, 10, 1, 2.1f, 'a', false, 10.6f);
 }
 
-TEST_F(LinearAllocatorTest, Reset)
+TEST_F(LinearAllocatorTest, Release)
 {
     LinearAllocator<> linearAllocator2 = LinearAllocator<>(10 * sizeof(TestObject));
     for (size_t i = 0; i < 10; i++)
@@ -72,7 +72,7 @@ TEST_F(LinearAllocatorTest, Reset)
         TestObject* object = CheckNewRaw<TestObject>(linearAllocator2, i, i + 1.5f, 'a' + i, i % 2, i + 2.5f);
     }
 
-    linearAllocator2.Reset();
+    linearAllocator2.Release();
 
     for (size_t i = 0; i < 10; i++)
     {
@@ -114,7 +114,7 @@ void ThreadFunction(LinearAllocator<policy>& linearAllocator)
     }
 }
 
-TEST_F(LinearAllocatorTest, NewMultithreaded)
+TEST_F(LinearAllocatorTest, Multithreaded)
 {
     constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Multithreaded;
 
@@ -133,19 +133,35 @@ TEST_F(LinearAllocatorTest, NewMultithreaded)
     EXPECT_EQ(linearAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
+TEST_F(LinearAllocatorTest, Resizable)
+{
+    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Resizable;
+
+    LinearAllocator<policy> linearAllocator2{sizeof(TestObject) * 2};
+
+    const int numObjects = 10;
+    for (size_t i = 0; i < numObjects; i++)
+    {
+        TestObject* testObject = linearAllocator2.NewRaw<TestObject>(1, 1.5f, 'a', false, 2.5f);
+        EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
+    }
+
+    EXPECT_EQ(linearAllocator2.GetUsedSize(), (sizeof(TestObject) * 10));
+}
+
 TEST_F(LinearAllocatorTest, Templated)
 {
-    LinearAllocatorTemplated<TestObject> LinearAllocatorTemplated{10_KB};
+    LinearAllocatorTemplated<TestObject> linearAllocatorTemplated{10_KB};
 
-    TestObject* testObject = LinearAllocatorTemplated.NewRaw(1, 1.5f, 'a', false, 2.5f);
+    TestObject* testObject = linearAllocatorTemplated.NewRaw(1, 1.5f, 'a', false, 2.5f);
     EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
 
-    TestObject* testObject3 = LinearAllocatorTemplated.NewArrayRaw(10, 1, 1.5f, 'a', false, 2.5f);
+    TestObject* testObject3 = linearAllocatorTemplated.NewArrayRaw(10, 1, 1.5f, 'a', false, 2.5f);
     EXPECT_EQ(*testObject, TestObject(1, 1.5f, 'a', false, 2.5f));
 
-    LinearAllocatorTemplated.Reset();
+    linearAllocatorTemplated.Release();
 
-    EXPECT_EQ(LinearAllocatorTemplated.GetUsedSize(), 0);
+    EXPECT_EQ(linearAllocatorTemplated.GetUsedSize(), 0);
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS
@@ -162,7 +178,7 @@ class LinearAllocatorDeathTest : public ::testing::Test
 TEST_F(LinearAllocatorDeathTest, MaxSizeAllocation)
 {
     // TODO Write proper exit messages
-    ASSERT_DEATH({ LinearAllocator<> linearAllocator2 = LinearAllocator<>(std::numeric_limits<Offset>::max() + 1); }, ".*");
+    ASSERT_DEATH({ LinearAllocator linearAllocator2{Size(std::numeric_limits<Offset>::max()) + 1}; }, ".*");
 }
 
 TEST_F(LinearAllocatorDeathTest, NewOutOfMemory)
