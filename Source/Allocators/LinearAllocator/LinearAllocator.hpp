@@ -66,32 +66,35 @@ class LinearAllocator : public Allocator
     [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
                                                         const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
+        UIntPtr alignedAddress = 0;
 
-        const UIntPtr baseAddress = m_CurrentStartAddress + m_CurrentOffset;
-
-        UIntPtr alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
-        Padding padding        = alignedAddress - baseAddress;
-
-        Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
-
-        if constexpr (IsResizable)
         {
-            // TODO: Check if allocation will be more than max possible size
-            if (totalSizeAfterAllocation > m_BlockSize)
+            LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
+
+            const UIntPtr baseAddress = m_CurrentStartAddress + m_CurrentOffset;
+            alignedAddress            = CalculateAlignedAddress(baseAddress, alignment);
+            const Padding padding     = alignedAddress - baseAddress;
+
+            Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
+            SetCurrentOffset(totalSizeAfterAllocation);
+
+            if constexpr (IsResizable)
             {
-                AllocateBlock();
-                IncreaseTotalSize(m_BlockSize);
-                guard.unlock();
-                return Allocate(size, alignment, category, sourceLocation);
+                // TODO: Check if allocation will be more than max possible size
+                if (totalSizeAfterAllocation > m_BlockSize)
+                {
+                    AllocateBlock();
+                    IncreaseTotalSize(m_BlockSize);
+                    guard.unlock();
+                    return Allocate(size, alignment, category, sourceLocation);
+                }
+            }
+            else if constexpr (IsSizeCheckEnabled)
+            {
+                MEMARENA_ASSERT(totalSizeAfterAllocation <= m_BlockSize, "Error: The allocator %s is out of memory!\n",
+                                GetDebugName().c_str());
             }
         }
-        else if constexpr (IsSizeCheckEnabled)
-        {
-            MEMARENA_ASSERT(totalSizeAfterAllocation <= m_BlockSize, "Error: The allocator %s is out of memory!\n", GetDebugName().c_str());
-        }
-
-        SetCurrentOffset(totalSizeAfterAllocation);
 
         if (IsAllocationTrackingEnabled)
         {
