@@ -8,7 +8,7 @@
 
 using namespace Memarena;
 
-TEST(PolicyTest, CombinePolicy){StackAllocatorPolicy policy = }
+// TEST(PolicyTest, CombinePolicy){StackAllocatorPolicy policy = }
 
 TEST(AlignmentTest, IsAlignmentValid)
 {

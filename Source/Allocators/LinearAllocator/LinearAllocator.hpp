@@ -7,6 +7,7 @@
 #include "Source/AllocatorData.hpp"
 #include "Source/AllocatorUtils.hpp"
 #include "Source/Assert.hpp"
+#include "Source/Macros.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
@@ -14,6 +15,12 @@
 namespace Memarena
 {
 
+/**
+ * @brief A custom memory allocator that cannot deallocate individual allocations. To free allocations, you must
+ *       free the entire arena by calling `Release`.
+ *
+ * @tparam policy
+ */
 template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
 class LinearAllocator : public Allocator
 {
@@ -67,6 +74,7 @@ class LinearAllocator : public Allocator
         UIntPtr alignedAddress = 0;
 
         {
+            // Scope to release the lock after the allocation
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
             const UIntPtr baseAddress = m_CurrentStartAddress + m_CurrentOffset;
@@ -123,7 +131,7 @@ class LinearAllocator : public Allocator
     }
 
     /**
-     * @brief Releases the allocator to its initial state. Since LinearAllocators dont support de-alllocating separate allocation, this is
+     * @brief Releases the allocator to its initial state. Since LinearAllocators dont support de-allocating separate allocation, this is
      * how you clean the memory
      *
      */

@@ -15,97 +15,18 @@
 namespace Memarena
 {
 
-namespace Internal
-{
-
-struct StackHeaderLite
-{
-    Offset startOffset;
-
-    StackHeaderLite(Offset _startOffset, Offset /*_endOffset*/) : startOffset(_startOffset) {}
-};
-
-struct StackHeader
-{
-    Offset startOffset;
-    Offset endOffset;
-
-    StackHeader(Offset _startOffset, Offset _endOffset) : startOffset(_startOffset), endOffset(_endOffset) {}
-};
-
-struct StackArrayHeader
-{
-    Offset startOffset;
-    Offset count;
-
-    StackArrayHeader(Offset _startOffset, Offset _count) : startOffset(_startOffset), count(_count) {}
-};
-} // namespace Internal
-
-template <typename T>
-class StackPtr : public Ptr<T>
-{
-    template <StackAllocatorPolicy policy>
-    friend class StackAllocator;
-
-  public:
-  private:
-    inline StackPtr(T* _ptr, const Internal::StackHeader& _header) : Ptr<T>(_ptr), header(_header) {}
-    inline StackPtr(T* _ptr, Offset startOffset, Offset endOffset) : Ptr<T>(_ptr), header(startOffset, endOffset) {}
-
-    Internal::StackHeader header;
-};
-
-template <typename T>
-class StackArrayPtr : public Ptr<T>
-{
-    template <StackAllocatorPolicy policy>
-    friend class StackAllocator;
-
-  public:
-    [[nodiscard]] inline Size GetCount() const { return header.count; }
-    T                         operator[](int index) const { return this->GetPtr()[index]; }
-
-  private:
-    StackArrayPtr(T* _ptr, const Internal::StackArrayHeader& _header) : Ptr<T>(_ptr), header(_header) {}
-    StackArrayPtr(T* _ptr, Offset startOffset, Offset endOffset) : Ptr<T>(_ptr), header(startOffset, endOffset) {}
-
-    Internal::StackArrayHeader header;
-};
-
-/**
- * @brief A custom memory allocator which allocates in a stack-like manner.
- * All the memory will be allocated up-front. This means it will have
- * zero allocations during runtime. This also means that it will take the same
- * amount of memory whether it is full or empty. Allocations and Deallocations
- * also need to be done in a stack-like manner. It is the responsibility of the
- * user to make sure that deallocations happen in an order that is the reverse
- * of the allocation order. If a pointer p1 that was not allocated last is deallocated,
- * future allocations will overwrite the memory of all allocations that were made
- * between the allocation and deallocation of p1.
- *
- * Space complexity is O(N*H) --> O(N) where H is the Header size and N is the number of allocations
- * Allocation and deallocation complexity: O(1)
- *
- * @tparam policy The `StackAllocatorPolicy`mjn object to define the behaviour of this allocator
- */
-template <StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
-class StackAllocator : public Allocator
+template <PoolAllocatorPolicy policy = PoolAllocatorPolicy::Default>
+class PoolAllocator : public Allocator
 {
   private:
-    static constexpr bool IsStackCheckEnabled         = PolicyContains(policy, StackAllocatorPolicy::StackCheck);
-    static constexpr bool IsBoundsCheckEnabled        = PolicyContains(policy, StackAllocatorPolicy::BoundsCheck);
-    static constexpr bool IsNullCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::NullCheck);
-    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
-    static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
-    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::UsageTracking);
-    static constexpr bool IsMultithreaded             = PolicyContains(policy, StackAllocatorPolicy::Multithreaded);
-    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::AllocationTracking);
-
-    using InplaceHeader      = typename std::conditional<IsStackCheckEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
-    using Header             = Internal::StackHeader;
-    using InplaceArrayHeader = Internal::StackArrayHeader;
-    using ArrayHeader        = Internal::StackArrayHeader;
+    static constexpr bool IsPoolCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::PoolCheck);
+    static constexpr bool IsBoundsCheckEnabled        = PolicyContains(policy, PoolAllocatorPolicy::BoundsCheck);
+    static constexpr bool IsNullCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::NullCheck);
+    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::SizeCheck);
+    static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, PoolAllocatorPolicy::OwnershipCheck);
+    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, PoolAllocatorPolicy::UsageTracking);
+    static constexpr bool IsMultithreaded             = PolicyContains(policy, PoolAllocatorPolicy::Multithreaded);
+    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, PoolAllocatorPolicy::AllocationTracking);
 
     using ThreadPolicy = MultithreadedPolicy<IsMultithreaded>;
 
@@ -115,29 +36,29 @@ class StackAllocator : public Allocator
 
   public:
     // Prohibit default construction, moving and assignment
-    StackAllocator()                      = delete;
-    StackAllocator(StackAllocator&)       = delete;
-    StackAllocator(const StackAllocator&) = delete;
-    StackAllocator(StackAllocator&&)      = delete;
-    StackAllocator& operator=(const StackAllocator&) = delete;
-    StackAllocator& operator=(StackAllocator&&) = delete;
+    PoolAllocator()                     = delete;
+    PoolAllocator(PoolAllocator&)       = delete;
+    PoolAllocator(const PoolAllocator&) = delete;
+    PoolAllocator(PoolAllocator&&)      = delete;
+    PoolAllocator& operator=(const PoolAllocator&) = delete;
+    PoolAllocator& operator=(PoolAllocator&&) = delete;
 
-    explicit StackAllocator(const Size totalSize, const std::string& debugName = "StackAllocator")
+    explicit PoolAllocator(const Size totalSize, const std::string& debugName = "PoolAllocator")
         : Allocator(totalSize, debugName), m_StartPtr(malloc(totalSize)), m_StartAddress(std::bit_cast<UIntPtr>(m_StartPtr)),
           m_EndAddress(m_StartAddress + totalSize)
     {
     }
 
-    ~StackAllocator() { free(m_StartPtr); };
+    ~PoolAllocator() { free(m_StartPtr); };
 
-    friend bool operator==(const StackAllocator& s1, const StackAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
+    friend bool operator==(const PoolAllocator& s1, const PoolAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
 
     template <typename Object, typename... Args>
-    NO_DISCARD StackPtr<Object> New(Args&&... argList)
+    NO_DISCARD PoolPtr<Object> New(Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
         Object* objectPtr                      = new (voidPtr) Object(std::forward<Args>(argList)...);
-        return StackPtr<Object>(objectPtr, startOffset, endOffset);
+        return PoolPtr<Object>(objectPtr, startOffset, endOffset);
     }
 
     template <typename Object, typename... Args>
@@ -149,9 +70,9 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object>
-    void Delete(StackPtr<Object> ptr)
+    void Delete(PoolPtr<Object> ptr)
     {
-        Deallocate(StackPtr<void>(ptr.GetPtr(), ptr.header));
+        Deallocate(PoolPtr<void>(ptr.GetPtr(), ptr.header));
         ptr->~Object();
     }
 
@@ -163,11 +84,11 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object, typename... Args>
-    NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
+    NO_DISCARD PoolArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
-        return StackArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
-                                     objectCount);
+        return PoolArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
+                                    objectCount);
     }
 
     template <typename Object, typename... Args>
@@ -185,9 +106,9 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object>
-    void DeleteArray(StackArrayPtr<Object> ptr)
+    void DeleteArray(PoolArrayPtr<Object> ptr)
     {
-        const Size objectCount = DeallocateArray(StackArrayPtr<void>(ptr.GetPtr(), ptr.header), sizeof(Object));
+        const Size objectCount = DeallocateArray(PoolArrayPtr<void>(ptr.GetPtr(), ptr.header), sizeof(Object));
         Internal::DestructArray(ptr.GetPtr(), objectCount);
     }
 
@@ -213,7 +134,7 @@ class StackAllocator : public Allocator
         DeallocateInternal(currentAddress, addressMarker, header);
     }
 
-    void Deallocate(const StackPtr<void>& ptr)
+    void Deallocate(const PoolPtr<void>& ptr)
     {
         const void*   voidPtr        = ptr.GetPtr();
         const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
@@ -248,7 +169,7 @@ class StackAllocator : public Allocator
         return header.count;
     }
 
-    Size DeallocateArray(const StackArrayPtr<void>& ptr, const Size objectSize)
+    Size DeallocateArray(const PoolArrayPtr<void>& ptr, const Size objectSize)
     {
         const void*   voidPtr        = ptr.GetPtr();
         const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
@@ -337,9 +258,9 @@ class StackAllocator : public Allocator
 
         const Offset newOffset = header.startOffset;
 
-        if constexpr (IsStackCheckEnabled)
+        if constexpr (IsPoolCheckEnabled)
         {
-            MEMARENA_ASSERT(header.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
+            MEMARENA_ASSERT(header.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the Pool allocator %s!\n",
                             GetDebugName().c_str());
         }
 
@@ -418,6 +339,6 @@ class StackAllocator : public Allocator
     Offset m_CurrentOffset = 0;
 };
 
-// template <StackAllocatorPolicy policy>
-// function(StackAllocator<>)->function(StackAllocator<policy>);
+// template <PoolAllocatorPolicy policy>
+// function(PoolAllocator<>)->function(PoolAllocator<policy>);
 } // namespace Memarena
