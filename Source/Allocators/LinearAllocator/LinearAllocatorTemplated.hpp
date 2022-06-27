@@ -23,38 +23,36 @@ class LinearAllocatorTemplated
     ~LinearAllocatorTemplated() = default;
 
     template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
+    NO_DISCARD Object* NewRaw(Args&&... argList)
     {
         return m_LinearAllocator.template NewRaw<Object>(std::forward<Args>(argList)...);
     }
 
     template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         return m_LinearAllocator.template NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+                              const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_LinearAllocator.Allocate(size, alignment, category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const std::string&    category       = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_LinearAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
-                                                             const std::string&    category       = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
+                                   const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_LinearAllocator.AllocateArray(objectCount, objectSize, alignment, category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const std::string& category = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }

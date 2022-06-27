@@ -11,8 +11,6 @@
 #include "Source/Policies/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
 
-#define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
-
 namespace Memarena
 {
 
@@ -50,21 +48,21 @@ class LinearAllocator : public Allocator
     ~LinearAllocator() = default;
 
     template <typename Object, typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
+    NO_DISCARD Object* NewRaw(Args&&... argList)
     {
         void* voidPtr = Allocate<Object>();
         return new (voidPtr) Object(std::forward<Args>(argList)...);
     }
 
     template <typename Object, typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         void* voidPtr = AllocateArray<Object>(objectCount);
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+                              const SourceLocation& sourceLocation = SourceLocation::current())
     {
         UIntPtr alignedAddress = 0;
 
@@ -80,7 +78,7 @@ class LinearAllocator : public Allocator
 
             if constexpr (IsResizable)
             {
-                // TODO: Check if allocation will be more than max possible size
+                // TODO(Ahsan): Check if allocation will be more than max possible size
                 if (totalSizeAfterAllocation > m_BlockSize)
                 {
                     AllocateBlock();
@@ -105,23 +103,21 @@ class LinearAllocator : public Allocator
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const std::string&    category       = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
-                                                             const std::string&    category       = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
+                                   const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         const Size allocationSize = objectCount * objectSize;
         return Allocate(allocationSize, alignment, category, sourceLocation);
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const std::string& category = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }

@@ -23,13 +23,13 @@ class StackAllocatorTemplated
     ~StackAllocatorTemplated() = default;
 
     template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackPtr<Object> New(Args&&... argList)
+    NO_DISCARD StackPtr<Object> New(Args&&... argList)
     {
         return m_StackAllocator.template New<Object>(std::forward<Args>(argList)...);
     }
 
     template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
+    NO_DISCARD Object* NewRaw(Args&&... argList)
     {
         return m_StackAllocator.template NewRaw<Object>(std::forward<Args>(argList)...);
     }
@@ -39,13 +39,13 @@ class StackAllocatorTemplated
     void Delete(Object* ptr) { m_StackAllocator.Delete(ptr); }
 
     template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
+    NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
         return m_StackAllocator.template NewArray<Object>(objectCount, std::forward<Args>(argList)...);
     }
 
     template <typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         return m_StackAllocator.template NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
     }
@@ -54,14 +54,13 @@ class StackAllocatorTemplated
 
     void DeleteArray(StackArrayPtr<Object> ptr) { m_StackAllocator.DeleteArray(ptr); }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+                              const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_StackAllocator.Allocate(size, alignment, category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const std::string&    category       = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_StackAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
@@ -70,15 +69,14 @@ class StackAllocatorTemplated
 
     void Deallocate(const StackPtr<void>& ptr) { m_StackAllocator.Deallocate(ptr); }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
-                                                             const std::string&    category       = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
+                                   const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_StackAllocator.AllocateArray(objectCount, objectSize, alignment, category, sourceLocation);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const std::string& category = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }

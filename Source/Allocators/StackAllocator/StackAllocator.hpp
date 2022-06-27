@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Macros.hpp"
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/AllocatorUtils.hpp"
@@ -9,8 +10,6 @@
 #include "Source/Policies/Policies.hpp"
 #include "Source/Utility/Alignment.hpp"
 #include <experimental/source_location>
-
-#define NO_DISCARD_ALLOC_INFO "Not using the pointer returned will cause a soft memory leak!"
 
 namespace Memarena
 {
@@ -133,7 +132,7 @@ class StackAllocator : public Allocator
     friend bool operator==(const StackAllocator& s1, const StackAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
 
     template <typename Object, typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackPtr<Object> New(Args&&... argList)
+    NO_DISCARD StackPtr<Object> New(Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
         Object* objectPtr                      = new (voidPtr) Object(std::forward<Args>(argList)...);
@@ -141,7 +140,7 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object, typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewRaw(Args&&... argList)
+    NO_DISCARD Object* NewRaw(Args&&... argList)
     {
         void*   voidPtr   = Allocate<Object>();
         Object* objectPtr = new (voidPtr) Object(std::forward<Args>(argList)...);
@@ -163,7 +162,7 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object, typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
+    NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
         return StackArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
@@ -171,7 +170,7 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object, typename... Args>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         void* voidPtr = AllocateArray<Object>(objectCount);
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
@@ -191,8 +190,8 @@ class StackAllocator : public Allocator
         Internal::DestructArray(ptr.GetPtr(), objectCount);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+                              const SourceLocation& sourceLocation = SourceLocation::current())
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment, category, sourceLocation);
         Internal::AllocateHeader<InplaceHeader>(voidPtr, startOffset, endOffset);
@@ -200,8 +199,7 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* Allocate(const std::string&    category       = "",
-                                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
@@ -221,9 +219,8 @@ class StackAllocator : public Allocator
         DeallocateInternal(currentAddress, currentAddress, ptr.header);
     }
 
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
-                                                             const std::string&    category       = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
+                                   const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         const Size allocationSize = objectCount * objectSize;
         auto [voidPtr, startOffset, endOffset] =
@@ -233,8 +230,8 @@ class StackAllocator : public Allocator
     }
 
     template <typename Object>
-    [[nodiscard(NO_DISCARD_ALLOC_INFO)]] void* AllocateArray(const Size objectCount, const std::string& category = "",
-                                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
     }
