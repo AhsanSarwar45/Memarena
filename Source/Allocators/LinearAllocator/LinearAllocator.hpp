@@ -113,7 +113,7 @@ class LinearAllocator : public Allocator
     template <typename Object>
     NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return Allocate(sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
     NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
@@ -127,7 +127,7 @@ class LinearAllocator : public Allocator
     NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
                                    const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
     /**

@@ -7,6 +7,7 @@ Checks: >
   cppcoreguidelines-*,
   -cppcoreguidelines-no-malloc,
   -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-macro-usage,
   misc-*,
   modernize-*,
   -modernize-use-trailing-return-type,

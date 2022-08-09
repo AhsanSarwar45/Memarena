@@ -42,7 +42,7 @@ class LinearAllocatorTemplated
 
     NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return m_LinearAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return m_LinearAllocator.Allocate(sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
     NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
@@ -54,7 +54,7 @@ class LinearAllocatorTemplated
     NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
                                    const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
     /**
      * @brief Releases the allocator to its initial state. Any further allocations

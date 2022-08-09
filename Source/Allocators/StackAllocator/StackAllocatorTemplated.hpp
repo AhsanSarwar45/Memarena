@@ -62,7 +62,7 @@ class StackAllocatorTemplated
 
     NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return m_StackAllocator.Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return m_StackAllocator.Allocate(sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
     void Deallocate(void* ptr) { m_StackAllocator.Deallocate(ptr); }
@@ -78,7 +78,7 @@ class StackAllocatorTemplated
     NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
                                    const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
     Size DeallocateArray(void* ptr, const Size objectSize) { return m_StackAllocator.DeallocateArray(ptr, objectSize); }

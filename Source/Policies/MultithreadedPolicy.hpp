@@ -13,7 +13,7 @@ struct PolicyWrapper
 {
     PolicyType policy;
 
-    constexpr PolicyWrapper(PolicyType _policy) : policy(_policy) {}
+    constexpr explicit PolicyWrapper(PolicyType _policy) : policy(_policy) {}
 };
 
 template <bool IsMultithreaded, bool IsRecursive = false>

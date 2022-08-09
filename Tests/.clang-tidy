@@ -2,19 +2,10 @@ Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
-  google-*,
   clang-analyzer-*,
-  cppcoreguidelines-*,
-  -cppcoreguidelines-no-malloc,
-  -cppcoreguidelines-owning-memory,
-  -cppcoreguidelines-avoid-magic-numbers
-  misc-*,
   modernize-*,
   -modernize-use-trailing-return-type,
   -modernize-use-auto,
-  performance-*,
-  portability-*,
-  readability-*,
 
 CheckOptions:
     - key: bugprone-argument-comment.StrictMode

@@ -21,14 +21,17 @@ struct IsPolicy
         static const bool value = true; \
     };
 
-#define ALLOCATOR_POLICIES                                                                                \
-    Empty = 0, SizeCheck = Bit(30), /* Check if the allocator has sufficient space when allocating */     \
-        Multithreaded = Bit(29),    /* Make allocations thread-safe. This will also make them blocking */ \
-        UsageTracking = Bit(28),    /* Track the amount of space used by this allocator */                \
-        AllocationTracking = Bit(27) /* Track the amount of allocations and deallocations of this allocator */ \  
+#define ALLOCATOR_POLICIES                                                                                  \
+    Empty = 0, SizeCheck = Bit(30),   /* Check if the allocator has sufficient space when allocating */     \
+        Multithreaded      = Bit(29), /* Make allocations thread-safe. This will also make them blocking */ \
+        UsageTracking      = Bit(28), /* Track the amount of space used by this allocator */                \
+        AllocationTracking = Bit(27)  /* Track the amount of allocations and deallocations of this allocator */
 
 enum class AllocatorPolicy : UInt32
-{ALLOCATOR_POLICIES, Mask = SizeCheck | Multithreaded | UsageTracking | AllocationTracking};
+{
+    ALLOCATOR_POLICIES,
+    Mask = SizeCheck | Multithreaded | UsageTracking | AllocationTracking
+};
 
 MARK_AS_POLICY(AllocatorPolicy);
 

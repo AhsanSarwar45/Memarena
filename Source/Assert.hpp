@@ -27,9 +27,13 @@
     #endif
 #else
     #ifndef MEMARENA_ASSERT
-        #define MEMARENA_ASSERT(x, ...)
+        #define MEMARENA_ASSERT(x, ...) \
+            {                           \
+            }
     #endif
     #ifndef MEMARENA_BARE_ASSERT
-        #define MEMARENA_BARE_ASSERT(x, ...)
+        #define MEMARENA_BARE_ASSERT(x, ...) \
+            {                                \
+            }
     #endif
 #endif //  QMBT_ENABLE_ASSERTS

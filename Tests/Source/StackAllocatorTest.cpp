@@ -35,7 +35,7 @@ Object* CheckNewArrayRaw(StackAllocator<>& allocator, size_t objectCount, Args&&
 {
     Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
 
-    for (size_t i = 0; i < objectCount; i++)
+    for (int i = 0; i < objectCount; i++)
     {
         EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
     }
@@ -57,7 +57,7 @@ Memarena::StackArrayPtr<Object> CheckNewArray(StackAllocator<>& allocator, size_
 {
     Memarena::StackArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);
 
-    for (size_t i = 0; i < objectCount; i++)
+    for (int i = 0; i < objectCount; i++)
     {
         EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
     }
@@ -70,11 +70,11 @@ TEST_F(StackAllocatorTest, RawNewSingleObject) { CheckNewRaw<TestObject>(stackAl
 
 TEST_F(StackAllocatorTest, RawNewMultipleObjects)
 {
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
     }
@@ -92,24 +92,25 @@ TEST_F(StackAllocatorTest, RawNewDeleteMultipleObjects)
     std::vector<TestObject*>  objects1;
     std::vector<TestObject2*> objects2;
 
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        TestObject* object =
+            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
 
         objects1.push_back(object);
     }
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         TestObject2* object = CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2});
 
         objects2.push_back(object);
     }
 
-    for (int i = objects2.size() - 1; i >= 0; i--)
+    for (int i = static_cast<int>(objects2.size()) - 1; i >= 0; i--)
     {
         stackAllocator.Delete(objects2[i]);
     }
-    for (int i = objects1.size() - 1; i >= 0; i--)
+    for (int i = static_cast<int>(objects1.size()) - 1; i >= 0; i--)
     {
         stackAllocator.Delete(objects1[i]);
     }
@@ -126,13 +127,14 @@ TEST_F(StackAllocatorTest, RawNewDeleteNewSingleObject)
 
 TEST_F(StackAllocatorTest, RawNewDeleteNewMultipleObjects)
 {
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        TestObject* object =
+            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
 
         stackAllocator.Delete(object);
     }
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         TestObject2* object = CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
 
@@ -176,11 +178,12 @@ TEST_F(StackAllocatorTest, NewSingleObject) { StackPtr object = CheckNew<TestObj
 
 TEST_F(StackAllocatorTest, NewMultipleObjects)
 {
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        StackPtr<TestObject> object =
+            CheckNew<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
     }
@@ -198,24 +201,25 @@ TEST_F(StackAllocatorTest, NewDeleteMultipleObjects)
     std::vector<StackPtr<TestObject>>  objects1;
     std::vector<StackPtr<TestObject2>> objects2;
 
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        StackPtr<TestObject> object =
+            CheckNew<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
 
         objects1.push_back(object);
     }
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
 
         objects2.push_back(object);
     }
 
-    for (int i = objects2.size() - 1; i >= 0; i--)
+    for (int i = static_cast<int>(objects2.size()) - 1; i >= 0; i--)
     {
         stackAllocator.Delete(objects2[i]);
     }
-    for (int i = objects1.size() - 1; i >= 0; i--)
+    for (int i = static_cast<int>(objects1.size()) - 1; i >= 0; i--)
     {
         stackAllocator.Delete(objects1[i]);
     }
@@ -232,13 +236,14 @@ TEST_F(StackAllocatorTest, NewDeleteNewSingleObject)
 
 TEST_F(StackAllocatorTest, NewDeleteNewMultipleObjects)
 {
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        StackPtr<TestObject> object =
+            CheckNew<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
 
         stackAllocator.Delete(object);
     }
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
 
@@ -322,7 +327,7 @@ void ThreadFunction(StackAllocator<policy>& stackAllocator)
 {
     std::vector<StackPtr<TestObject>> objects;
 
-    for (size_t i = 0; i < 10000; i++)
+    for (int i = 0; i < 10000; i++)
     {
         StackPtr<TestObject> testObject = stackAllocator.template New<TestObject>(1, 1.5F, 'a', false, 2.5F);
         EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
@@ -353,25 +358,28 @@ TEST_F(StackAllocatorTest, NewMultithreaded)
 TEST_F(StackAllocatorTest, Release)
 {
     StackAllocator<> stackAllocator2 = StackAllocator<>(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(8))));
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        TestObject* object = CheckNewRaw<TestObject>(stackAllocator2, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        TestObject* object =
+            CheckNewRaw<TestObject>(stackAllocator2, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
 
     stackAllocator2.Release();
 
-    for (size_t i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++)
     {
-        TestObject* object = CheckNewRaw<TestObject>(stackAllocator2, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        TestObject* object =
+            CheckNewRaw<TestObject>(stackAllocator2, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
 }
 
 TEST_F(StackAllocatorTest, GetUsedSizeNew)
 {
     const int numObjects = 10;
-    for (size_t i = 0; i < numObjects; i++)
+    for (int i = 0; i < numObjects; i++)
     {
-        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        TestObject* object =
+            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
 
     EXPECT_EQ(stackAllocator.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(8))));
@@ -381,9 +389,10 @@ TEST_F(StackAllocatorTest, GetUsedSizeNewDelete)
 {
     const int                numObjects = 10;
     std::vector<TestObject*> objects;
-    for (size_t i = 0; i < numObjects; i++)
+    for (int i = 0; i < numObjects; i++)
     {
-        TestObject* object = CheckNewRaw<TestObject>(stackAllocator, i, i + 1.5F, 'a' + i, i % 2, i + 2.5F);
+        TestObject* object =
+            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
         objects.push_back(object);
     }
 

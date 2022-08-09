@@ -135,7 +135,7 @@ class StackAllocator : public Allocator
     template <typename Object, typename... Args>
     NO_DISCARD StackPtr<Object> New(Args&&... argList)
     {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), alignof(Object));
         Object* objectPtr                      = new (voidPtr) Object(std::forward<Args>(argList)...);
         return StackPtr<Object>(objectPtr, startOffset, endOffset);
     }
@@ -165,7 +165,7 @@ class StackAllocator : public Allocator
     template <typename Object, typename... Args>
     NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), alignof(Object));
         return StackArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
                                      objectCount);
     }
@@ -202,7 +202,7 @@ class StackAllocator : public Allocator
     template <typename Object>
     NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return Allocate(sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
     void Deallocate(void* ptr)
@@ -234,7 +234,7 @@ class StackAllocator : public Allocator
     NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
                                    const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
     Size DeallocateArray(void* ptr, const Size objectSize)
