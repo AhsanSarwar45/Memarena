@@ -15,7 +15,7 @@ class StackAllocatorPMR : public std::pmr::memory_resource
     {
     }
     void*              do_allocate(size_t bytes, size_t alignment) override { return m_StackAllocator.Allocate(bytes, alignment); }
-    void               do_deallocate(void* ptr, size_t bytes, size_t alignment) override { m_StackAllocator.Deallocate(ptr); }
+    void               do_deallocate(void* ptr, size_t /*bytes*/, size_t /*alignment*/) override { m_StackAllocator.Deallocate(ptr); }
     [[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
 
   private:
