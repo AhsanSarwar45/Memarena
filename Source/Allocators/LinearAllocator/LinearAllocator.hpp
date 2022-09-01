@@ -10,7 +10,7 @@
 #include "Source/Macros.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
-#include "Source/Utility/Alignment.hpp"
+#include "Source/Utility/Alignment/Alignment.hpp"
 
 namespace Memarena
 {
@@ -26,12 +26,12 @@ class LinearAllocator : public Allocator
 {
   private:
     static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, LinearAllocatorPolicy::SizeCheck);
-    static constexpr bool IsResizable                 = PolicyContains(policy, LinearAllocatorPolicy::Resizable);
+    static constexpr bool IsGrowable                  = PolicyContains(policy, LinearAllocatorPolicy::Growable);
     static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, LinearAllocatorPolicy::UsageTracking);
     static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, LinearAllocatorPolicy::AllocationTracking);
     static constexpr bool IsMultithreaded             = PolicyContains(policy, LinearAllocatorPolicy::Multithreaded);
 
-    using ThreadPolicy = MultithreadedPolicy<IsMultithreaded, IsResizable>;
+    using ThreadPolicy = MultithreadedPolicy<IsMultithreaded, IsGrowable>;
 
     template <typename SyncPrimitive>
     using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
@@ -46,13 +46,19 @@ class LinearAllocator : public Allocator
     LinearAllocator& operator=(const LinearAllocator&) = delete;
     LinearAllocator& operator=(LinearAllocator&&) = delete;
 
-    explicit LinearAllocator(const Size blockSize, const std::string& debugName = "LinearAllocator")
+    explicit LinearAllocator(Size blockSize, const std::string& debugName = "LinearAllocator")
         : Allocator(blockSize, debugName), m_BlockSize(blockSize)
     {
         AllocateBlock();
     }
 
-    ~LinearAllocator() = default;
+    ~LinearAllocator()
+    {
+        for (auto& blockPtr : m_BlockPtrs)
+        {
+            free(blockPtr);
+        }
+    };
 
     template <typename Object, typename... Args>
     NO_DISCARD Object* NewRaw(Args&&... argList)
@@ -84,7 +90,7 @@ class LinearAllocator : public Allocator
             Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
             SetCurrentOffset(totalSizeAfterAllocation);
 
-            if constexpr (IsResizable)
+            if constexpr (IsGrowable)
             {
                 // TODO(Ahsan): Check if allocation will be more than max possible size
                 if (totalSizeAfterAllocation > m_BlockSize)
@@ -97,7 +103,7 @@ class LinearAllocator : public Allocator
             }
             else if constexpr (IsSizeCheckEnabled)
             {
-                MEMARENA_ASSERT(totalSizeAfterAllocation <= m_BlockSize, "Error: The allocator %s is out of memory!\n",
+                MEMARENA_ASSERT(totalSizeAfterAllocation <= m_BlockSize, "Error: The allocator '%s' is out of memory!\n",
                                 GetDebugName().c_str());
             }
         }
@@ -138,7 +144,7 @@ class LinearAllocator : public Allocator
     inline void Release()
     {
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
-        SetCurrentOffset(0);
+        DeallocateBlocks();
     };
 
   private:
@@ -163,6 +169,24 @@ class LinearAllocator : public Allocator
         {
             SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize);
         }
+    }
+
+    // Deallocates all but the first block
+    inline void DeallocateBlocks()
+    {
+        while (m_BlockPtrs.size() > 1)
+        {
+            FreeLastBlock();
+        }
+
+        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back());
+        SetCurrentOffset(0);
+    }
+
+    inline void FreeLastBlock()
+    {
+        free(m_BlockPtrs.back());
+        m_BlockPtrs.pop_back();
     }
 
     ThreadPolicy m_MultithreadedPolicy;

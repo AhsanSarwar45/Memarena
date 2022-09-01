@@ -13,6 +13,31 @@ struct TestObject
     auto operator<=>(const TestObject&) const = default;
 
     TestObject(int _a, float _b, char _c, bool _d, float _e) : a(_a), b(_b), c(_c), d(_d), e(_e) {}
+    TestObject() = default;
+    // TestObject(const TestObject& other)
+    // {
+    //     a = other.a;
+    //     b = other.b;
+    //     c = other.c;
+    //     d = other.d;
+    //     e = other.e;
+    // }
+    // TestObject(TestObject& other)
+    // {
+    //     a = other.a;
+    //     b = other.b;
+    //     c = other.c;
+    //     d = other.d;
+    //     e = other.e;
+    // }
+    // TestObject(TestObject&& other)
+    // {
+    //     a = other.a;
+    //     b = other.b;
+    //     c = other.c;
+    //     d = other.d;
+    //     e = other.e;
+    // }
 };
 
 struct Pair

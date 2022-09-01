@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../Aliases.hpp"
-#include "../TypeAliases.hpp"
+#include "Source/Aliases.hpp"
+#include "Source/TypeAliases.hpp"
 
 namespace Memarena
 {

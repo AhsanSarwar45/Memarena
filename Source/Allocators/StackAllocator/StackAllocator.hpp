@@ -10,7 +10,7 @@
 #include "Source/Policies/BoundsCheckPolicy.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
-#include "Source/Utility/Alignment.hpp"
+#include "Source/Utility/Alignment/Alignment.hpp"
 
 namespace Memarena
 {
@@ -301,7 +301,7 @@ class StackAllocator : public Allocator
 
         if constexpr (IsSizeCheckEnabled)
         {
-            MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator %s is out of memory!\n",
+            MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator '%s' is out of memory!\n",
                             GetDebugName().c_str());
         }
 
@@ -339,8 +339,8 @@ class StackAllocator : public Allocator
 
         if constexpr (IsStackCheckEnabled)
         {
-            MEMARENA_ASSERT(header.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the stack allocator %s!\n",
-                            GetDebugName().c_str());
+            MEMARENA_ASSERT(header.endOffset == m_CurrentOffset,
+                            "Error: Attempt to deallocate in wrong order in the stack allocator '%s'!\n", GetDebugName().c_str());
         }
 
         if constexpr (IsBoundsCheckEnabled)
@@ -352,7 +352,7 @@ class StackAllocator : public Allocator
             const BoundGuardBack* backGuard        = std::bit_cast<BoundGuardBack*>(backGuardAddress);
 
             MEMARENA_ASSERT(frontGuard->offset == newOffset && backGuard->offset == newOffset,
-                            "Error: Memory stomping detected in allocator %s at offset %d and address %d!\n", GetDebugName().c_str(),
+                            "Error: Memory stomping detected in allocator '%s' at offset %d and address %d!\n", GetDebugName().c_str(),
                             newOffset, address);
         }
 
@@ -368,14 +368,14 @@ class StackAllocator : public Allocator
     {
         if constexpr (IsNullCheckEnabled)
         {
-            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator %s!\n", GetDebugName().c_str());
+            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }
 
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
         if constexpr (IsOwnershipCheckEnabled)
         {
-            MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(),
+            MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(),
                             address);
         }
 

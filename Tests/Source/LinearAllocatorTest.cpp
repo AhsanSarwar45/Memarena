@@ -1,11 +1,15 @@
 #include <gtest/gtest.h>
 
+#include <memory_resource>
 #include <thread>
 
 #include <Memarena/Memarena.hpp>
+#include <vector>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/Allocators/LinearAllocator/LinearAllocatorPMR.hpp"
+#include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -48,11 +52,11 @@ TEST_F(LinearAllocatorTest, RawNewMultipleObjects)
 {
     for (size_t i = 0; i < 10; i++)
     {
-        CheckNewRaw<TestObject>(linearAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+        CheckNewRaw<TestObject>(linearAllocator, i, 1.5F, 'a' + i, i % 2, 2.5F);
     }
     for (size_t i = 0; i < 10; i++)
     {
-        CheckNewRaw<TestObject2>(linearAllocator, i, static_cast<float>(i) + 1.5, static_cast<float>(i) + 2.5, i % 2, Pair{1, 2.5F});
+        CheckNewRaw<TestObject2>(linearAllocator, i, 1.5, 2.5, i % 2, Pair{1, 2.5F});
     }
 }
 
@@ -69,16 +73,14 @@ TEST_F(LinearAllocatorTest, Release)
     LinearAllocator<> linearAllocator2 = LinearAllocator<>(10 * sizeof(TestObject));
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject* object =
-            CheckNewRaw<TestObject>(linearAllocator2, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+        TestObject* object = CheckNewRaw<TestObject>(linearAllocator2, i, 1.5F, 'a' + i, i % 2, 2.5F);
     }
 
     linearAllocator2.Release();
 
     for (size_t i = 0; i < 10; i++)
     {
-        TestObject* object =
-            CheckNewRaw<TestObject>(linearAllocator2, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+        TestObject* object = CheckNewRaw<TestObject>(linearAllocator2, i, 1.5F, 'a' + i, i % 2, 2.5F);
     }
 }
 
@@ -87,8 +89,7 @@ TEST_F(LinearAllocatorTest, GetUsedSizeNew)
     const int numObjects = 10;
     for (size_t i = 0; i < numObjects; i++)
     {
-        TestObject* object =
-            CheckNewRaw<TestObject>(linearAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+        TestObject* object = CheckNewRaw<TestObject>(linearAllocator, i, 1.5F, 'a' + i, i % 2, 2.5F);
     }
 
     EXPECT_EQ(linearAllocator.GetUsedSize(), numObjects * (sizeof(TestObject)));
@@ -136,9 +137,9 @@ TEST_F(LinearAllocatorTest, Multithreaded)
     EXPECT_EQ(linearAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
-TEST_F(LinearAllocatorTest, Resizable)
+TEST_F(LinearAllocatorTest, Growable)
 {
-    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Resizable;
+    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Growable;
 
     LinearAllocator<policy> linearAllocator2{sizeof(TestObject) * 2};
 
@@ -149,7 +150,20 @@ TEST_F(LinearAllocatorTest, Resizable)
         EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
     }
 
-    EXPECT_EQ(linearAllocator2.GetUsedSize(), (sizeof(TestObject) * 10));
+    EXPECT_EQ(linearAllocator2.GetUsedSize(), sizeof(TestObject) * 10);
+
+    const int blockSize = sizeof(TestObject) * 2 - 4;
+
+    LinearAllocator<policy> linearAllocator3{blockSize};
+
+    for (size_t i = 0; i < numObjects; i++)
+    {
+        TestObject* testObject = linearAllocator3.NewRaw<TestObject>(1, 1.5F, 'a', false, 2.5F);
+        EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
+    }
+
+    EXPECT_EQ(linearAllocator3.GetUsedSize(), blockSize * 9 + static_cast<int>(sizeof(TestObject)));
+    EXPECT_EQ(linearAllocator3.GetTotalSize(), blockSize * 10);
 }
 
 TEST_F(LinearAllocatorTest, Templated)
@@ -165,6 +179,30 @@ TEST_F(LinearAllocatorTest, Templated)
     linearAllocatorTemplated.Release();
 
     EXPECT_EQ(linearAllocatorTemplated.GetUsedSize(), 0);
+}
+
+TEST_F(LinearAllocatorTest, PmrVector)
+{
+    const int blockSize = 10_KB;
+
+    LinearAllocatorPMR linearAllocatorPMR{blockSize};
+
+    auto vec = std::pmr::vector<TestObject>(0, &linearAllocatorPMR);
+
+    const int numIters = 10;
+
+    for (int i = 0; i < numIters; i++)
+    {
+        vec.emplace_back(1, 1.5F, 'a', false, 2.5F);
+    }
+
+    for (int i = 0; i < numIters; i++)
+    {
+        EXPECT_EQ(vec[i], TestObject(1, 1.5F, 'a', false, 2.5F));
+    }
+
+    EXPECT_EQ(linearAllocatorPMR.GetInternalAllocator().GetUsedSize(), 496);
+    EXPECT_EQ(vec.size(), numIters);
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS

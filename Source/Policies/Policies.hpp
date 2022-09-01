@@ -89,7 +89,7 @@ enum class LinearAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
-    Resizable = Bit(1), // Allow the allocator to be resized when memory is exhausted
+    Growable = Bit(0), // Allow the allocator to grow when memory is exhausted
 
     Default = SizeCheck | UsageTracking,
     Release = Empty,

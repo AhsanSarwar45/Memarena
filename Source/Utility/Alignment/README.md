@@ -31,9 +31,13 @@ alignof(uint32_t) // 4 bytes
 alignof(float) // 4 bytes
 alignof(uint64_t) // 8 bytes
 ```
-For a struct, `alignof` returns the alignment requirement of the largest element in the structure.
+For a basic type like `int` or `float`, `alignof` returns the size of the type. For a struct, `alignof` returns the alignment requirement of the largest element in the structure.
 
-An object should always be allocated at an address that is a multiple of its alignment requirement.
+An allocator should have the following properties:
+- Always allocate an object at a address that is a multiple of its alignment requirement.
+- If the current address is not a multiple of the alignment requirement, add padding before the allocation.
+- Always return the aligned address.
+
 
 
 
