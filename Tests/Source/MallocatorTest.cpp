@@ -9,7 +9,6 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
-// #include "Source/Allocators/Mallocator/MallocatorPMR.hpp"
 #include "Source/MemoryTracker.hpp"
 #include "Source/Policies/Policies.hpp"
 
@@ -210,44 +209,43 @@ TEST_F(MallocatorTest, Multithreaded)
     EXPECT_EQ(mallocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
-// TEST_F(MallocatorTest, Templated)
-// {
-//     MallocatorTemplated<TestObject> mallocatorTemplated{10_KB};
+TEST_F(MallocatorTest, Templated)
+{
+    MallocatorTemplated<TestObject> mallocatorTemplated{};
 
-//     MallocPtr<TestObject> testObject = mallocatorTemplated.New(1, 1.5F, 'a', false, 2.5F);
-//     EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
+    MallocPtr<TestObject> testObject = mallocatorTemplated.New(1, 1.5F, 'a', false, 2.5F);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
 
-//     MallocPtr<TestObject> testObject3 = mallocatorTemplated.NewArray(10, 1, 1.5F, 'a', false, 2.5F);
-//     EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
+    MallocArrayPtr<TestObject> testObject3 = mallocatorTemplated.NewArray(10, 1, 1.5F, 'a', false, 2.5F);
+    EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
 
-//     mallocatorTemplated.Release();
+    mallocatorTemplated.Delete(testObject);
+    mallocatorTemplated.DeleteArray(testObject3);
 
-//     EXPECT_EQ(mallocatorTemplated.GetUsedSize(), 0);
-// }
+    EXPECT_EQ(mallocatorTemplated.GetUsedSize(), 0);
+}
 
-// TEST_F(MallocatorTest, PmrVector)
-// {
-//     const int blockSize = 10_KB;
+TEST_F(MallocatorTest, PmrVector)
+{
+    MallocatorPMR mallocatorPMR{};
 
-//     MallocatorPMR mallocatorPMR{blockSize};
+    auto vec = std::pmr::vector<TestObject>(0, &mallocatorPMR);
 
-//     auto vec = std::pmr::vector<TestObject>(0, &mallocatorPMR);
+    const int numIters = 10;
 
-//     const int numIters = 10;
+    for (int i = 0; i < numIters; i++)
+    {
+        vec.emplace_back(1, 1.5F, 'a', false, 2.5F);
+    }
 
-//     for (int i = 0; i < numIters; i++)
-//     {
-//         vec.emplace_back(1, 1.5F, 'a', false, 2.5F);
-//     }
+    for (int i = 0; i < numIters; i++)
+    {
+        EXPECT_EQ(vec[i], TestObject(1, 1.5F, 'a', false, 2.5F));
+    }
 
-//     for (int i = 0; i < numIters; i++)
-//     {
-//         EXPECT_EQ(vec[i], TestObject(1, 1.5F, 'a', false, 2.5F));
-//     }
-
-//     EXPECT_EQ(mallocatorPMR.GetInternalAllocator().GetUsedSize(), 496);
-//     EXPECT_EQ(vec.size(), numIters);
-// }
+    EXPECT_EQ(mallocatorPMR.GetInternalAllocator().GetUsedSize(), 256);
+    EXPECT_EQ(vec.size(), numIters);
+}
 
 TEST_F(MallocatorTest, MemoryTracker)
 {
@@ -281,5 +279,27 @@ class MallocatorDeathTest : public ::testing::Test
 
     Mallocator<> mallocator = Mallocator();
 };
+
+TEST_F(MallocatorDeathTest, DeleteNullptrPointer)
+{
+    constexpr MallocatorPolicy policy = MallocatorPolicy::NullDeallocCheck;
+    Mallocator<policy>         mallocator2{};
+    MallocPtr<int>             ptr{nullptr, 0};
+
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ mallocator2.Delete(ptr); }, ".*");
+}
+
+TEST_F(MallocatorDeathTest, DoubleFree)
+{
+    constexpr MallocatorPolicy policy = MallocatorPolicy::DoubleFreePrevention;
+    Mallocator<policy>         mallocator2{};
+
+    auto ptr = mallocator2.Allocate(4);
+
+    mallocator2.Deallocate(ptr);
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ mallocator2.Deallocate(ptr); }, ".*");
+}
 
 #endif

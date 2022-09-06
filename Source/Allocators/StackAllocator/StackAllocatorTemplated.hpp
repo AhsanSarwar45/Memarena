@@ -15,7 +15,7 @@ class StackAllocatorTemplated
     StackAllocatorTemplated& operator=(const StackAllocatorTemplated&) = delete;
     StackAllocatorTemplated& operator=(StackAllocatorTemplated&&) = delete;
 
-    explicit StackAllocatorTemplated(const Size totalSize, const std::string& debugName = "StackAllocator")
+    explicit StackAllocatorTemplated(const Size totalSize, const std::string& debugName = "StackAllocatorTemplated")
         : m_StackAllocator(totalSize, debugName)
     {
     }

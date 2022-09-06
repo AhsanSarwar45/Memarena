@@ -30,6 +30,10 @@ template <MallocatorPolicy policy = MallocatorPolicy::Default>
 class Mallocator : public Allocator
 {
   private:
+    static constexpr bool IsDoubleFreePreventionEnabled = PolicyContains(policy, MallocatorPolicy::DoubleFreePrevention);
+    static constexpr bool IsNullDeallocCheckEnabled =
+        PolicyContains(policy, MallocatorPolicy::NullDeallocCheck) || IsDoubleFreePreventionEnabled;
+    static constexpr bool IsNullAllocCheckEnabled     = PolicyContains(policy, MallocatorPolicy::NullAllocCheck);
     static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, MallocatorPolicy::AllocationTracking);
     static constexpr bool IsSizeTrackingEnabled       = PolicyContains(policy, MallocatorPolicy::SizeTracking);
     static constexpr bool NeedsMultithreading         = IsAllocationTrackingEnabled || IsSizeTrackingEnabled;
@@ -63,6 +67,7 @@ class Mallocator : public Allocator
         return MallocPtr<Object>(objectPtr, sizeof(Object));
     }
 
+    // TODO: Check if Object not void
     template <typename Object>
     void Delete(MallocPtr<Object> ptr)
     {
@@ -111,8 +116,9 @@ class Mallocator : public Allocator
         return AllocateArray(objectCount, sizeof(Object), category, sourceLocation);
     }
 
-    void Deallocate(MallocPtr<void> ptr) { DeallocateInternal(ptr.GetPtr(), ptr.GetSize()); }
-    void Deallocate(MallocArrayPtr<void> ptr) { DeallocateInternal(ptr.GetPtr(), ptr.GetSize()); }
+    void Deallocate(MallocPtr<void> ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
+    // void Deallocate(void* ptr, Size size) { DeallocateInternal(ptr, size); }
+    void Deallocate(MallocArrayPtr<void> ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
 
     NO_DISCARD BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
     void                              DeallocateBase(BaseAllocatorPtr<void> ptr) final { Deallocate(ptr); }
@@ -122,6 +128,12 @@ class Mallocator : public Allocator
                                       const SourceLocation& sourceLocation = SourceLocation::current())
     {
 
+        void* ptr = malloc(size);
+
+        if constexpr (IsNullAllocCheckEnabled)
+        {
+            MEMARENA_ASSERT(ptr != nullptr, "Error: The allocator '%s' couldn't allocate any memory!\n", GetDebugName().c_str());
+        }
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
@@ -139,9 +151,18 @@ class Mallocator : public Allocator
         return malloc(size);
     }
 
-    void DeallocateInternal(void* ptr, Size size)
+    void DeallocateInternal(Ptr<void> ptr, Size size)
     {
+        if constexpr (IsNullDeallocCheckEnabled)
+        {
+            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
+        }
 
+        free(ptr.GetPtr());
+        if (IsDoubleFreePreventionEnabled)
+        {
+            ptr.Reset();
+        }
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
@@ -156,9 +177,6 @@ class Mallocator : public Allocator
                 DecreaseUsedSize(size);
             }
         }
-        free(ptr);
-        // ptr.Reset();
-        // TODO: implement reset
     }
 
     ThreadPolicy m_MultithreadedPolicy;

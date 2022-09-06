@@ -182,14 +182,17 @@ class LinearAllocator : public Allocator
     // Deallocates all but the first block
     inline void DeallocateBlocks()
     {
-        while (m_BlockPtrs.size() > 1)
+        if constexpr (IsGrowable)
         {
-            FreeLastBlock();
+            while (m_BlockPtrs.size() > 1)
+            {
+                FreeLastBlock();
+            }
+            UpdateTotalSize();
         }
 
-        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr());
+        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs[0].GetPtr());
 
-        UpdateTotalSize();
         SetCurrentOffset(0);
     }
 
@@ -199,7 +202,13 @@ class LinearAllocator : public Allocator
         m_BlockPtrs.pop_back();
     }
 
-    inline void UpdateTotalSize() { SetTotalSize(m_BlockPtrs.size() * m_BlockSize); }
+    inline void UpdateTotalSize()
+    {
+        if constexpr (IsUsageTrackingEnabled)
+        {
+            SetTotalSize(m_BlockPtrs.size() * m_BlockSize);
+        }
+    }
 
     ThreadPolicy m_MultithreadedPolicy;
 

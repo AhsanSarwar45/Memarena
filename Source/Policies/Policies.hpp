@@ -59,14 +59,15 @@ enum class StackAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
-    NullCheck      = Bit(0), // Check if the pointer is null when deallocating
-    OwnershipCheck = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
-    BoundsCheck    = Bit(2), // Check if an allocation overwrites another allocation
-    StackCheck     = Bit(3), // Check is deallocations are performed in LIFO order
+    NullDeallocCheck = Bit(0), // Check if the pointer is null when deallocating
+    OwnershipCheck   = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
+    BoundsCheck      = Bit(2), // Check if an allocation overwrites another allocation
+    StackCheck       = Bit(3), // Check is deallocations are performed in LIFO order
+    // DoubleFreePrevention = Bit(4), // Set the ptr to null on free to prevent double frees
 
-    Default = NullCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking,
+    Default = NullDeallocCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking,
     Release = Empty,
-    Debug   = NullCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking | AllocationTracking | BoundsCheck,
+    Debug   = NullDeallocCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking | AllocationTracking | BoundsCheck,
 };
 
 MARK_AS_POLICY(StackAllocatorPolicy);
@@ -75,13 +76,14 @@ enum class PoolAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
-    NullCheck      = Bit(0), // Check if the pointer is null when deallocating
-    OwnershipCheck = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
-    BoundsCheck    = Bit(2), // Check if an allocation overwrites another allocation
+    NullDeallocCheck     = Bit(0), // Check if the pointer is null when deallocating
+    OwnershipCheck       = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
+    BoundsCheck          = Bit(2), // Check if an allocation overwrites another allocation
+    DoubleFreePrevention = Bit(3), // Set the ptr to null on free to prevent double frees
 
-    Default = NullCheck | OwnershipCheck | SizeCheck | SizeTracking,
+    Default = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | DoubleFreePrevention,
     Release = Empty,
-    Debug   = NullCheck | OwnershipCheck | SizeCheck | SizeTracking | AllocationTracking | BoundsCheck,
+    Debug   = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | AllocationTracking | BoundsCheck | DoubleFreePrevention,
 };
 
 MARK_AS_POLICY(PoolAllocatorPolicy);
@@ -103,9 +105,13 @@ enum class MallocatorPolicy : UInt32
 {
     BASE_ALLOCATOR_POLICIES,
 
-    Default = SizeTracking,
+    NullAllocCheck       = Bit(0), // Check if malloc returns null
+    NullDeallocCheck     = Bit(1), // Check if the pointer is null when deallocating
+    DoubleFreePrevention = Bit(2), // Set the ptr to null on free to prevent double frees
+
+    Default = NullDeallocCheck | NullAllocCheck | SizeTracking | DoubleFreePrevention,
     Release = Empty,
-    Debug   = SizeTracking | AllocationTracking,
+    Debug   = NullDeallocCheck | NullAllocCheck | SizeTracking | AllocationTracking | DoubleFreePrevention,
 };
 
 MARK_AS_POLICY(MallocatorPolicy);

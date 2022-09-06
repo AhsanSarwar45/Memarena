@@ -46,10 +46,13 @@ struct StackArrayHeader
 template <typename T>
 class StackPtr : public Ptr<T>
 {
+    // Allow only StackAllocator to create a StackPtr by making constructors private
     template <StackAllocatorPolicy policy>
     friend class StackAllocator;
 
   public:
+    [[nodiscard]] inline const Internal::StackHeader& GetHeader() const { return m_Header; }
+
   private:
     inline StackPtr(T* ptr, const Internal::StackHeader& header) : Ptr<T>(ptr), m_Header(header) {}
     inline StackPtr(T* ptr, Offset startOffset, Offset endOffset) : Ptr<T>(ptr), m_Header(startOffset, endOffset) {}
@@ -59,11 +62,13 @@ class StackPtr : public Ptr<T>
 template <typename T>
 class StackArrayPtr : public ArrayPtr<T>
 {
+    // Allow only StackAllocator to create a StackArrayPtr by making constructors private
     template <StackAllocatorPolicy policy>
     friend class StackAllocator;
 
   public:
-    [[nodiscard]] inline Size GetCount() const { return m_Header.count; }
+    [[nodiscard]] inline Size                              GetCount() const { return m_Header.count; }
+    [[nodiscard]] inline const Internal::StackArrayHeader& GetHeader() const { return m_Header; }
 
   private:
     StackArrayPtr(T* ptr, const Internal::StackArrayHeader& header) : ArrayPtr<T>(ptr, header.count), m_Header(header) {}
@@ -94,7 +99,7 @@ class StackAllocator : public Allocator
   private:
     static constexpr bool IsStackCheckEnabled         = PolicyContains(policy, StackAllocatorPolicy::StackCheck);
     static constexpr bool IsBoundsCheckEnabled        = PolicyContains(policy, StackAllocatorPolicy::BoundsCheck);
-    static constexpr bool IsNullCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::NullCheck);
+    static constexpr bool IsNullDeallocCheckEnabled   = PolicyContains(policy, StackAllocatorPolicy::NullDeallocCheck);
     static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
     static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
     static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::SizeTracking);
@@ -218,7 +223,7 @@ class StackAllocator : public Allocator
     {
         const void*   voidPtr        = ptr.GetPtr();
         const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
-        DeallocateInternal(currentAddress, currentAddress, ptr.m_Header);
+        DeallocateInternal(currentAddress, currentAddress, ptr.GetHeader());
     }
 
     NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
@@ -251,12 +256,13 @@ class StackAllocator : public Allocator
 
     Size DeallocateArray(const StackArrayPtr<void>& ptr, const Size objectSize)
     {
-        const void*   voidPtr        = ptr.GetPtr();
-        const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
+        const void*                      voidPtr        = ptr.GetPtr();
+        const UIntPtr                    currentAddress = GetAddressFromPtr(voidPtr);
+        const Internal::StackArrayHeader header         = ptr.GetHeader();
         DeallocateInternal(
             currentAddress, currentAddress,
-            Header(ptr.m_Header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, ptr.m_Header.count, objectSize)));
-        return ptr.m_Header.count;
+            Header(header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize)));
+        return header.count;
     }
 
     /**
@@ -367,7 +373,7 @@ class StackAllocator : public Allocator
 
     UIntPtr GetAddressFromPtr(const void* ptr) const
     {
-        if constexpr (IsNullCheckEnabled)
+        if constexpr (IsNullDeallocCheckEnabled)
         {
             MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }

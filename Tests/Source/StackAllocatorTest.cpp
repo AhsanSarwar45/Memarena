@@ -8,7 +8,6 @@
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 #include "Source/AllocatorData.hpp"
-#include "Source/Allocators/StackAllocator/StackAllocator.hpp"
 #include "Source/Policies/BoundsCheckPolicy.hpp"
 
 using namespace Memarena;

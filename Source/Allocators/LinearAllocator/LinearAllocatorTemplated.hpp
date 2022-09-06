@@ -15,7 +15,7 @@ class LinearAllocatorTemplated
     LinearAllocatorTemplated& operator=(const LinearAllocatorTemplated&) = delete;
     LinearAllocatorTemplated& operator=(LinearAllocatorTemplated&&) = delete;
 
-    explicit LinearAllocatorTemplated(const Size totalSize, const std::string& debugName = "LinearAllocator",
+    explicit LinearAllocatorTemplated(const Size totalSize, const std::string& debugName = "LinearAllocatorTemplated",
                                       std::shared_ptr<Allocator> baseAllocator = Allocator::GetDefaultAllocator())
         : m_LinearAllocator(totalSize, debugName, baseAllocator)
     {
