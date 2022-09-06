@@ -8,6 +8,8 @@
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 #include "Source/AllocatorData.hpp"
+#include "Source/Allocators/StackAllocator/StackAllocator.hpp"
+#include "Source/Policies/BoundsCheckPolicy.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -425,6 +427,53 @@ TEST_F(StackAllocatorTest, GetUsedSizeNewDeleteArray)
     stackAllocator.DeleteArray(arr);
 
     EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
+}
+
+TEST_F(StackAllocatorTest, MemoryTracker)
+{
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
+    StackAllocator<policy>         stackAllocator2{1_MB};
+
+    int* num = static_cast<int*>(stackAllocator2.Allocate<int>("Testing/StackAllocator"));
+
+    const AllocatorVector allocators = MemoryTracker::GetAllocators();
+
+    const Size size = sizeof(int) + sizeof(Internal::StackHeader) + sizeof(BoundGuardFront) + sizeof(BoundGuardBack);
+
+    EXPECT_EQ(allocators.size(), 1);
+    if (allocators.size() > 0)
+    {
+        EXPECT_EQ(allocators[0]->totalSize, 1_MB);
+        EXPECT_EQ(allocators[0]->usedSize, size);
+        EXPECT_EQ(allocators[0]->allocationCount, 1);
+        EXPECT_EQ(allocators[0]->deallocationCount, 0);
+        EXPECT_EQ(allocators[0]->allocations[0].category, std::string("Testing/StackAllocator"));
+        EXPECT_EQ(allocators[0]->allocations[0].size, sizeof(int));
+    }
+}
+
+TEST_F(StackAllocatorTest, DefaultBaseAllocator)
+{
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
+
+    StackAllocator<policy> stackAllocator2{1_MB};
+
+    int* num = static_cast<int*>(stackAllocator2.Allocate<int>("Testing/StackAllocator"));
+
+    EXPECT_EQ(Allocator::GetDefaultAllocator()->GetTotalSize(), 11_MB);
+}
+
+TEST_F(StackAllocatorTest, CustomBaseAllocator)
+{
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
+
+    auto baseAllocator = std::make_shared<Mallocator<MallocatorPolicy::Default>>("Mallocator");
+
+    StackAllocator<policy> stackAllocator2{1_MB, "TestAllocator", baseAllocator};
+
+    int* num = static_cast<int*>(stackAllocator2.Allocate<int>("Testing/StackAllocator"));
+
+    EXPECT_EQ(baseAllocator->GetTotalSize(), 1_MB);
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS

@@ -123,12 +123,13 @@ class StackAllocator : public Allocator
 
     explicit StackAllocator(const Size totalSize, const std::string& debugName = "StackAllocator",
                             std::shared_ptr<Allocator> baseAllocator = Allocator::GetDefaultAllocator())
-        : Allocator(totalSize, debugName), m_StartPtr(malloc(totalSize)), m_StartAddress(std::bit_cast<UIntPtr>(m_StartPtr)),
-          m_EndAddress(m_StartAddress + totalSize), m_BaseAllocator(std::move(baseAllocator))
+        : Allocator(totalSize, debugName), m_StartPtr(baseAllocator->AllocateBase(totalSize)),
+          m_StartAddress(std::bit_cast<UIntPtr>(m_StartPtr.GetPtr())), m_EndAddress(m_StartAddress + totalSize),
+          m_BaseAllocator(std::move(baseAllocator))
     {
     }
 
-    ~StackAllocator() { free(m_StartPtr); };
+    ~StackAllocator() { m_BaseAllocator->DeallocateBase(m_StartPtr); };
 
     friend bool operator==(const StackAllocator& s1, const StackAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
 
@@ -401,7 +402,7 @@ class StackAllocator : public Allocator
 
         if constexpr (IsUsageTrackingEnabled)
         {
-            SetUsedSize(offset);
+            SetUsedSize(m_CurrentOffset);
         }
     }
 
@@ -410,9 +411,9 @@ class StackAllocator : public Allocator
     ThreadPolicy m_MultithreadedPolicy;
 
     // Dont change member variable declaration order in this block!
-    void*   m_StartPtr = nullptr;
-    UIntPtr m_StartAddress;
-    UIntPtr m_EndAddress;
+    BaseAllocatorPtr<void> m_StartPtr;
+    UIntPtr                m_StartAddress;
+    UIntPtr                m_EndAddress;
     // -------------------
 
     Offset m_CurrentOffset = 0;
