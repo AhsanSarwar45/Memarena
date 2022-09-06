@@ -21,19 +21,26 @@ struct IsPolicy
         static const bool value = true; \
     };
 
-#define ALLOCATOR_POLICIES                                                                                  \
-    Empty = 0, SizeCheck = Bit(30),   /* Check if the allocator has sufficient space when allocating */     \
-        Multithreaded      = Bit(29), /* Make allocations thread-safe. This will also make them blocking */ \
-        UsageTracking      = Bit(28), /* Track the amount of space used by this allocator */                \
-        AllocationTracking = Bit(27)  /* Track the amount of allocations and deallocations of this allocator */
+#define BASE_ALLOCATOR_POLICIES                                                                                        \
+    Empty = 0, AllocationTracking = Bit(27), /* Track the amount of allocations and deallocations of this allocator */ \
+        SizeTracking  = Bit(28),             /* Track the amount of space used by this allocator */                    \
+        Multithreaded = Bit(29)              /* Make allocations thread-safe. This will also make them blocking */
 
-enum class AllocatorPolicy : UInt32
-{
-    ALLOCATOR_POLICIES,
-    Mask = SizeCheck | Multithreaded | UsageTracking | AllocationTracking
-};
+#define ALLOCATOR_POLICIES BASE_ALLOCATOR_POLICIES, SizeCheck = Bit(30) /* Check if the allocator has sufficient space when allocating */
 
-MARK_AS_POLICY(AllocatorPolicy);
+// enum class AllocatorPolicy : UInt32
+// {
+//     ALLOCATOR_POLICIES,
+//     Mask = SizeCheck | Multithreaded | SizeTracking | AllocationTracking
+// };
+
+// MARK_AS_POLICY(AllocatorPolicy);
+
+// template <typename Policy>
+// constexpr AllocatorPolicy ToAllocatorPolicy(Policy policy)
+// {
+//     return static_cast<AllocatorPolicy>(policy) & AllocatorPolicy::Mask;
+// }
 
 template <typename Policy, typename Value>
 constexpr bool PolicyContains(Policy policy, Value value)
@@ -48,12 +55,6 @@ constexpr UInt32 PolicyToInt(Policy policy)
     return static_cast<UInt32>(policy);
 }
 
-template <typename Policy>
-constexpr AllocatorPolicy ToAllocatorPolicy(Policy policy)
-{
-    return static_cast<AllocatorPolicy>(policy) & AllocatorPolicy::Mask;
-}
-
 enum class StackAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
@@ -63,9 +64,9 @@ enum class StackAllocatorPolicy : UInt32
     BoundsCheck    = Bit(2), // Check if an allocation overwrites another allocation
     StackCheck     = Bit(3), // Check is deallocations are performed in LIFO order
 
-    Default = NullCheck | OwnershipCheck | SizeCheck | StackCheck | UsageTracking,
+    Default = NullCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking,
     Release = Empty,
-    Debug   = NullCheck | OwnershipCheck | SizeCheck | StackCheck | UsageTracking | AllocationTracking | BoundsCheck,
+    Debug   = NullCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking | AllocationTracking | BoundsCheck,
 };
 
 MARK_AS_POLICY(StackAllocatorPolicy);
@@ -78,9 +79,9 @@ enum class PoolAllocatorPolicy : UInt32
     OwnershipCheck = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
     BoundsCheck    = Bit(2), // Check if an allocation overwrites another allocation
 
-    Default = NullCheck | OwnershipCheck | SizeCheck | UsageTracking,
+    Default = NullCheck | OwnershipCheck | SizeCheck | SizeTracking,
     Release = Empty,
-    Debug   = NullCheck | OwnershipCheck | SizeCheck | UsageTracking | AllocationTracking | BoundsCheck,
+    Debug   = NullCheck | OwnershipCheck | SizeCheck | SizeTracking | AllocationTracking | BoundsCheck,
 };
 
 MARK_AS_POLICY(PoolAllocatorPolicy);
@@ -91,11 +92,22 @@ enum class LinearAllocatorPolicy : UInt32
 
     Growable = Bit(0), // Allow the allocator to grow when memory is exhausted
 
-    Default = SizeCheck | UsageTracking,
+    Default = SizeCheck | SizeTracking,
     Release = Empty,
-    Debug   = SizeCheck | UsageTracking | AllocationTracking,
+    Debug   = SizeCheck | SizeTracking | AllocationTracking,
 };
 
 MARK_AS_POLICY(LinearAllocatorPolicy);
+
+enum class MallocatorPolicy : UInt32
+{
+    BASE_ALLOCATOR_POLICIES,
+
+    Default = SizeTracking,
+    Release = Empty,
+    Debug   = SizeTracking | AllocationTracking,
+};
+
+MARK_AS_POLICY(MallocatorPolicy);
 
 } // namespace Memarena

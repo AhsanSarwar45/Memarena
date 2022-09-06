@@ -12,31 +12,44 @@ void MemoryTracker::RegisterAllocator(const std::shared_ptr<AllocatorData>& allo
 {
     std::lock_guard<std::mutex> guard(m_Mutex);
 
-    m_TotalAllocatedSize += allocatorData->totalSize;
-    m_Allocators.push_back(allocatorData);
+    if (allocatorData->isBaseAllocator)
+    {
+        m_BaseAllocators.push_back(allocatorData);
+    }
+    else
+    {
+        m_Allocators.push_back(allocatorData);
+    }
 }
 
 void MemoryTracker::UnRegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData)
 {
     std::lock_guard<std::mutex> guard(m_Mutex);
 
-    m_Allocators.erase(std::remove(m_Allocators.begin(), m_Allocators.end(), allocatorData), m_Allocators.end());
-    m_TotalAllocatedSize -= allocatorData->totalSize;
+    if (allocatorData->isBaseAllocator)
+    {
+        m_BaseAllocators.erase(std::remove(m_BaseAllocators.begin(), m_BaseAllocators.end(), allocatorData), m_BaseAllocators.end());
+    }
+    else
+    {
+        m_Allocators.erase(std::remove(m_Allocators.begin(), m_Allocators.end(), allocatorData), m_Allocators.end());
+    }
 }
 
-Size MemoryTracker::GetTotalUsedSize()
+Size MemoryTracker::GetTotalAllocatedSize()
 {
-    if (m_TotalUsedSizeCache.invalidated)
+    if (m_TotalAllocatedSize.invalidated)
     {
-        Size usedSize = 0;
-        for (const auto& it : m_Allocators)
+        Size totalSize = 0;
+        for (const auto& it : m_BaseAllocators)
         {
-            usedSize += it->usedSize;
+            totalSize += it->totalSize;
         }
 
-        m_TotalUsedSizeCache.value = usedSize;
+        m_TotalAllocatedSize.value = totalSize;
     }
 
-    return m_TotalUsedSizeCache.value;
+    return m_TotalAllocatedSize.value;
 }
+
 } // namespace Memarena

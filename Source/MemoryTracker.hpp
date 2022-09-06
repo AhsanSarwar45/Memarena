@@ -26,26 +26,42 @@ class MemoryTracker
     static void RegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData);
     static void UnRegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData);
 
-    static inline void InvalidateUsedSizeCache() { m_TotalUsedSizeCache.invalidated = true; }
+    static inline void InvalidateTotalAllocatedSizeCache() { m_TotalAllocatedSize.invalidated = true; }
 
-    [[nodiscard]] static Size                          GetTotalUsedSize();
-    [[nodiscard]] static inline Size                   GetTotalAllocatedSize() { return m_TotalAllocatedSize; }
+    [[nodiscard]] static Size                          GetTotalAllocatedSize();
     [[nodiscard]] static inline const AllocatorVector& GetAllocators() { return m_Allocators; }
+    [[nodiscard]] static inline const AllocatorVector& GetBaseAllocators() { return m_BaseAllocators; }
 
     static void Reset()
     {
         std::lock_guard<std::mutex> guard(m_Mutex);
 
-        m_TotalAllocatedSize = 0;
-        m_TotalUsedSizeCache = {0, false};
         m_Allocators.clear();
         m_Allocators.shrink_to_fit();
+        m_BaseAllocators.clear();
+        m_BaseAllocators.shrink_to_fit();
+    }
+
+    static void ResetAllocators()
+    {
+        std::lock_guard<std::mutex> guard(m_Mutex);
+
+        m_Allocators.clear();
+        m_Allocators.shrink_to_fit();
+    }
+
+    static void ResetBaseAllocators()
+    {
+        std::lock_guard<std::mutex> guard(m_Mutex);
+
+        m_BaseAllocators.clear();
+        m_BaseAllocators.shrink_to_fit();
     }
 
   private:
     static inline std::mutex      m_Mutex;
     static inline AllocatorVector m_Allocators;
-    static inline Cache<Size>     m_TotalUsedSizeCache = {0, false};
-    static inline Size            m_TotalAllocatedSize = 0;
+    static inline AllocatorVector m_BaseAllocators;
+    static inline Cache<Size>     m_TotalAllocatedSize = {0, false};
 };
 } // namespace Memarena

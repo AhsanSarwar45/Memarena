@@ -10,8 +10,9 @@ template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
 class LinearAllocatorPMR : public std::pmr::memory_resource
 {
   public:
-    explicit LinearAllocatorPMR(const Size blockSize, const std::string& debugName = "LinearAllocatorPMR")
-        : m_LinearAllocator(blockSize, debugName)
+    explicit LinearAllocatorPMR(const Size blockSize, const std::string& debugName = "LinearAllocatorPMR",
+                                std::shared_ptr<Allocator> baseAllocator = Allocator::GetDefaultAllocator())
+        : m_LinearAllocator(blockSize, debugName, baseAllocator)
     {
     }
     void*              do_allocate(size_t bytes, size_t alignment) override { return m_LinearAllocator.Allocate(bytes, alignment); }

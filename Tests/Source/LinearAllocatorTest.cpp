@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <memory_resource>
 #include <thread>
 
@@ -8,7 +9,8 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
-#include "Source/Allocators/LinearAllocator/LinearAllocatorPMR.hpp"
+// #include "Source/Allocators/LinearAllocator/LinearAllocatorPMR.hpp"
+#include "Source/MemoryTracker.hpp"
 #include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
@@ -17,7 +19,7 @@ using namespace Memarena::SizeLiterals;
 class LinearAllocatorTest : public ::testing::Test
 {
   protected:
-    void SetUp() override {}
+    void SetUp() override { MemoryTracker::ResetAllocators(); }
     void TearDown() override {}
 
     LinearAllocator<> linearAllocator = LinearAllocator<>(10_MB);
@@ -203,6 +205,51 @@ TEST_F(LinearAllocatorTest, PmrVector)
 
     EXPECT_EQ(linearAllocatorPMR.GetInternalAllocator().GetUsedSize(), 496);
     EXPECT_EQ(vec.size(), numIters);
+}
+
+TEST_F(LinearAllocatorTest, MemoryTracker)
+{
+    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Debug;
+    LinearAllocator<policy>         linearAllocator2{1_MB};
+
+    int* num = static_cast<int*>(linearAllocator2.Allocate<int>("Testing/LinearAllocator"));
+
+    const AllocatorVector allocators = MemoryTracker::GetAllocators();
+
+    EXPECT_EQ(allocators.size(), 1);
+    if (allocators.size() > 0)
+    {
+        EXPECT_EQ(allocators[0]->totalSize, 1_MB);
+        EXPECT_EQ(allocators[0]->usedSize, sizeof(int));
+        EXPECT_EQ(allocators[0]->allocationCount, 1);
+        EXPECT_EQ(allocators[0]->deallocationCount, 0);
+        EXPECT_EQ(allocators[0]->allocations[0].category, std::string("Testing/LinearAllocator"));
+        EXPECT_EQ(allocators[0]->allocations[0].size, sizeof(int));
+    }
+}
+
+TEST_F(LinearAllocatorTest, DefaultBaseAllocator)
+{
+    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Debug;
+
+    LinearAllocator<policy> linearAllocator2{1_MB};
+
+    int* num = static_cast<int*>(linearAllocator2.Allocate<int>("Testing/LinearAllocator"));
+
+    EXPECT_EQ(Allocator::GetDefaultAllocator()->GetTotalSize(), 11_MB);
+}
+
+TEST_F(LinearAllocatorTest, CustomBaseAllocator)
+{
+    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Debug;
+
+    auto baseAllocator = std::make_shared<Mallocator<MallocatorPolicy::Default>>("Mallocator");
+
+    LinearAllocator<policy> linearAllocator2{1_MB, "TestAllocator", baseAllocator};
+
+    int* num = static_cast<int*>(linearAllocator2.Allocate<int>("Testing/LinearAllocator"));
+
+    EXPECT_EQ(baseAllocator->GetTotalSize(), 1_MB);
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS

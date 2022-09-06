@@ -1,11 +1,13 @@
 #pragma once
 
 #include <bit>
+#include <utility>
 #include <vector>
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/AllocatorUtils.hpp"
+#include "Source/Allocators/Mallocator/Mallocator.hpp"
 #include "Source/Assert.hpp"
 #include "Source/Macros.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
@@ -27,7 +29,7 @@ class LinearAllocator : public Allocator
   private:
     static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, LinearAllocatorPolicy::SizeCheck);
     static constexpr bool IsGrowable                  = PolicyContains(policy, LinearAllocatorPolicy::Growable);
-    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, LinearAllocatorPolicy::UsageTracking);
+    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, LinearAllocatorPolicy::SizeTracking);
     static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, LinearAllocatorPolicy::AllocationTracking);
     static constexpr bool IsMultithreaded             = PolicyContains(policy, LinearAllocatorPolicy::Multithreaded);
 
@@ -46,8 +48,9 @@ class LinearAllocator : public Allocator
     LinearAllocator& operator=(const LinearAllocator&) = delete;
     LinearAllocator& operator=(LinearAllocator&&) = delete;
 
-    explicit LinearAllocator(Size blockSize, const std::string& debugName = "LinearAllocator")
-        : Allocator(blockSize, debugName), m_BlockSize(blockSize)
+    explicit LinearAllocator(const Size blockSize, const std::string& debugName = "LinearAllocator",
+                             std::shared_ptr<Allocator> baseAllocator = Allocator::GetDefaultAllocator())
+        : Allocator(blockSize, debugName), m_BlockSize(blockSize), m_BaseAllocator(std::move(baseAllocator))
     {
         AllocateBlock();
     }
@@ -56,15 +59,17 @@ class LinearAllocator : public Allocator
     {
         for (auto& blockPtr : m_BlockPtrs)
         {
-            free(blockPtr);
+            m_BaseAllocator->DeallocateBase(blockPtr);
         }
     };
 
     template <typename Object, typename... Args>
     NO_DISCARD Object* NewRaw(Args&&... argList)
     {
-        void* voidPtr = Allocate<Object>();
-        return new (voidPtr) Object(std::forward<Args>(argList)...);
+        void*   voidPtr = Allocate<Object>();
+        Object* ptr     = static_cast<Object*>(voidPtr);
+        // return new (voidPtr) Object(std::forward<Args>(argList)...);
+        return std::construct_at(ptr, std::forward<Args>(argList)...);
     }
 
     template <typename Object, typename... Args>
@@ -74,7 +79,7 @@ class LinearAllocator : public Allocator
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
     }
 
-    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment = defaultAlignment, const std::string& category = "",
                               const SourceLocation& sourceLocation = SourceLocation::current())
     {
         UIntPtr alignedAddress = 0;
@@ -96,7 +101,6 @@ class LinearAllocator : public Allocator
                 if (totalSizeAfterAllocation > m_BlockSize)
                 {
                     AllocateBlock();
-                    IncreaseTotalSize(m_BlockSize);
                     guard.unlock();
                     return Allocate(size, alignment, category, sourceLocation);
                 }
@@ -108,7 +112,7 @@ class LinearAllocator : public Allocator
             }
         }
 
-        if (IsAllocationTrackingEnabled)
+        if constexpr (IsAllocationTrackingEnabled)
         {
             AddAllocation(size, category, sourceLocation);
         }
@@ -147,12 +151,14 @@ class LinearAllocator : public Allocator
         DeallocateBlocks();
     };
 
+    // NO_DISCARD BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
+
   private:
     void SetCurrentOffset(const Offset offset)
     {
         m_CurrentOffset = offset;
 
-        if (IsUsageTrackingEnabled)
+        if constexpr (IsUsageTrackingEnabled)
         {
             SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize + offset);
         }
@@ -160,15 +166,17 @@ class LinearAllocator : public Allocator
 
     inline void AllocateBlock()
     {
-        void* newBlockPtr = malloc(m_BlockSize);
+
+        BaseAllocatorPtr<void> newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
         m_BlockPtrs.push_back(newBlockPtr);
-        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back());
+        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr());
         m_CurrentOffset       = 0;
 
-        if (IsUsageTrackingEnabled)
+        if constexpr (IsUsageTrackingEnabled)
         {
             SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize);
         }
+        UpdateTotalSize();
     }
 
     // Deallocates all but the first block
@@ -179,24 +187,30 @@ class LinearAllocator : public Allocator
             FreeLastBlock();
         }
 
-        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back());
+        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr());
+
+        UpdateTotalSize();
         SetCurrentOffset(0);
     }
 
     inline void FreeLastBlock()
     {
-        free(m_BlockPtrs.back());
+        m_BaseAllocator->DeallocateBase(m_BlockPtrs.back());
         m_BlockPtrs.pop_back();
     }
+
+    inline void UpdateTotalSize() { SetTotalSize(m_BlockPtrs.size() * m_BlockSize); }
 
     ThreadPolicy m_MultithreadedPolicy;
 
     // Dont change member variable declaration order in this block!
-    std::vector<void*> m_BlockPtrs;
-    UIntPtr            m_CurrentStartAddress = 0;
+    std::vector<BaseAllocatorPtr<void>> m_BlockPtrs;
+    UIntPtr                             m_CurrentStartAddress = 0;
     // ---------------------------------------
 
-    Size   m_BlockSize;
+    Size   m_BlockSize{};
     Offset m_CurrentOffset = 0;
+
+    std::shared_ptr<Allocator> m_BaseAllocator;
 };
 } // namespace Memarena

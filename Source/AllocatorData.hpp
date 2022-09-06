@@ -24,6 +24,7 @@ struct AllocatorData
     Size                        totalSize         = 0;
     Size                        usedSize          = 0;
     Size                        peakUsage         = 0;
+    bool                        isBaseAllocator   = false;
 };
 
 } // namespace Memarena

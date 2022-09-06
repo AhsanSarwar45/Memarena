@@ -15,7 +15,7 @@ class MemoryTrackerTest : public ::testing::Test
     void TearDown() override {}
 };
 
-TEST_F(MemoryTrackerTest, SingleAllocator)
+TEST_F(MemoryTrackerTest, StackAllocator)
 {
     constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::AllocationTracking;
 

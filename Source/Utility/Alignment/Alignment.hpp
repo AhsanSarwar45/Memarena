@@ -6,6 +6,8 @@
 namespace Memarena
 {
 
+constexpr Size defaultAlignment = 8;
+
 class Alignment
 {
   public:

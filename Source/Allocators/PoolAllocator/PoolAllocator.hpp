@@ -10,21 +10,35 @@
 #include "Source/Policies/BoundsCheckPolicy.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
-#include "Source/Utility/Alignment.hpp"
+#include "Source/Utility/Alignment/Alignment.hpp"
 
 namespace Memarena
 {
+
+namespace Internal
+{
+struct Chunk
+{
+    /**
+     * When a chunk is free, the `next` contains the
+     * address of the next chunk in a list.
+     *
+     * When it's allocated, this space is used by
+     * the user.
+     */
+    Chunk* nextChunk;
+};
+} // namespace Internal
 
 template <PoolAllocatorPolicy policy = PoolAllocatorPolicy::Default>
 class PoolAllocator : public Allocator
 {
   private:
-    static constexpr bool IsPoolCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::PoolCheck);
     static constexpr bool IsBoundsCheckEnabled        = PolicyContains(policy, PoolAllocatorPolicy::BoundsCheck);
     static constexpr bool IsNullCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::NullCheck);
     static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::SizeCheck);
     static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, PoolAllocatorPolicy::OwnershipCheck);
-    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, PoolAllocatorPolicy::UsageTracking);
+    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, PoolAllocatorPolicy::SizeTracking);
     static constexpr bool IsMultithreaded             = PolicyContains(policy, PoolAllocatorPolicy::Multithreaded);
     static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, PoolAllocatorPolicy::AllocationTracking);
 

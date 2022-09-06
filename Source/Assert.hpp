@@ -4,6 +4,7 @@
 #include "DebugBreak.hpp"
 
 #ifdef MEMARENA_ENABLE_ASSERTS
+    #include <iostream>
     #ifndef MEMARENA_ASSERT
         #define MEMARENA_ASSERT(x, ...)           \
             {                                     \

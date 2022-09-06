@@ -15,7 +15,7 @@ using namespace Memarena::SizeLiterals;
 class StackAllocatorTest : public ::testing::Test
 {
   protected:
-    void SetUp() override { MemoryTracker::Reset(); }
+    void SetUp() override { MemoryTracker::ResetAllocators(); }
     void TearDown() override {}
 
     StackAllocator<> stackAllocator = StackAllocator<>(10_MB);
@@ -334,9 +334,13 @@ void ThreadFunction(StackAllocator<policy>& stackAllocator)
 
         objects.push_back(testObject);
     }
+
+    // for (auto object : objects) {
+    //     stackAllocator.Delete(object);
+    // }
 }
 
-TEST_F(StackAllocatorTest, NewMultithreaded)
+TEST_F(StackAllocatorTest, Multithreaded)
 {
     constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::Multithreaded;
 
