@@ -11,7 +11,9 @@
 #include "Source/Policies/BoundsCheckPolicy.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
+#include "Source/Traits.hpp"
 #include "Source/Utility/Alignment/Alignment.hpp"
+
 
 namespace Memarena
 {
@@ -138,7 +140,7 @@ class StackAllocator : public Allocator
 
     friend bool operator==(const StackAllocator& s1, const StackAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD StackPtr<Object> New(Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), alignof(Object));
@@ -146,7 +148,7 @@ class StackAllocator : public Allocator
         return StackPtr<Object>(objectPtr, startOffset, endOffset);
     }
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewRaw(Args&&... argList)
     {
         void*   voidPtr   = Allocate<Object>();
@@ -154,21 +156,21 @@ class StackAllocator : public Allocator
         return objectPtr;
     }
 
-    template <typename Object>
+    template <Allocatable Object>
     void Delete(StackPtr<Object> ptr)
     {
         Deallocate(StackPtr<void>(ptr.GetPtr(), ptr.m_Header));
         ptr->~Object();
     }
 
-    template <typename Object>
+    template <Allocatable Object>
     void Delete(Object* ptr)
     {
         Deallocate(ptr);
         ptr->~Object();
     }
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), alignof(Object));
@@ -176,21 +178,21 @@ class StackAllocator : public Allocator
                                      objectCount);
     }
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         void* voidPtr = AllocateArray<Object>(objectCount);
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
     }
 
-    template <typename Object>
+    template <Allocatable Object>
     void DeleteArray(Object* ptr)
     {
         const Size objectCount = DeallocateArray(ptr, sizeof(Object));
         std::destroy_n(ptr, objectCount);
     }
 
-    template <typename Object>
+    template <Allocatable Object>
     void DeleteArray(StackArrayPtr<Object> ptr)
     {
         const Size objectCount = DeallocateArray(StackArrayPtr<void>(ptr.GetPtr(), ptr.m_Header), sizeof(Object));
@@ -417,9 +419,9 @@ class StackAllocator : public Allocator
     ThreadPolicy m_MultithreadedPolicy;
 
     // Dont change member variable declaration order in this block!
-    BaseAllocatorPtr<void> m_StartPtr;
-    UIntPtr                m_StartAddress;
-    UIntPtr                m_EndAddress;
+    Internal::BaseAllocatorPtr<void> m_StartPtr;
+    UIntPtr                          m_StartAddress;
+    UIntPtr                          m_EndAddress;
     // -------------------
 
     Offset m_CurrentOffset = 0;

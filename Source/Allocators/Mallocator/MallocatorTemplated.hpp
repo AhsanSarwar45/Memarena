@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <typename Object, MallocatorPolicy policy = MallocatorPolicy::Default>
+template <Allocatable Object, MallocatorPolicy policy = MallocatorPolicy::Default>
 class MallocatorTemplated
 {
   public:

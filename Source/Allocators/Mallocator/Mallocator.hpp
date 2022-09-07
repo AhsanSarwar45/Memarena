@@ -10,15 +10,24 @@
 #include "Source/Macros.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
+#include "Source/Traits.hpp"
 #include "Source/Utility/Alignment/Alignment.hpp"
 
 namespace Memarena
 {
 
+// template <typename T>
+// concept Allocatable = requires(T a)
+// {
+//     {
+//         std::hash<T>{}(a)
+//         } -> std::convertible_to<std::size_t>;
+// };
+
 template <typename T>
-using MallocPtr = BaseAllocatorPtr<T>;
+using MallocPtr = Internal::BaseAllocatorPtr<T>;
 template <typename T>
-using MallocArrayPtr = BaseAllocatorArrayPtr<T>;
+using MallocArrayPtr = Internal::BaseAllocatorArrayPtr<T>;
 
 /**
  * @brief A custom memory allocator that cannot deallocate individual allocations. To free allocations, you must
@@ -59,7 +68,7 @@ class Mallocator : public Allocator
 
     ~Mallocator() = default;
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD MallocPtr<Object> New(Args&&... argList)
     {
         MallocPtr<void> voidPtr   = Allocate<Object>();
@@ -68,14 +77,14 @@ class Mallocator : public Allocator
     }
 
     // TODO: Check if Object not void
-    template <typename Object>
-    void Delete(MallocPtr<Object> ptr)
+    template <Allocatable Object>
+    void Delete(MallocPtr<Object>& ptr)
     {
-        Deallocate(MallocPtr<void>(ptr.GetPtr(), ptr.GetSize()));
+        DeallocateInternal(ptr, ptr.GetSize());
         ptr->~Object();
     }
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD MallocArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
         MallocPtr<void> voidPtr   = AllocateArray<Object>(objectCount);
@@ -83,10 +92,10 @@ class Mallocator : public Allocator
         return MallocArrayPtr<Object>(objectPtr, objectCount * sizeof(Object), objectCount);
     }
 
-    template <typename Object>
-    void DeleteArray(MallocArrayPtr<Object> ptr)
+    template <Allocatable Object>
+    void DeleteArray(MallocArrayPtr<Object>& ptr)
     {
-        Deallocate(MallocArrayPtr<void>(ptr.GetPtr(), ptr.GetSize(), ptr.GetCount()));
+        DeallocateInternal(ptr, ptr.GetSize());
         std::destroy_n(ptr.GetPtr(), ptr.GetCount());
     }
 
@@ -116,12 +125,12 @@ class Mallocator : public Allocator
         return AllocateArray(objectCount, sizeof(Object), category, sourceLocation);
     }
 
-    void Deallocate(MallocPtr<void> ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
-    // void Deallocate(void* ptr, Size size) { DeallocateInternal(ptr, size); }
-    void Deallocate(MallocArrayPtr<void> ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
+    void Deallocate(MallocPtr<void>& ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
+    void Deallocate(void* ptr, Size size) { DeallocateInternal(ptr, size); }
+    void Deallocate(MallocArrayPtr<void>& ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
 
-    NO_DISCARD BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
-    void                              DeallocateBase(BaseAllocatorPtr<void> ptr) final { Deallocate(ptr); }
+    NO_DISCARD Internal::BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
+    void                                        DeallocateBase(Internal::BaseAllocatorPtr<void> ptr) final { Deallocate(ptr); }
 
   private:
     NO_DISCARD void* AllocateInternal(const Size size, const std::string& category = "",
@@ -151,18 +160,25 @@ class Mallocator : public Allocator
         return malloc(size);
     }
 
-    void DeallocateInternal(Ptr<void> ptr, Size size)
+    template <typename Object>
+    void DeallocateInternal(Ptr<Object>& ptr, Size size)
+    {
+        DeallocateInternal(static_cast<void*>(ptr.GetPtr()), size);
+
+        if constexpr (IsDoubleFreePreventionEnabled)
+        {
+            ptr.Reset();
+        }
+    }
+
+    void DeallocateInternal(void* ptr, Size size)
     {
         if constexpr (IsNullDeallocCheckEnabled)
         {
             MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }
 
-        free(ptr.GetPtr());
-        if (IsDoubleFreePreventionEnabled)
-        {
-            ptr.Reset();
-        }
+        free(static_cast<void*>(ptr));
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 

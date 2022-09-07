@@ -4,6 +4,7 @@
 #include <numeric>
 #include <string>
 
+#include "Pointer.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/Assert.hpp"
 #include "Source/MemoryTracker.hpp"
@@ -15,62 +16,6 @@ namespace Memarena
 {
 
 struct AllocatorData;
-
-template <typename T>
-class Ptr
-{
-  public:
-    inline T*                     GetPtr() { return m_Ptr; }
-    [[nodiscard]] inline const T* GetPtr() const { return m_Ptr; }
-    inline void                   Reset() { m_Ptr = nullptr; }
-
-    inline const T* operator->() const { return m_Ptr; }
-    inline auto     operator*() const -> std::add_lvalue_reference_t<T>
-    requires(!std::is_void_v<T>) { return *m_Ptr; }
-    inline explicit operator bool() const noexcept { return (m_Ptr != nullptr); }
-
-  protected:
-    explicit Ptr(T* ptr) : m_Ptr(ptr) {}
-
-  private:
-    T* m_Ptr;
-};
-
-template <typename T>
-class ArrayPtr : public Ptr<T>
-{
-  public:
-    T                         operator[](int index) const { return this->GetPtr()[index]; }
-    [[nodiscard]] inline Size GetCount() const { return m_Count; }
-
-  protected:
-    explicit ArrayPtr(T* ptr, Size count) : Ptr<T>(ptr), m_Count(count) {}
-
-  private:
-    Size m_Count;
-};
-
-template <typename T>
-class BaseAllocatorPtr : public Ptr<T>
-{
-  public:
-    inline BaseAllocatorPtr(T* ptr, Size size) : Ptr<T>(ptr), m_Size(size) {}
-    [[nodiscard]] Size GetSize() const { return m_Size; }
-
-  private:
-    Size m_Size;
-};
-
-template <typename T>
-class BaseAllocatorArrayPtr : public ArrayPtr<T>
-{
-  public:
-    inline BaseAllocatorArrayPtr(T* ptr, Size size, Size count) : ArrayPtr<T>(ptr, count), m_Size(size) {}
-    [[nodiscard]] Size GetSize() const { return m_Size; }
-
-  private:
-    Size m_Size;
-};
 
 class Allocator
 {
@@ -94,8 +39,8 @@ class Allocator
 
     [[nodiscard]] static std::shared_ptr<Allocator> GetDefaultAllocator() { return m_DefaultAllocator; }
 
-    NO_DISCARD virtual BaseAllocatorPtr<void> AllocateBase(Size /*size*/) { return BaseAllocatorPtr<void>(nullptr, 0); }
-    virtual void                              DeallocateBase(BaseAllocatorPtr<void> ptr) {}
+    NO_DISCARD virtual Internal::BaseAllocatorPtr<void> AllocateBase(Size /*size*/) { return {nullptr, 0}; }
+    virtual void                                        DeallocateBase(Internal::BaseAllocatorPtr<void> ptr) {}
 
   protected:
     Allocator(Size totalSize, const std::string& debugName, bool isBaseAllocator = false);

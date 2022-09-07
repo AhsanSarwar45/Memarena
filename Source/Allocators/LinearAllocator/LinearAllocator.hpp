@@ -7,12 +7,13 @@
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/AllocatorUtils.hpp"
-#include "Source/Allocators/Mallocator/Mallocator.hpp"
 #include "Source/Assert.hpp"
 #include "Source/Macros.hpp"
 #include "Source/Policies/MultithreadedPolicy.hpp"
 #include "Source/Policies/Policies.hpp"
+#include "Source/Traits.hpp"
 #include "Source/Utility/Alignment/Alignment.hpp"
+
 
 namespace Memarena
 {
@@ -63,7 +64,7 @@ class LinearAllocator : public Allocator
         }
     };
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewRaw(Args&&... argList)
     {
         void*   voidPtr = Allocate<Object>();
@@ -72,7 +73,7 @@ class LinearAllocator : public Allocator
         return std::construct_at(ptr, std::forward<Args>(argList)...);
     }
 
-    template <typename Object, typename... Args>
+    template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         void* voidPtr = AllocateArray<Object>(objectCount);
@@ -167,7 +168,7 @@ class LinearAllocator : public Allocator
     inline void AllocateBlock()
     {
 
-        BaseAllocatorPtr<void> newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
+        Internal::BaseAllocatorPtr<void> newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
         m_BlockPtrs.push_back(newBlockPtr);
         m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr());
         m_CurrentOffset       = 0;
@@ -213,8 +214,8 @@ class LinearAllocator : public Allocator
     ThreadPolicy m_MultithreadedPolicy;
 
     // Dont change member variable declaration order in this block!
-    std::vector<BaseAllocatorPtr<void>> m_BlockPtrs;
-    UIntPtr                             m_CurrentStartAddress = 0;
+    std::vector<Internal::BaseAllocatorPtr<void>> m_BlockPtrs;
+    UIntPtr                                       m_CurrentStartAddress = 0;
     // ---------------------------------------
 
     Size   m_BlockSize{};
