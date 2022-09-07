@@ -3,6 +3,7 @@
 #include <Memarena/Memarena.hpp>
 
 #include "MemoryTestObjects.hpp"
+#include "Source/Allocators/Mallocator/Mallocator.hpp"
 
 using namespace Memarena;
 
@@ -10,7 +11,7 @@ static void DefaultNewDelete(benchmark::State& state)
 {
     for (auto _ : state)
     {
-        TestObject* object = new TestObject(1, 1.5f, 'c', false, 10.5f);
+        TestObject* object = new TestObject(1, 1.5F, 'c', false, 10.5F);
         benchmark::ClobberMemory();
         delete object;
     }
@@ -21,7 +22,7 @@ static void UniquePtr(benchmark::State& state)
 {
     for (auto _ : state)
     {
-        std::unique_ptr<TestObject> object = std::make_unique<TestObject>(1, 1.5f, 'c', false, 10.5f);
+        std::unique_ptr<TestObject> object = std::make_unique<TestObject>(1, 1.5F, 'c', false, 10.5F);
         benchmark::ClobberMemory();
     }
 }
@@ -33,7 +34,7 @@ static void StackAllocatorNewDeleteRaw(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* object = stackAllocator.NewRaw<TestObject>(1, 1.5f, 'x', false, 10.5f);
+        TestObject* object = stackAllocator.NewRaw<TestObject>(1, 1.5F, 'x', false, 10.5F);
         stackAllocator.Delete(object);
     }
 }
@@ -46,7 +47,7 @@ static void StackAllocatorNewDelete(benchmark::State& state)
 
     for (auto _ : state)
     {
-        StackPtr<TestObject> object = stackAllocator.New<TestObject>(1, 1.5f, 'c', false, 10.5f);
+        StackPtr<TestObject> object = stackAllocator.New<TestObject>(1, 1.5F, 'c', false, 10.5F);
         stackAllocator.Delete(object);
     }
 }
@@ -59,7 +60,7 @@ static void StackAllocatorTemplatedNewDelete(benchmark::State& state)
 
     for (auto _ : state)
     {
-        StackPtr<TestObject> object = stackAllocatorTemplated.New(1, 1.5f, 'c', false, 10.5f);
+        StackPtr<TestObject> object = stackAllocatorTemplated.New(1, 1.5F, 'c', false, 10.5F);
         stackAllocatorTemplated.Delete(object);
     }
 }
@@ -72,7 +73,7 @@ static void StackAllocatorNewDeleteRawMultithreaded(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* object = stackAllocator.NewRaw<TestObject>(1, 1.5f, 'c', false, 10.5f);
+        TestObject* object = stackAllocator.NewRaw<TestObject>(1, 1.5F, 'c', false, 10.5F);
         stackAllocator.Delete(object);
     }
 }
@@ -85,7 +86,7 @@ static void StackAllocatorNewDeleteMultithreaded(benchmark::State& state)
 
     for (auto _ : state)
     {
-        StackPtr<TestObject> object = stackAllocator.New<TestObject>(1, 1.5f, 'c', false, 10.5f);
+        StackPtr<TestObject> object = stackAllocator.New<TestObject>(1, 1.5F, 'c', false, 10.5F);
         stackAllocator.Delete(object);
     }
 }
@@ -98,7 +99,7 @@ static void LinearAllocatorNewReleaseRaw(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* object = linearAllocator.NewRaw<TestObject>(1, 1.5f, 'c', false, 10.5f);
+        TestObject* object = linearAllocator.NewRaw<TestObject>(1, 1.5F, 'c', false, 10.5F);
         linearAllocator.Release();
     }
 }
@@ -111,9 +112,23 @@ static void LinearAllocatorNewReleaseRawMultithreaded(benchmark::State& state)
 
     for (auto _ : state)
     {
-        TestObject* object = linearAllocator.NewRaw<TestObject>(1, 1.5f, 'c', false, 10.5f);
+        TestObject* object = linearAllocator.NewRaw<TestObject>(1, 1.5F, 'c', false, 10.5F);
         linearAllocator.Release();
     }
 }
 
 BENCHMARK(LinearAllocatorNewReleaseRawMultithreaded);
+
+static void MallocatorNewDelete(benchmark::State& state)
+{
+    Mallocator<MallocatorPolicy::Release> mallocator{};
+
+    for (auto _ : state)
+    {
+        MallocPtr<TestObject> object = mallocator.New<TestObject>(1, 1.5F, 'c', false, 10.5F);
+        benchmark::ClobberMemory();
+        mallocator.Delete(object);
+    }
+}
+
+BENCHMARK(MallocatorNewDelete);

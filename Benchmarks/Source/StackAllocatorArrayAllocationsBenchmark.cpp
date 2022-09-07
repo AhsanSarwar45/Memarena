@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "MemoryTestObjects.hpp"
+#include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
 
@@ -28,7 +29,7 @@ BENCHMARK(DefaultNewDeleteArray);
 
 static void StackAllocatorRawNewDeleteArray(benchmark::State& state)
 {
-    StackAllocator stackAllocator = StackAllocator(8 + NUM_OBJECTS * sizeof(TestObject));
+    StackAllocator<StackAllocatorPolicy::Release> stackAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -41,13 +42,40 @@ BENCHMARK(StackAllocatorRawNewDeleteArray);
 
 static void StackAllocatorNewDeleteArray(benchmark::State& state)
 {
-    StackAllocator stackAllocator = StackAllocator(8 + NUM_OBJECTS * sizeof(TestObject));
+    StackAllocator<StackAllocatorPolicy::Release> stackAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
 
     for (auto _ : state)
     {
-        StackArrayPtr<TestObject> arr = stackAllocator.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 'c', false, 10.5f);
+        auto arr = stackAllocator.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 'c', false, 10.5f);
         stackAllocator.DeleteArray(arr);
     }
 }
 
 BENCHMARK(StackAllocatorNewDeleteArray);
+
+static void LinearAllocatorRawNewReleaseArray(benchmark::State& state)
+{
+    LinearAllocator<LinearAllocatorPolicy::Release> linearAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
+
+    for (auto _ : state)
+    {
+        auto arr = linearAllocator.NewArrayRaw<TestObject>(NUM_OBJECTS, 1, 1.5f, 'c', false, 10.5f);
+        linearAllocator.Release();
+    }
+}
+
+BENCHMARK(LinearAllocatorRawNewReleaseArray);
+
+static void MallocatorNewDeleteArray(benchmark::State& state)
+{
+    Mallocator<MallocatorPolicy::Release> mallocator{};
+
+    for (auto _ : state)
+    {
+        auto arr = mallocator.NewArray<TestObject>(NUM_OBJECTS, 1, 1.5f, 'c', false, 10.5f);
+        benchmark::ClobberMemory();
+        mallocator.DeleteArray(arr);
+    }
+}
+
+BENCHMARK(MallocatorNewDeleteArray);
