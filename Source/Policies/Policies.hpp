@@ -63,6 +63,7 @@ enum class StackAllocatorPolicy : UInt32
     OwnershipCheck   = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
     BoundsCheck      = Bit(2), // Check if an allocation overwrites another allocation
     StackCheck       = Bit(3), // Check is deallocations are performed in LIFO order
+    Resizable        = Bit(4), // Allow the allocator to grow when memory is exhausted
     // DoubleFreePrevention = Bit(4), // Set the ptr to null on free to prevent double frees
 
     Default = NullDeallocCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking,
@@ -78,12 +79,12 @@ enum class PoolAllocatorPolicy : UInt32
 
     NullDeallocCheck     = Bit(0), // Check if the pointer is null when deallocating
     OwnershipCheck       = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
-    BoundsCheck          = Bit(2), // Check if an allocation overwrites another allocation
     DoubleFreePrevention = Bit(3), // Set the ptr to null on free to prevent double frees
+    Growable             = Bit(4), // Allow the allocator to grow when memory is exhausted
 
     Default = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | DoubleFreePrevention,
     Release = Empty,
-    Debug   = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | AllocationTracking | BoundsCheck | DoubleFreePrevention,
+    Debug   = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | AllocationTracking | DoubleFreePrevention,
 };
 
 MARK_AS_POLICY(PoolAllocatorPolicy);
@@ -115,5 +116,20 @@ enum class MallocatorPolicy : UInt32
 };
 
 MARK_AS_POLICY(MallocatorPolicy);
+
+enum class VirtualAllocatorPolicy : UInt32
+{
+    BASE_ALLOCATOR_POLICIES,
+
+    NullAllocCheck       = Bit(0), // Check if malloc returns null
+    NullDeallocCheck     = Bit(1), // Check if the pointer is null when deallocating
+    DoubleFreePrevention = Bit(2), // Set the ptr to null on free to prevent double frees
+
+    Default = NullDeallocCheck | NullAllocCheck | SizeTracking | DoubleFreePrevention,
+    Release = Empty,
+    Debug   = NullDeallocCheck | NullAllocCheck | SizeTracking | AllocationTracking | DoubleFreePrevention,
+};
+
+MARK_AS_POLICY(VirtualAllocatorPolicy);
 
 } // namespace Memarena

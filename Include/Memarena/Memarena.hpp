@@ -4,5 +4,5 @@
 
 #include "LinearAllocator.hpp"
 #include "Mallocator.hpp"
+#include "PoolAllocator.hpp"
 #include "StackAllocator.hpp"
-

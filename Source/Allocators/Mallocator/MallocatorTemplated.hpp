@@ -54,13 +54,13 @@ class MallocatorTemplated
         return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
-    void Delete(MallocPtr<Object> ptr) { m_Mallocator.Delete(ptr); }
+    void Delete(MallocPtr<Object>& ptr) { m_Mallocator.Delete(ptr); }
 
-    void DeleteArray(MallocArrayPtr<Object> ptr) { m_Mallocator.DeleteArray(ptr); }
+    void DeleteArray(MallocArrayPtr<Object>& ptr) { m_Mallocator.DeleteArray(ptr); }
 
-    void Deallocate(MallocPtr<void> ptr) { m_Mallocator.DeallocateInternal(ptr); }
-
-    void Deallocate(MallocArrayPtr<void> ptr) { m_Mallocator.DeallocateInternal(ptr); }
+    void Deallocate(MallocPtr<void>& ptr) { m_Mallocator.Deallocate(ptr); }
+    void Deallocate(void* ptr, Size size) { m_Mallocator.Deallocate(ptr, size); }
+    void Deallocate(MallocArrayPtr<void>& ptr) { m_Mallocator.Deallocate(ptr); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_Mallocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_Mallocator.GetTotalSize(); }

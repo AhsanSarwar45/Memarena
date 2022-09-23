@@ -17,33 +17,6 @@
 namespace Memarena
 {
 
-namespace Internal
-{
-
-struct StackHeaderLite
-{
-    Offset startOffset;
-
-    StackHeaderLite(Offset _startOffset, Offset /*_endOffset*/) : startOffset(_startOffset) {}
-};
-
-struct StackHeader
-{
-    Offset startOffset;
-    Offset endOffset;
-
-    StackHeader(Offset _startOffset, Offset _endOffset) : startOffset(_startOffset), endOffset(_endOffset) {}
-};
-
-struct StackArrayHeader
-{
-    Offset startOffset;
-    Offset count;
-
-    StackArrayHeader(Offset _startOffset, Offset _count) : startOffset(_startOffset), count(_count) {}
-};
-} // namespace Internal
-
 template <typename T>
 class StackPtr : public Ptr<T>
 {
@@ -106,7 +79,6 @@ class StackAllocator : public Allocator
     static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::SizeTracking);
     static constexpr bool IsMultithreaded             = PolicyContains(policy, StackAllocatorPolicy::Multithreaded);
     static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::AllocationTracking);
-    static constexpr bool IsResizable                 = PolicyContains(policy, StackAllocatorPolicy::Resizable);
 
     using InplaceHeader      = typename std::conditional<IsStackCheckEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
     using Header             = Internal::StackHeader;

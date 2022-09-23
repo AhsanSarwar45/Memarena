@@ -25,6 +25,7 @@ add_library(${PROJECT_NAME} STATIC
 "Source/AllocatorUtils.cpp"
 "Source/MemoryTracker.cpp"
 "Source/Utility/Alignment/Alignment.cpp"
+"Source/Utility/VirtualMemory.cpp"
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)

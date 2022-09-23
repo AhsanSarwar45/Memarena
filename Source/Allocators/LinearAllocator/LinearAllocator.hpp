@@ -14,7 +14,6 @@
 #include "Source/Traits.hpp"
 #include "Source/Utility/Alignment/Alignment.hpp"
 
-
 namespace Memarena
 {
 
@@ -218,7 +217,7 @@ class LinearAllocator : public Allocator
     UIntPtr                                       m_CurrentStartAddress = 0;
     // ---------------------------------------
 
-    Size   m_BlockSize{};
+    Size   m_BlockSize;
     Offset m_CurrentOffset = 0;
 
     std::shared_ptr<Allocator> m_BaseAllocator;

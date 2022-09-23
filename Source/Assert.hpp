@@ -15,16 +15,20 @@
                 }                                 \
             }
     #endif
-    #ifndef MEMARENA_BARE_ASSERT
-        #define MEMARENA_BARE_ASSERT(x, ...) \
-            {                                \
-                if (!(x))                    \
-                {                            \
-                    DEBUG_BREAK();           \
-                }                            \
-            }
-
+    #ifdef MEMARENA_ENABLE_ASSERTS_RETURN
+        #ifndef MEMARENA_ASSERT_RETURN
+            #define MEMARENA_ASSERT_RETURN(x, returnValue, ...) \
+                {                                               \
+                    if (!(x))                                   \
+                    {                                           \
+                        return returnValue                      \
+                    }                                           \
+                }
+        #endif
     #else
+        #ifndef MEMARENA_ASSERT_RETURN
+            #define MEMARENA_ASSERT_RETURN(x, returnValue, ...) MEMARENA_ASSERT(x, __VA_ARGS__)
+        #endif
     #endif
 #else
     #ifndef MEMARENA_ASSERT
@@ -32,9 +36,9 @@
             {                           \
             }
     #endif
-    #ifndef MEMARENA_BARE_ASSERT
-        #define MEMARENA_BARE_ASSERT(x, ...) \
-            {                                \
+    #ifndef MEMARENA_ASSERT_RETURN
+        #define MEMARENA_ASSERT_RETURN(x, returnValue, ...) \
+            {                                               \
             }
     #endif
-#endif //  QMBT_ENABLE_ASSERTS
+#endif

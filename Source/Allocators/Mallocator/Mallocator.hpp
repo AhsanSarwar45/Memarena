@@ -76,7 +76,6 @@ class Mallocator : public Allocator
         return MallocPtr<Object>(objectPtr, sizeof(Object));
     }
 
-    // TODO: Check if Object not void
     template <Allocatable Object>
     void Delete(MallocPtr<Object>& ptr)
     {
@@ -179,6 +178,7 @@ class Mallocator : public Allocator
         }
 
         free(static_cast<void*>(ptr));
+
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 

@@ -2,6 +2,7 @@
 
 #ifdef MEMARENA_DEBUG
     #define MEMARENA_ENABLE_ASSERTS
+    #define MEMARENA_ENABLE_ASSERTS_RETURN
     #define MEMARENA_DEBUG_BREAK
 #endif
 

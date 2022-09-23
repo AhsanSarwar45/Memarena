@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <experimental/source_location>
 
 #include "Source/Allocator.hpp"
@@ -19,13 +20,6 @@ namespace Internal
 {
 struct Chunk
 {
-    /**
-     * When a chunk is free, the `next` contains the
-     * address of the next chunk in a list.
-     *
-     * When it's allocated, this space is used by
-     * the user.
-     */
     Chunk* nextChunk;
 };
 } // namespace Internal
@@ -34,15 +28,16 @@ template <PoolAllocatorPolicy policy = PoolAllocatorPolicy::Default>
 class PoolAllocator : public Allocator
 {
   private:
-    static constexpr bool IsBoundsCheckEnabled        = PolicyContains(policy, PoolAllocatorPolicy::BoundsCheck);
-    static constexpr bool IsNullCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::NullCheck);
+    static constexpr bool IsNullDeallocCheckEnabled   = PolicyContains(policy, PoolAllocatorPolicy::NullDeallocCheck);
     static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::SizeCheck);
     static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, PoolAllocatorPolicy::OwnershipCheck);
     static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, PoolAllocatorPolicy::SizeTracking);
+    static constexpr bool IsGrowable                  = PolicyContains(policy, PoolAllocatorPolicy::Growable);
     static constexpr bool IsMultithreaded             = PolicyContains(policy, PoolAllocatorPolicy::Multithreaded);
     static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, PoolAllocatorPolicy::AllocationTracking);
 
     using ThreadPolicy = MultithreadedPolicy<IsMultithreaded>;
+    using Chunk        = Internal::Chunk;
 
     template <typename SyncPrimitive>
     using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
@@ -57,37 +52,29 @@ class PoolAllocator : public Allocator
     PoolAllocator& operator=(const PoolAllocator&) = delete;
     PoolAllocator& operator=(PoolAllocator&&) = delete;
 
-    explicit PoolAllocator(const Size totalSize, const std::string& debugName = "PoolAllocator")
-        : Allocator(totalSize, debugName), m_StartPtr(malloc(totalSize)), m_StartAddress(std::bit_cast<UIntPtr>(m_StartPtr)),
-          m_EndAddress(m_StartAddress + totalSize)
+    explicit PoolAllocator(const Size objectSize, const Size objectsPerBlock, const std::string& debugName = "PoolAllocator",
+                           std::shared_ptr<Allocator> baseAllocator = Allocator::GetDefaultAllocator())
+        : Allocator(0, debugName), m_ObjectSize(objectSize), m_ObjectsPerBlock(objectsPerBlock), m_BlockSize(objectSize * objectsPerBlock),
+          m_BaseAllocator(std::move(baseAllocator))
     {
+        AllocateBlock();
+        MEMARENA_ASSERT(objectSize > sizeof(Chunk), "Object size must be larger than the pointer size (%u)", sizeof(void*))
     }
 
-    ~PoolAllocator() { free(m_StartPtr); };
-
-    friend bool operator==(const PoolAllocator& s1, const PoolAllocator& s2) { return s1.m_StartAddress == s2.m_StartAddress; }
+    ~PoolAllocator()
+    {
+        for (auto ptr : m_BlockPtrs)
+        {
+            m_BaseAllocator->DeallocateBase(ptr);
+        };
+    }
 
     template <typename Object, typename... Args>
-    NO_DISCARD PoolPtr<Object> New(Args&&... argList)
+    NO_DISCARD Object* New(Args&&... argList)
     {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), AlignOf(alignof(Object)));
-        Object* objectPtr                      = new (voidPtr) Object(std::forward<Args>(argList)...);
-        return PoolPtr<Object>(objectPtr, startOffset, endOffset);
-    }
-
-    template <typename Object, typename... Args>
-    NO_DISCARD Object* NewRaw(Args&&... argList)
-    {
-        void*   voidPtr   = Allocate<Object>();
-        Object* objectPtr = new (voidPtr) Object(std::forward<Args>(argList)...);
-        return objectPtr;
-    }
-
-    template <typename Object>
-    void Delete(PoolPtr<Object> ptr)
-    {
-        Deallocate(PoolPtr<void>(ptr.GetPtr(), ptr.header));
-        ptr->~Object();
+        // TODO: Assert sizeof Object
+        void* voidPtr = Allocate();
+        return new (voidPtr) Object(std::forward<Args>(argList)...);
     }
 
     template <typename Object>
@@ -97,211 +84,48 @@ class PoolAllocator : public Allocator
         ptr->~Object();
     }
 
-    template <typename Object, typename... Args>
-    NO_DISCARD PoolArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
+    NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), AlignOf(alignof(Object)));
-        return PoolArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
-                                    objectCount);
-    }
+        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
-    template <typename Object, typename... Args>
-    NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
-    {
-        void* voidPtr = AllocateArray<Object>(objectCount);
-        return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
-    }
+        if constexpr (IsGrowable)
+        {
+            if (m_CurrentPtr == nullptr)
+            {
+                AllocateBlock();
+            }
+        }
+        else if constexpr (IsSizeCheckEnabled)
 
-    template <typename Object>
-    void DeleteArray(Object* ptr)
-    {
-        const Size objectCount = DeallocateArray(ptr, sizeof(Object));
-        Internal::DestructArray(ptr, objectCount);
-    }
+        {
+            MEMARENA_ASSERT(m_CurrentPtr != nullptr, "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
+        }
 
-    template <typename Object>
-    void DeleteArray(PoolArrayPtr<Object> ptr)
-    {
-        const Size objectCount = DeallocateArray(PoolArrayPtr<void>(ptr.GetPtr(), ptr.header), sizeof(Object));
-        Internal::DestructArray(ptr.GetPtr(), objectCount);
-    }
+        void* freePtr = m_CurrentPtr;
 
-    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
-                              const SourceLocation& sourceLocation = SourceLocation::current())
-    {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment, category, sourceLocation);
-        Internal::AllocateHeader<InplaceHeader>(voidPtr, startOffset, endOffset);
-        return voidPtr;
+        m_CurrentPtr = std::bit_cast<Chunk*>(m_CurrentPtr)->nextChunk;
+
+        if constexpr (IsAllocationTrackingEnabled)
+        {
+            AddAllocation(m_ObjectSize, category, sourceLocation);
+        }
+
+        // TODO: Used size
+
+        return freePtr;
     }
 
     template <typename Object>
     NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return Allocate(sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
+        return Allocate(category, sourceLocation);
     }
 
     void Deallocate(void* ptr)
     {
-        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
-        UIntPtr       addressMarker  = currentAddress;
-        InplaceHeader header         = Internal::GetHeaderFromPtr<InplaceHeader>(addressMarker);
-        DeallocateInternal(currentAddress, addressMarker, header);
-    }
-
-    void Deallocate(const PoolPtr<void>& ptr)
-    {
-        const void*   voidPtr        = ptr.GetPtr();
-        const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
-        DeallocateInternal(currentAddress, currentAddress, ptr.header);
-    }
-
-    NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
-                                   const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
-    {
-        const Size allocationSize = objectCount * objectSize;
-        auto [voidPtr, startOffset, endOffset] =
-            AllocateInternal<sizeof(InplaceArrayHeader)>(allocationSize, alignment, category, sourceLocation);
-        Internal::AllocateHeader<InplaceArrayHeader>(voidPtr, startOffset, objectCount);
-        return voidPtr;
-    }
-
-    template <typename Object>
-    NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
-                                   const SourceLocation& sourceLocation = SourceLocation::current())
-    {
-        return AllocateArray(objectCount, sizeof(Object), AlignOf(alignof(Object)), category, sourceLocation);
-    }
-
-    Size DeallocateArray(void* ptr, const Size objectSize)
-    {
-        const UIntPtr            currentAddress = GetAddressFromPtr(ptr);
-        UIntPtr                  addressMarker  = currentAddress;
-        const InplaceArrayHeader header         = Internal::GetHeaderFromPtr<InplaceArrayHeader>(addressMarker);
-        DeallocateInternal(
-            currentAddress, addressMarker,
-            Header(header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize)));
-        return header.count;
-    }
-
-    Size DeallocateArray(const PoolArrayPtr<void>& ptr, const Size objectSize)
-    {
-        const void*   voidPtr        = ptr.GetPtr();
-        const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
-        DeallocateInternal(
-            currentAddress, currentAddress,
-            Header(ptr.header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, ptr.header.count, objectSize)));
-        return ptr.header.count;
-    }
-
-    /**
-     * @brief Releases the allocator to its initial state. Any further allocations
-     * will possibly overwrite all object allocated prior to calling this method.
-     * So make sure to only call this when you don't need any objects previously
-     * allocated by this allocator.
-     *
-     */
-    inline void Release()
-    {
-        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
-        SetCurrentOffset(0);
-    };
-
-  private:
-    template <Size HeaderSize>
-    std::tuple<void*, Offset, Offset> AllocateInternal(const Size size, const Alignment& alignment, const std::string& category = "",
-                                                       const SourceLocation& sourceLocation = SourceLocation::current())
-    {
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
-        const Offset  startOffset = m_CurrentOffset;
-        const UIntPtr baseAddress = m_StartAddress + m_CurrentOffset;
-
-        Padding padding{0};
-        UIntPtr alignedAddress{0};
-
-        constexpr Size totalHeaderSize = GetTotalHeaderSize<HeaderSize>();
-
-        if constexpr (totalHeaderSize > 0)
-        {
-            padding        = CalculateAlignedPaddingWithHeader(baseAddress, alignment, totalHeaderSize);
-            alignedAddress = baseAddress + padding;
-        }
-        else
-        {
-            alignedAddress = CalculateAlignedAddress(baseAddress, alignment);
-            padding        = alignedAddress - baseAddress;
-        }
-
-        Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
-
-        if constexpr (IsSizeCheckEnabled)
-        {
-            MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator %s is out of memory!\n",
-                            GetDebugName().c_str());
-        }
-
-        if constexpr (IsBoundsCheckEnabled)
-        {
-            totalSizeAfterAllocation += sizeof(BoundGuardBack);
-
-            const UIntPtr frontGuardAddress = alignedAddress - totalHeaderSize;
-            const UIntPtr backGuardAddress  = alignedAddress + size;
-
-            new (std::bit_cast<void*>(frontGuardAddress)) BoundGuardFront(m_CurrentOffset, size);
-            new (std::bit_cast<void*>(backGuardAddress)) BoundGuardBack(m_CurrentOffset);
-        }
-
-        SetCurrentOffset(totalSizeAfterAllocation);
-
-        const Offset endOffset = m_CurrentOffset;
-
-        void* allocatedPtr = std::bit_cast<void*>(alignedAddress);
-
-        if (IsAllocationTrackingEnabled)
-        {
-            AddAllocation(size, category, sourceLocation);
-        }
-
-        return {allocatedPtr, startOffset, endOffset};
-    }
-
-    template <typename Header>
-    void DeallocateInternal(const UIntPtr address, const UIntPtr addressMarker, const Header& header)
-    {
-        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
-
-        const Offset newOffset = header.startOffset;
-
-        if constexpr (IsPoolCheckEnabled)
-        {
-            MEMARENA_ASSERT(header.endOffset == m_CurrentOffset, "Error: Attempt to deallocate in wrong order in the Pool allocator %s!\n",
-                            GetDebugName().c_str());
-        }
-
-        if constexpr (IsBoundsCheckEnabled)
-        {
-            const UIntPtr          frontGuardAddress = addressMarker - sizeof(BoundGuardFront);
-            const BoundGuardFront* frontGuard        = std::bit_cast<BoundGuardFront*>(frontGuardAddress);
-
-            const UIntPtr         backGuardAddress = address + frontGuard->allocationSize;
-            const BoundGuardBack* backGuard        = std::bit_cast<BoundGuardBack*>(backGuardAddress);
-
-            MEMARENA_ASSERT(frontGuard->offset == newOffset && backGuard->offset == newOffset,
-                            "Error: Memory stomping detected in allocator %s at offset %d and address %d!\n", GetDebugName().c_str(),
-                            newOffset, address);
-        }
-
-        if (IsAllocationTrackingEnabled)
-        {
-            AddDeallocation();
-        }
-
-        SetCurrentOffset(newOffset);
-    }
-
-    UIntPtr GetAddressFromPtr(const void* ptr) const
-    {
-        if constexpr (IsNullCheckEnabled)
+        if constexpr (IsNullDeallocCheckEnabled)
         {
             MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator %s!\n", GetDebugName().c_str());
         }
@@ -314,43 +138,91 @@ class PoolAllocator : public Allocator
                             address);
         }
 
-        return address;
+        std::bit_cast<Chunk*>(ptr)->nextChunk = std::bit_cast<Chunk*>(m_CurrentPtr);
+
+        if constexpr (IsAllocationTrackingEnabled)
+        {
+            AddDeallocation();
+        }
+
+        m_CurrentPtr = std::bit_cast<Chunk*>(ptr);
     }
 
-    template <Size headerSize>
-    static consteval Size GetTotalHeaderSize()
+  private:
+    void AllocateBlock()
     {
-        if constexpr (IsBoundsCheckEnabled)
+        // The first chunk of the new block
+        Internal::BaseAllocatorPtr<void> newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
+
+        // Once the block is allocated, we need to chain all the chunks in this block:
+        Chunk* currentChunk = std::bit_cast<Chunk*>(newBlockPtr.GetPtr());
+
+        for (int i = 0; i < m_ObjectsPerBlock - 1; ++i)
         {
-            return headerSize + sizeof(BoundGuardFront);
+            currentChunk->nextChunk = std::bit_cast<Chunk*>(std::bit_cast<UIntPtr>(currentChunk) + m_ObjectSize);
+            currentChunk            = currentChunk->nextChunk;
         }
-        else
+
+        currentChunk->nextChunk = nullptr;
+
+        m_BlockPtrs.push_back(newBlockPtr);
+
+        if constexpr (IsUsageTrackingEnabled)
         {
-            return headerSize;
+            SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize);
         }
+
+        UpdateTotalSize();
+
+        m_CurrentPtr = newBlockPtr.GetPtr();
     }
 
-    void SetCurrentOffset(const Offset offset)
+    inline void DeallocateBlocks()
     {
-        m_CurrentOffset = offset;
-
-        if (IsUsageTrackingEnabled)
+        if constexpr (IsGrowable)
         {
-            SetUsedSize(offset);
+            while (m_BlockPtrs.size() > 1)
+            {
+                FreeLastBlock();
+            }
+            UpdateTotalSize();
+        }
+
+        m_CurrentPtr = m_BlockPtrs[0].GetPtr();
+    }
+
+    inline void FreeLastBlock()
+    {
+        m_BaseAllocator->DeallocateBase(m_BlockPtrs.back());
+        m_BlockPtrs.pop_back();
+    }
+
+    inline void UpdateTotalSize()
+    {
+        if constexpr (IsUsageTrackingEnabled)
+        {
+            SetTotalSize(m_BlockPtrs.size() * m_BlockSize);
         }
     }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
+    [[nodiscard]] bool OwnsAddress(UIntPtr address) const
+    {
+        UIntPtr startAddress = std::bit_cast<UIntPtr>(m_BlockPtrs[0].GetPtr());
+        UIntPtr endAddress   = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr()) + m_BlockSize;
+
+        return address >= startAddress && address <= endAddress;
+    }
+
+    std::shared_ptr<Allocator>                    m_BaseAllocator;
+    std::vector<Internal::BaseAllocatorPtr<void>> m_BlockPtrs;
 
     ThreadPolicy m_MultithreadedPolicy;
 
-    // Dont change member variable declaration order in this block!
-    void*   m_StartPtr = nullptr;
-    UIntPtr m_StartAddress;
-    UIntPtr m_EndAddress;
-    // -------------------
+    void* m_CurrentPtr = nullptr;
 
-    Offset m_CurrentOffset = 0;
+    Size m_ObjectsPerBlock;
+    Size m_ObjectSize;
+    Size m_BlockSize;
 };
 
 // template <PoolAllocatorPolicy policy>
