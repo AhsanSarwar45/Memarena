@@ -29,6 +29,7 @@ class PoolAllocator : public Allocator
 {
   private:
     static constexpr bool IsNullDeallocCheckEnabled   = PolicyContains(policy, PoolAllocatorPolicy::NullDeallocCheck);
+    static constexpr bool IsNewSizeCheckEnabled       = PolicyContains(policy, PoolAllocatorPolicy::NewSizeCheck);
     static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, PoolAllocatorPolicy::SizeCheck);
     static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, PoolAllocatorPolicy::OwnershipCheck);
     static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, PoolAllocatorPolicy::SizeTracking);
@@ -58,7 +59,8 @@ class PoolAllocator : public Allocator
           m_BaseAllocator(std::move(baseAllocator))
     {
         AllocateBlock();
-        MEMARENA_ASSERT(objectSize > sizeof(Chunk), "Object size must be larger than the pointer size (%u)", sizeof(void*))
+        MEMARENA_ASSERT(objectSize > sizeof(Chunk), "Object size must be larger than the pointer size (%u) for the allocator '%s'",
+                        sizeof(void*), GetDebugName().c_str())
     }
 
     ~PoolAllocator()
@@ -72,7 +74,12 @@ class PoolAllocator : public Allocator
     template <typename Object, typename... Args>
     NO_DISCARD Object* New(Args&&... argList)
     {
-        // TODO: Assert sizeof Object
+        if constexpr (IsNewSizeCheckEnabled)
+        {
+            MEMARENA_ASSERT(m_ObjectSize == sizeof(Object),
+                            "Object size (%u) is not equal to the size specified at initialization (%u) for the allocator '%s'",
+                            sizeof(Object), m_ObjectSize, GetDebugName().c_str())
+        }
         void* voidPtr = Allocate();
         return new (voidPtr) Object(std::forward<Args>(argList)...);
     }
@@ -96,7 +103,6 @@ class PoolAllocator : public Allocator
             }
         }
         else if constexpr (IsSizeCheckEnabled)
-
         {
             MEMARENA_ASSERT(m_CurrentPtr != nullptr, "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
         }
@@ -110,7 +116,10 @@ class PoolAllocator : public Allocator
             AddAllocation(m_ObjectSize, category, sourceLocation);
         }
 
-        // TODO: Used size
+        if constexpr (IsUsageTrackingEnabled)
+        {
+            IncreaseUsedSize(m_ObjectSize);
+        }
 
         return freePtr;
     }

@@ -81,8 +81,9 @@ enum class PoolAllocatorPolicy : UInt32
     OwnershipCheck       = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
     DoubleFreePrevention = Bit(3), // Set the ptr to null on free to prevent double frees
     Growable             = Bit(4), // Allow the allocator to grow when memory is exhausted
+    NewSizeCheck         = Bit(5), // Check if the size of object being allocated by new is equal to objectSize
 
-    Default = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | DoubleFreePrevention,
+    Default = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | DoubleFreePrevention | NewSizeCheck,
     Release = Empty,
     Debug   = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | AllocationTracking | DoubleFreePrevention,
 };
