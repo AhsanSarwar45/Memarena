@@ -197,9 +197,9 @@ TEST_F(PoolAllocatorTest, Templated)
 
 // TEST_F(PoolAllocatorTest, PmrVector)
 // {
-//     MallocatorPMR mallocatorPMR{};
+//     PoolAllocatorPMR poolAllocatorPMR{sizeof(TestObject), 1000};
 
-//     auto vec = std::pmr::vector<TestObject>(0, &mallocatorPMR);
+//     auto vec = std::pmr::vector<TestObject>(0, &poolAllocatorPMR);
 
 //     const int numIters = 10;
 
@@ -213,31 +213,31 @@ TEST_F(PoolAllocatorTest, Templated)
 //         EXPECT_EQ(vec[i], TestObject(1, 1.5F, 'a', false, 2.5F));
 //     }
 
-//     EXPECT_EQ(mallocatorPMR.GetInternalAllocator().GetUsedSize(), 256);
+//     EXPECT_EQ(poolAllocatorPMR.GetInternalAllocator().GetUsedSize(), 256);
 //     EXPECT_EQ(vec.size(), numIters);
 // }
 
-// TEST_F(PoolAllocatorTest, MemoryTracker)
-// {
-//     constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::Debug;
-//     PoolAllocator<policy>      poolAllocator2{};
+TEST_F(PoolAllocatorTest, MemoryTracker)
+{
+    constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::Debug;
+    PoolAllocator<policy>         poolAllocator2{sizeof(Int64), 1000};
 
-//     int* num = static_cast<int*>(poolAllocator2.Allocate<int>("Testing/PoolAllocator").GetPtr());
+    Int64* num = static_cast<Int64*>(poolAllocator2.Allocate<Int64>("Testing/PoolAllocator").GetPtr());
 
-//     const AllocatorVector allocators = MemoryTracker::GetBaseAllocators();
+    const AllocatorVector allocators = MemoryTracker::GetBaseAllocators();
 
-//     EXPECT_EQ(allocators.size(), 1);
-//     if (allocators.size() > 0)
-//     {
-//         EXPECT_EQ(allocators[0]->totalSize, sizeof(int));
-//         EXPECT_EQ(allocators[0]->usedSize, sizeof(int));
-//         EXPECT_EQ(allocators[0]->allocationCount, 1);
-//         EXPECT_EQ(allocators[0]->deallocationCount, 0);
-//         EXPECT_EQ(allocators[0]->allocations[0].category, std::string("Testing/PoolAllocator"));
-//         EXPECT_EQ(allocators[0]->allocations[0].size, sizeof(int));
-//     }
-//     EXPECT_EQ(MemoryTracker::GetTotalAllocatedSize(), sizeof(int));
-// }
+    EXPECT_EQ(allocators.size(), 1);
+    if (allocators.size() > 0)
+    {
+        EXPECT_EQ(allocators[0]->totalSize, sizeof(Int64));
+        EXPECT_EQ(allocators[0]->usedSize, sizeof(Int64));
+        EXPECT_EQ(allocators[0]->allocationCount, 1);
+        EXPECT_EQ(allocators[0]->deallocationCount, 0);
+        EXPECT_EQ(allocators[0]->allocations[0].category, std::string("Testing/PoolAllocator"));
+        EXPECT_EQ(allocators[0]->allocations[0].size, sizeof(int));
+    }
+    EXPECT_EQ(MemoryTracker::GetTotalAllocatedSize(), sizeof(int));
+}
 
 #ifdef MEMARENA_ENABLE_ASSERTS
 

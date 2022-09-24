@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, PoolAllocatorPolicy policy = PoolAllocatorPolicy::Default>
+template <Allocatable Object, PoolAllocatorPolicy policy = defaultPoolAllocatorPolicy>
 class PoolAllocatorTemplated
 {
   public:

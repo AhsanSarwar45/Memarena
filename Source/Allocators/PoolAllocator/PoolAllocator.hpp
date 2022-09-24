@@ -56,6 +56,9 @@ struct Chunk
 template <PoolAllocatorPolicy policy = defaultPoolAllocatorPolicy>
 class PoolAllocator : public Allocator
 {
+    template <PoolAllocatorPolicy pmrPolicy>
+    friend class PoolAllocatorPMR;
+
   private:
     static constexpr bool IsNullDeallocCheckEnabled    = PolicyContains(policy, PoolAllocatorPolicy::NullDeallocCheck);
     static constexpr bool IsAllocationSizeCheckEnabled = PolicyContains(policy, PoolAllocatorPolicy::AllocationSizeCheck);
@@ -157,13 +160,13 @@ class PoolAllocator : public Allocator
 
     NO_DISCARD PoolPtr<void> Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateInternal(category, sourceLocation);
+        return PoolPtr<void>(AllocateInternal(category, sourceLocation));
     }
 
     NO_DISCARD PoolArrayPtr<void> AllocateArray(const Size objectCount, const std::string& category = "",
                                                 const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return AllocateArrayInternal(objectCount, category, sourceLocation);
+        return PoolArrayPtr<void>(AllocateArrayInternal(objectCount, category, sourceLocation), objectCount);
     }
 
     void DeallocateArray(PoolArrayPtr<void> ptr) { DeallocateArrayInternal(ptr.GetPtr(), ptr.GetCount()); }
@@ -175,6 +178,8 @@ class PoolAllocator : public Allocator
     }
 
     void Deallocate(PoolPtr<void> ptr) { DeallocateInternal(ptr.GetPtr()); }
+
+    [[nodiscard]] Size GetObjectSize() const { return m_ObjectSize; }
 
   private:
     NO_DISCARD
@@ -251,9 +256,10 @@ class PoolAllocator : public Allocator
 
         while (consecutiveChunksFound < objectCount)
         {
-            if (currentChunk == nullptr)
+
+            if constexpr (IsGrowable)
             {
-                if constexpr (IsGrowable)
+                if (currentChunk == nullptr)
                 {
                     AllocateBlock();
                     // We know for sure that the newly allocated block has the required number of consecutive chunks
@@ -261,11 +267,12 @@ class PoolAllocator : public Allocator
                     startingChunk = std::bit_cast<Chunk*>(m_CurrentPtr);
                     break;
                 }
-                else if constexpr (IsSizeCheckEnabled)
-                {
-                    MEMARENA_ASSERT(m_CurrentPtr != nullptr, "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
-                }
             }
+            else if constexpr (IsSizeCheckEnabled)
+            {
+                MEMARENA_ASSERT(m_CurrentPtr != nullptr, "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
+            }
+
             const UIntPtr nextChunkAddress       = std::bit_cast<UIntPtr>(currentChunk->nextChunk);
             const UIntPtr proceedingChunkAddress = std::bit_cast<UIntPtr>(currentChunk) + m_ObjectSize;
             if (nextChunkAddress == proceedingChunkAddress)
