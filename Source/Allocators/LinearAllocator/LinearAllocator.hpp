@@ -82,6 +82,12 @@ class LinearAllocator : public Allocator
     NO_DISCARD void* Allocate(const Size size, const Alignment& alignment = defaultAlignment, const std::string& category = "",
                               const SourceLocation& sourceLocation = SourceLocation::current())
     {
+        if constexpr (IsSizeCheckEnabled)
+        {
+            MEMARENA_ASSERT(size <= m_BlockSize, "Error: Allocation size (%u) must be <= to block size (%u) for allocator '%s'!\n", size,
+                            m_BlockSize, GetDebugName().c_str());
+        }
+
         UIntPtr alignedAddress = 0;
 
         {

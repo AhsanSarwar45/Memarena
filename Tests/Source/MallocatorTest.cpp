@@ -280,7 +280,7 @@ class MallocatorDeathTest : public ::testing::Test
     Mallocator<> mallocator = Mallocator();
 };
 
-TEST_F(MallocatorDeathTest, DeleteNullptrPointer)
+TEST_F(MallocatorDeathTest, DeleteNullPointer)
 {
     constexpr MallocatorPolicy policy = MallocatorPolicy::NullDeallocCheck;
     Mallocator<policy>         mallocator2{};

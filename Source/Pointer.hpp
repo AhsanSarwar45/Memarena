@@ -9,6 +9,8 @@ namespace Memarena
 template <typename T>
 class Ptr
 {
+    friend class Allocator;
+
   public:
     inline T*                     GetPtr() { return m_Ptr; }
     [[nodiscard]] inline const T* GetPtr() const { return m_Ptr; }
