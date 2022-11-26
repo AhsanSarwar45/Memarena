@@ -35,7 +35,7 @@ using MallocArrayPtr = Internal::BaseAllocatorArrayPtr<T>;
  *
  * @tparam policy
  */
-template <MallocatorPolicy policy = MallocatorPolicy::Default>
+template <MallocatorPolicy policy = GetDefaultPolicy<MallocatorPolicy>()>
 class Mallocator : public Allocator
 {
   private:

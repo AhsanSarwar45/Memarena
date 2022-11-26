@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
+template <StackAllocatorPolicy policy = GetDefaultPolicy<StackAllocatorPolicy>()>
 class StackAllocatorPMR : public std::pmr::memory_resource
 {
   public:

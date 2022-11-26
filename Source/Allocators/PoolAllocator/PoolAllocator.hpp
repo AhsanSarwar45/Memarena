@@ -1,7 +1,6 @@
 #pragma once
 
-#include <bit>
-#include <experimental/source_location>
+#include "Source/PCH.hpp"
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
@@ -39,12 +38,6 @@ class PoolArrayPtr : public ArrayPtr<T>
     inline explicit PoolArrayPtr(T* ptr, Size count) : ArrayPtr<T>(ptr, count) {}
 };
 
-#ifdef MEMARENA_DEBUG
-constexpr PoolAllocatorPolicy defaultPoolAllocatorPolicy = PoolAllocatorPolicy::Default;
-#else
-constexpr PoolAllocatorPolicy defaultPoolAllocatorPolicy = PoolAllocatorPolicy::Release;
-#endif
-
 namespace Internal
 {
 struct Chunk
@@ -53,7 +46,7 @@ struct Chunk
 };
 } // namespace Internal
 
-template <PoolAllocatorPolicy policy = defaultPoolAllocatorPolicy>
+template <PoolAllocatorPolicy policy = GetDefaultPolicy<PoolAllocatorPolicy>()>
 class PoolAllocator : public Allocator
 {
     template <PoolAllocatorPolicy pmrPolicy>

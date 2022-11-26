@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
+template <LinearAllocatorPolicy policy = GetDefaultPolicy<LinearAllocatorPolicy>()>
 class LinearAllocatorPMR : public std::pmr::memory_resource
 {
   public:

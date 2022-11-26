@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <MallocatorPolicy policy = MallocatorPolicy::Default>
+template <MallocatorPolicy policy = GetDefaultPolicy<MallocatorPolicy>()>
 class MallocatorPMR : public std::pmr::memory_resource
 {
   public:

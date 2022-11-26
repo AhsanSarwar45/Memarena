@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
+template <Allocatable Object, LinearAllocatorPolicy policy = GetDefaultPolicy<LinearAllocatorPolicy>()>
 class LinearAllocatorTemplated
 {
   public:

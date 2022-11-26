@@ -28,16 +28,13 @@ template <typename Object, typename... Args>
 Object* CheckNewRaw(LinearAllocator<>& allocator, Args&&... argList)
 {
     Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);
-
     EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));
-
     return object;
 }
 template <typename Object, typename... Args>
 Object* CheckNewArrayRaw(LinearAllocator<>& allocator, size_t objectCount, Args&&... argList)
 {
     Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
-
     for (size_t i = 0; i < objectCount; i++)
     {
         EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
@@ -83,26 +80,6 @@ TEST_F(LinearAllocatorTest, Release)
     {
         TestObject* object = CheckNewRaw<TestObject>(linearAllocator2, i, 1.5F, 'a' + i, i % 2, 2.5F);
     }
-}
-
-TEST_F(LinearAllocatorTest, GetUsedSizeNew)
-{
-    const int numObjects = 10;
-    for (size_t i = 0; i < numObjects; i++)
-    {
-        TestObject* object = CheckNewRaw<TestObject>(linearAllocator, i, 1.5F, 'a' + i, i % 2, 2.5F);
-    }
-
-    EXPECT_EQ(linearAllocator.GetUsedSize(), numObjects * (sizeof(TestObject)));
-}
-
-TEST_F(LinearAllocatorTest, GetUsedSizeNewArray)
-{
-    const int numObjects = 10;
-
-    TestObject* arr = CheckNewArrayRaw<TestObject>(linearAllocator, numObjects, 1, 2.1F, 'a', false, 10.6f);
-
-    EXPECT_EQ(linearAllocator.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
 }
 
 template <LinearAllocatorPolicy policy>
@@ -186,7 +163,7 @@ TEST_F(LinearAllocatorTest, PmrVector)
 {
     const int blockSize = 10_KB;
 
-    LinearAllocatorPMR linearAllocatorPMR{blockSize};
+    LinearAllocatorPMR<LinearAllocatorPolicy::Debug> linearAllocatorPMR{blockSize};
 
     auto vec = std::pmr::vector<TestObject>(0, &linearAllocatorPMR);
 
@@ -203,13 +180,13 @@ TEST_F(LinearAllocatorTest, PmrVector)
     }
 
     EXPECT_EQ(linearAllocatorPMR.GetInternalAllocator().GetUsedSize(), 496);
+
     EXPECT_EQ(vec.size(), numIters);
 }
 
 TEST_F(LinearAllocatorTest, MemoryTracker)
 {
-    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Debug;
-    LinearAllocator<policy>         linearAllocator2{1_MB, "LinearAllocator2"};
+    LinearAllocator<LinearAllocatorPolicy::Debug> linearAllocator2{1_MB};
 
     const AllocatorVector allocators = MemoryTracker::GetAllocators();
     EXPECT_EQ(allocators.size(), 1);
@@ -229,9 +206,7 @@ TEST_F(LinearAllocatorTest, MemoryTracker)
 
 TEST_F(LinearAllocatorTest, DefaultBaseAllocator)
 {
-    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Debug;
-
-    LinearAllocator<policy> linearAllocator2{1_MB};
+    LinearAllocator<LinearAllocatorPolicy::Debug> linearAllocator2{1_MB};
 
     int* num = static_cast<int*>(linearAllocator2.Allocate<int>("Testing/LinearAllocator"));
 
@@ -240,15 +215,36 @@ TEST_F(LinearAllocatorTest, DefaultBaseAllocator)
 
 TEST_F(LinearAllocatorTest, CustomBaseAllocator)
 {
-    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Debug;
-
     auto baseAllocator = std::make_shared<Mallocator<MallocatorPolicy::Default>>("Mallocator");
 
-    LinearAllocator<policy> linearAllocator2{1_MB, "TestAllocator", baseAllocator};
+    LinearAllocator<LinearAllocatorPolicy::Debug> linearAllocator2{1_MB, "TestAllocator", baseAllocator};
 
     int* num = static_cast<int*>(linearAllocator2.Allocate<int>("Testing/LinearAllocator"));
 
     EXPECT_EQ(baseAllocator->GetTotalSize(), 1_MB);
+}
+
+TEST_F(LinearAllocatorTest, GetUsedSizeNew)
+{
+    LinearAllocator<LinearAllocatorPolicy::Debug> linearAllocator2{1_MB};
+
+    const int numObjects = 10;
+    for (size_t i = 0; i < numObjects; i++)
+    {
+        TestObject* object = linearAllocator2.NewRaw<TestObject>(i, 1.5F, 'a' + i, i % 2, 2.5F);
+    }
+
+    EXPECT_EQ(linearAllocator2.GetUsedSize(), numObjects * (sizeof(TestObject)));
+}
+
+TEST_F(LinearAllocatorTest, GetUsedSizeNewArray)
+{
+    LinearAllocator<LinearAllocatorPolicy::Debug> linearAllocator2{1_MB};
+
+    const int   numObjects = 10;
+    TestObject* arr        = linearAllocator2.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6f);
+
+    EXPECT_EQ(linearAllocator2.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS

@@ -103,17 +103,6 @@ TEST_F(PoolAllocatorTest, NewDeleteNewMultipleObjects)
     }
 }
 
-TEST_F(PoolAllocatorTest, GetUsedSizeNew)
-{
-    const int numObjects = 10;
-    for (size_t i = 0; i < numObjects; i++)
-    {
-        PoolPtr<TestObject> object = CheckNew<TestObject>(poolAllocator, i, 1.5F, 'a' + i, i % 2, 2.5F);
-    }
-
-    EXPECT_EQ(poolAllocator.GetUsedSize(), numObjects * (sizeof(TestObject)));
-}
-
 TEST_F(PoolAllocatorTest, NewArray)
 {
     PoolArrayPtr<TestObject> arr = CheckNewArray<TestObject>(poolAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
@@ -219,8 +208,7 @@ TEST_F(PoolAllocatorTest, Templated)
 
 TEST_F(PoolAllocatorTest, MemoryTracker)
 {
-    constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::Debug;
-    PoolAllocator<policy>         poolAllocator2{sizeof(Int64), 1000};
+    PoolAllocator<PoolAllocatorPolicy::Debug> poolAllocator2{sizeof(Int64), 1000};
 
     Int64* num = static_cast<Int64*>(poolAllocator2.Allocate<Int64>("Testing/PoolAllocator").GetPtr());
 
@@ -236,6 +224,19 @@ TEST_F(PoolAllocatorTest, MemoryTracker)
         EXPECT_EQ(allocators[0]->allocations[0].category, std::string("Testing/PoolAllocator"));
         EXPECT_EQ(allocators[0]->allocations[0].size, sizeof(Int64));
     }
+}
+
+TEST_F(PoolAllocatorTest, GetUsedSizeNew)
+{
+    PoolAllocator<PoolAllocatorPolicy::Debug> poolAllocator2{sizeof(TestObject), 10};
+
+    const int numObjects = 10;
+    for (size_t i = 0; i < numObjects; i++)
+    {
+        PoolPtr<TestObject> object = poolAllocator2.New<TestObject>(i, 1.5F, 'a' + i, i % 2, 2.5F);
+    }
+
+    EXPECT_EQ(poolAllocator2.GetUsedSize(), numObjects * (sizeof(TestObject)));
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS

@@ -28,20 +28,6 @@ struct IsPolicy
 
 #define ALLOCATOR_POLICIES BASE_ALLOCATOR_POLICIES, SizeCheck = Bit(30) /* Check if the allocator has sufficient space when allocating */
 
-// enum class AllocatorPolicy : UInt32
-// {
-//     ALLOCATOR_POLICIES,
-//     Mask = SizeCheck | Multithreaded | SizeTracking | AllocationTracking
-// };
-
-// MARK_AS_POLICY(AllocatorPolicy);
-
-// template <typename Policy>
-// constexpr AllocatorPolicy ToAllocatorPolicy(Policy policy)
-// {
-//     return static_cast<AllocatorPolicy>(policy) & AllocatorPolicy::Mask;
-// }
-
 template <typename Policy, typename Value>
 constexpr bool PolicyContains(Policy policy, Value value)
 {
@@ -132,5 +118,22 @@ enum class VirtualAllocatorPolicy : UInt32
 };
 
 MARK_AS_POLICY(VirtualAllocatorPolicy);
+
+template <typename T>
+concept AllocatorPolicy = requires(T a)
+{
+    T::Default;
+    T::Release;
+};
+
+template <AllocatorPolicy Policy>
+constexpr auto GetDefaultPolicy() -> Policy
+{
+#ifdef MEMARENA_DEBUG
+    return Policy::Default;
+#else
+    return Policy::Release;
+#endif
+}
 
 } // namespace Memarena

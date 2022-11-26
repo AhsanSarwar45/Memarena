@@ -1,5 +1,7 @@
 project('Memarena', 'cpp', version : '0.1.0', default_options : ['cpp_std=c++20'])
 
+add_project_arguments('-w', language : 'cpp')
+
 if get_option('buildtype').startswith('debug')
   add_project_arguments('-DMEMARENA_DEBUG', language : 'cpp')
 endif

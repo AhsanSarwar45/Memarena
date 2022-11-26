@@ -23,7 +23,7 @@ namespace Memarena
  *
  * @tparam policy
  */
-template <LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default>
+template <LinearAllocatorPolicy policy = GetDefaultPolicy<LinearAllocatorPolicy>()>
 class LinearAllocator : public Allocator
 {
   private:

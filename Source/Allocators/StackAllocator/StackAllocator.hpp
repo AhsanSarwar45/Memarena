@@ -94,7 +94,7 @@ class StackArrayPtr : public ArrayPtr<T>
  *
  * @tparam policy The `StackAllocatorPolicy`mjn object to define the behaviour of this allocator
  */
-template <StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
+template <StackAllocatorPolicy policy = GetDefaultPolicy<StackAllocatorPolicy>()>
 class StackAllocator : public Allocator
 {
   private:

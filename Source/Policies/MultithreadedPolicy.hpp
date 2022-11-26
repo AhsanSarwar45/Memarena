@@ -8,14 +8,6 @@
 namespace Memarena
 {
 
-// template <typename PolicyType>
-// struct PolicyWrapper
-// {
-//     PolicyType policy;
-
-//     constexpr explicit PolicyWrapper(PolicyType _policy) : policy(_policy) {}
-// };
-
 template <bool IsMultithreaded, bool IsRecursive = false>
 class MultithreadedPolicy
 {

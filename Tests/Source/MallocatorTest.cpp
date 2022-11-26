@@ -153,22 +153,27 @@ TEST_F(MallocatorTest, NewDeleteMixed)
 
 TEST_F(MallocatorTest, GetUsedSizeNew)
 {
+    constexpr MallocatorPolicy policy = MallocatorPolicy::Debug;
+    Mallocator<policy>         mallocator2{};
+
     const int numObjects = 10;
     for (size_t i = 0; i < numObjects; i++)
     {
-        MallocPtr<TestObject> object = CheckNew<TestObject>(mallocator, i, 1.5F, 'a' + i, i % 2, 2.5F);
+        MallocPtr<TestObject> object = mallocator2.New<TestObject>(i, 1.5F, 'a' + i, i % 2, 2.5F);
     }
 
-    EXPECT_EQ(mallocator.GetUsedSize(), numObjects * (sizeof(TestObject)));
+    EXPECT_EQ(mallocator2.GetUsedSize(), numObjects * (sizeof(TestObject)));
 }
 
 TEST_F(MallocatorTest, GetUsedSizeNewArray)
 {
-    const int numObjects = 10;
+    constexpr MallocatorPolicy policy = MallocatorPolicy::Debug;
+    Mallocator<policy>         mallocator2{};
 
-    MallocArrayPtr<TestObject> arr = CheckNewArray<TestObject>(mallocator, numObjects, 1, 2.1F, 'a', false, 10.6f);
+    const int                  numObjects = 10;
+    MallocArrayPtr<TestObject> object     = mallocator2.NewArray<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6f);
 
-    EXPECT_EQ(mallocator.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
+    EXPECT_EQ(mallocator2.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
 }
 
 template <MallocatorPolicy policy>
@@ -227,7 +232,8 @@ TEST_F(MallocatorTest, Templated)
 
 TEST_F(MallocatorTest, PmrVector)
 {
-    MallocatorPMR mallocatorPMR{};
+    constexpr MallocatorPolicy policy = MallocatorPolicy::Debug;
+    MallocatorPMR<policy>      mallocatorPMR{};
 
     auto vec = std::pmr::vector<TestObject>(0, &mallocatorPMR);
 

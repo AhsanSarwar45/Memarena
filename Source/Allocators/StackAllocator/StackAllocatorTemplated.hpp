@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, StackAllocatorPolicy policy = StackAllocatorPolicy::Default>
+template <Allocatable Object, StackAllocatorPolicy policy = GetDefaultPolicy<StackAllocatorPolicy>()>
 class StackAllocatorTemplated
 {
   public:

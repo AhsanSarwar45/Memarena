@@ -380,52 +380,61 @@ TEST_F(StackAllocatorTest, Release)
 
 TEST_F(StackAllocatorTest, GetUsedSizeNew)
 {
-    const int numObjects = 10;
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
+    StackAllocator<policy>         stackAllocator2{1_MB};
+    const int                      numObjects = 10;
     for (int i = 0; i < numObjects; i++)
     {
         TestObject* object =
-            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+            stackAllocator2.NewRaw<TestObject>(i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
 
-    EXPECT_EQ(stackAllocator.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(8))));
+    EXPECT_EQ(stackAllocator2.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(8))));
 }
 
 TEST_F(StackAllocatorTest, GetUsedSizeNewDelete)
 {
-    const int                numObjects = 10;
-    std::vector<TestObject*> objects;
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
+    StackAllocator<policy>         stackAllocator2{1_MB};
+    const int                      numObjects = 10;
+    std::vector<TestObject*>       objects;
     for (int i = 0; i < numObjects; i++)
     {
         TestObject* object =
-            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+            stackAllocator2.NewRaw<TestObject>(i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
         objects.push_back(object);
     }
 
     for (int i = numObjects - 1; i >= 0; i--)
     {
-        stackAllocator.Delete(objects[i]);
+        stackAllocator2.Delete(objects[i]);
     }
 
-    EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
+    EXPECT_EQ(stackAllocator2.GetUsedSize(), 0);
 }
 
 TEST_F(StackAllocatorTest, GetUsedSizeNewArray)
 {
-    const int numObjects = 10;
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
+    StackAllocator<policy>         stackAllocator2{1_MB};
 
-    TestObject* arr = CheckNewArrayRaw<TestObject>(stackAllocator, numObjects, 1, 2.1F, 'a', false, 10.6F);
+    const int   numObjects = 10;
+    TestObject* arr        = stackAllocator2.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6F);
 
-    EXPECT_EQ(stackAllocator.GetUsedSize(), std::max(alignof(TestObject), size_t(8) + numObjects * sizeof(TestObject)));
+    EXPECT_EQ(stackAllocator2.GetUsedSize(), std::max(alignof(TestObject), size_t(8) + numObjects * sizeof(TestObject)));
 }
 
 TEST_F(StackAllocatorTest, GetUsedSizeNewDeleteArray)
 {
+    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
+    StackAllocator<policy>         stackAllocator2{1_MB};
+
     const int   numObjects = 10;
-    TestObject* arr        = CheckNewArrayRaw<TestObject>(stackAllocator, numObjects, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* arr        = stackAllocator2.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6F);
 
-    stackAllocator.DeleteArray(arr);
+    stackAllocator2.DeleteArray(arr);
 
-    EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
+    EXPECT_EQ(stackAllocator2.GetUsedSize(), 0);
 }
 
 TEST_F(StackAllocatorTest, MemoryTracker)

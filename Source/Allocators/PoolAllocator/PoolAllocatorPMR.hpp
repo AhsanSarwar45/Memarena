@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <PoolAllocatorPolicy policy = defaultPoolAllocatorPolicy>
+template <PoolAllocatorPolicy policy = GetDefaultPolicy<PoolAllocatorPolicy>()>
 class PoolAllocatorPMR : public std::pmr::memory_resource
 {
   public:
