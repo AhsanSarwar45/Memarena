@@ -8,6 +8,11 @@
 namespace Memarena
 {
 
+std::mutex      MemoryTracker::m_Mutex;
+AllocatorVector MemoryTracker::m_Allocators;
+AllocatorVector MemoryTracker::m_BaseAllocators;
+Cache<Size>     MemoryTracker::m_TotalAllocatedSize = {0, false};
+
 void MemoryTracker::RegisterAllocator(const std::shared_ptr<AllocatorData>& allocatorData)
 {
     std::lock_guard<std::mutex> guard(m_Mutex);
@@ -51,5 +56,34 @@ Size MemoryTracker::GetTotalAllocatedSize()
 
     return m_TotalAllocatedSize.value;
 }
+void MemoryTracker::Reset()
+{
+    std::lock_guard<std::mutex> guard(m_Mutex);
 
+    m_Allocators.clear();
+    m_Allocators.shrink_to_fit();
+    m_BaseAllocators.clear();
+    m_BaseAllocators.shrink_to_fit();
+}
+
+void MemoryTracker::ResetAllocators()
+{
+    std::lock_guard<std::mutex> guard(m_Mutex);
+
+    m_Allocators.clear();
+    m_Allocators.shrink_to_fit();
+}
+
+void MemoryTracker::ResetBaseAllocators()
+{
+    std::lock_guard<std::mutex> guard(m_Mutex);
+
+    m_BaseAllocators.clear();
+    m_BaseAllocators.shrink_to_fit();
+}
+
+void MemoryTracker::InvalidateTotalAllocatedSizeCache() { m_TotalAllocatedSize.invalidated = true; }
+
+const AllocatorVector& MemoryTracker::GetAllocators() { return m_Allocators; }
+const AllocatorVector& MemoryTracker::GetBaseAllocators() { return m_BaseAllocators; }
 } // namespace Memarena

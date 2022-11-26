@@ -19,7 +19,7 @@ using namespace Memarena::SizeLiterals;
 class PoolAllocatorTest : public ::testing::Test
 {
   protected:
-    void SetUp() override { MemoryTracker::ResetBaseAllocators(); }
+    void SetUp() override { MemoryTracker::ResetAllocators(); }
     void TearDown() override {}
 
     PoolAllocator<> poolAllocator = PoolAllocator(sizeof(TestObject), 1000);
@@ -224,19 +224,18 @@ TEST_F(PoolAllocatorTest, MemoryTracker)
 
     Int64* num = static_cast<Int64*>(poolAllocator2.Allocate<Int64>("Testing/PoolAllocator").GetPtr());
 
-    const AllocatorVector allocators = MemoryTracker::GetBaseAllocators();
+    const AllocatorVector allocators = MemoryTracker::GetAllocators();
 
     EXPECT_EQ(allocators.size(), 1);
     if (allocators.size() > 0)
     {
-        EXPECT_EQ(allocators[0]->totalSize, sizeof(Int64));
+        EXPECT_EQ(allocators[0]->totalSize, sizeof(Int64) * 1000);
         EXPECT_EQ(allocators[0]->usedSize, sizeof(Int64));
         EXPECT_EQ(allocators[0]->allocationCount, 1);
         EXPECT_EQ(allocators[0]->deallocationCount, 0);
         EXPECT_EQ(allocators[0]->allocations[0].category, std::string("Testing/PoolAllocator"));
-        EXPECT_EQ(allocators[0]->allocations[0].size, sizeof(int));
+        EXPECT_EQ(allocators[0]->allocations[0].size, sizeof(Int64));
     }
-    EXPECT_EQ(MemoryTracker::GetTotalAllocatedSize(), sizeof(int));
 }
 
 #ifdef MEMARENA_ENABLE_ASSERTS

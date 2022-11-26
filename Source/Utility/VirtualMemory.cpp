@@ -1,4 +1,3 @@
-#pragma once
 
 #include <bit>
 #include <memoryapi.h>

@@ -91,8 +91,9 @@ class PoolAllocator : public Allocator
           m_BaseAllocator(std::move(baseAllocator))
     {
         AllocateBlock();
-        MEMARENA_ASSERT(objectSize > sizeof(Chunk), "Error: Object size must be larger than the pointer size (%u) for the allocator '%s'",
-                        sizeof(void*), GetDebugName().c_str());
+        MEMARENA_ASSERT(objectSize >= sizeof(Chunk),
+                        "Error: Object size must be larger than or equal the pointer size (%u) for the allocator '%s'", sizeof(void*),
+                        GetDebugName().c_str());
     }
 
     ~PoolAllocator()

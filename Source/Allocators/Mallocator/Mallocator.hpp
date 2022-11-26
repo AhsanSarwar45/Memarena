@@ -156,7 +156,8 @@ class Mallocator : public Allocator
             }
         }
 
-        return malloc(size);
+        return ptr;
+        ;
     }
 
     template <typename Object>

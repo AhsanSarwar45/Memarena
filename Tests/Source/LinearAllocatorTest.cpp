@@ -209,13 +209,13 @@ TEST_F(LinearAllocatorTest, PmrVector)
 TEST_F(LinearAllocatorTest, MemoryTracker)
 {
     constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Debug;
-    LinearAllocator<policy>         linearAllocator2{1_MB};
+    LinearAllocator<policy>         linearAllocator2{1_MB, "LinearAllocator2"};
+
+    const AllocatorVector allocators = MemoryTracker::GetAllocators();
+    EXPECT_EQ(allocators.size(), 1);
 
     int* num = static_cast<int*>(linearAllocator2.Allocate<int>("Testing/LinearAllocator"));
 
-    const AllocatorVector allocators = MemoryTracker::GetAllocators();
-
-    EXPECT_EQ(allocators.size(), 1);
     if (allocators.size() > 0)
     {
         EXPECT_EQ(allocators[0]->totalSize, 1_MB);
