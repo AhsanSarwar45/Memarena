@@ -7,7 +7,7 @@
 
 namespace Memarena::Internal
 {
-Offset GetArrayEndOffset(UIntPtr ptrAddress, UIntPtr startAddress, Offset objectCount, Size objectSize);
+Offset GetArrayEndOffset(UIntPtr ptrAddress, UIntPtr startAddress, Offset objectCount, Size objectSize, Size footerSize = 0);
 
 template <typename Object, typename... Args>
 Object* ConstructArray(void* voidPtr, const Offset objectCount, Args&&... argList)
@@ -49,13 +49,12 @@ void AllocateHeader(void* ptr, Args&&... argList)
 }
 
 template <typename Header>
-Header GetHeaderFromPtr(UIntPtr& address)
+std::tuple<Header, UIntPtr> GetHeaderFromAddress(UIntPtr address)
 {
     const UIntPtr headerAddress = address - sizeof(Header);
     const Header* headerPtr     = std::bit_cast<Header*>(headerAddress);
-    address                     = headerAddress;
 
-    return *headerPtr;
+    return {*headerPtr, headerAddress};
 }
 
 } // namespace Memarena::Internal

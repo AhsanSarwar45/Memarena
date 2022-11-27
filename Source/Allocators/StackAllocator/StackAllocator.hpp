@@ -119,6 +119,8 @@ class StackAllocator : public Allocator
     using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
     using Mutex     = typename ThreadPolicy::Mutex;
 
+    static constexpr Size BackGuardSize = IsBoundsCheckEnabled ? sizeof(BoundGuardBack) : 0;
+
   public:
     // Prohibit default construction, moving and assignment
     StackAllocator()                      = delete;
@@ -216,9 +218,8 @@ class StackAllocator : public Allocator
     void Deallocate(void* ptr)
     {
         const UIntPtr currentAddress = GetAddressFromPtr(ptr);
-        UIntPtr       addressMarker  = currentAddress;
-        InplaceHeader header         = Internal::GetHeaderFromPtr<InplaceHeader>(addressMarker);
-        DeallocateInternal(currentAddress, addressMarker, header);
+        auto [header, headerAddress] = Internal::GetHeaderFromAddress<InplaceHeader>(currentAddress);
+        DeallocateInternal(currentAddress, headerAddress, header);
     }
 
     void Deallocate(const StackPtr<void>& ptr)
@@ -247,12 +248,11 @@ class StackAllocator : public Allocator
 
     Size DeallocateArray(void* ptr, const Size objectSize)
     {
-        const UIntPtr            currentAddress = GetAddressFromPtr(ptr);
-        UIntPtr                  addressMarker  = currentAddress;
-        const InplaceArrayHeader header         = Internal::GetHeaderFromPtr<InplaceArrayHeader>(addressMarker);
-        DeallocateInternal(
-            currentAddress, addressMarker,
-            Header(header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize)));
+        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
+        auto [header, headerAddress] = Internal::GetHeaderFromAddress<InplaceArrayHeader>(currentAddress);
+        DeallocateInternal(currentAddress, headerAddress,
+                           Header(header.startOffset,
+                                  Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize, BackGuardSize)));
         return header.count;
     }
 
@@ -261,9 +261,9 @@ class StackAllocator : public Allocator
         const void*                      voidPtr        = ptr.GetPtr();
         const UIntPtr                    currentAddress = GetAddressFromPtr(voidPtr);
         const Internal::StackArrayHeader header         = ptr.GetHeader();
-        DeallocateInternal(
-            currentAddress, currentAddress,
-            Header(header.startOffset, Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize)));
+        DeallocateInternal(currentAddress, currentAddress,
+                           Header(header.startOffset,
+                                  Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize, BackGuardSize)));
         return header.count;
     }
 

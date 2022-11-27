@@ -19,7 +19,7 @@ class StackAllocatorTest : public ::testing::Test
     void SetUp() override { MemoryTracker::ResetAllocators(); }
     void TearDown() override {}
 
-    StackAllocator<> stackAllocator = StackAllocator<>(10_MB);
+    StackAllocator<> stackAllocator{10_MB};
 };
 
 template <typename Object, typename... Args>
@@ -362,7 +362,7 @@ TEST_F(StackAllocatorTest, Multithreaded)
 
 TEST_F(StackAllocatorTest, Release)
 {
-    StackAllocator<> stackAllocator2 = StackAllocator<>(10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(8))));
+    StackAllocator<> stackAllocator2{10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(8)))};
     for (int i = 0; i < 10; i++)
     {
         TestObject* object =
