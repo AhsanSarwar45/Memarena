@@ -8,10 +8,12 @@
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 #include "Source/AllocatorData.hpp"
-#include "Source/Policies/BoundsCheckPolicy.hpp"
+#include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
+
+constexpr std::array<StackAllocatorPolicy, 2> PoliciesToTest = {StackAllocatorPolicy::Default, StackAllocatorPolicy::Debug};
 
 class StackAllocatorTest : public ::testing::Test
 {
@@ -19,58 +21,79 @@ class StackAllocatorTest : public ::testing::Test
     void SetUp() override { MemoryTracker::ResetAllocators(); }
     void TearDown() override {}
 
-    StackAllocator<> stackAllocator{10_MB};
+    // StackAllocator<> stackAllocator{10_MB};
 };
 
-template <typename Object, typename... Args>
-Object* CheckNewRaw(StackAllocator<>& allocator, Args&&... argList)
-{
-    Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);
-
-    EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));
-
-    return object;
-}
-template <typename Object, typename... Args>
-Object* CheckNewArrayRaw(StackAllocator<>& allocator, size_t objectCount, Args&&... argList)
-{
-    Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);
-
-    for (int i = 0; i < objectCount; i++)
-    {
-        EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
+#define DECLARE_CHECK_HELPERS(policy)                                                                                          \
+    template <typename Object, typename... Args>                                                                               \
+    Object* CheckNewRaw(StackAllocator<StackAllocatorPolicy::policy>& allocator, Args&&... argList)                            \
+    {                                                                                                                          \
+        Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);                                             \
+                                                                                                                               \
+        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                            \
+                                                                                                                               \
+        return object;                                                                                                         \
+    }                                                                                                                          \
+    template <typename Object, typename... Args>                                                                               \
+    Object* CheckNewArrayRaw(StackAllocator<StackAllocatorPolicy::policy>& allocator, size_t objectCount, Args&&... argList)   \
+    {                                                                                                                          \
+        Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);                              \
+                                                                                                                               \
+        for (int i = 0; i < objectCount; i++)                                                                                  \
+        {                                                                                                                      \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                         \
+        }                                                                                                                      \
+        return arr;                                                                                                            \
+    }                                                                                                                          \
+                                                                                                                               \
+    template <typename Object, typename... Args>                                                                               \
+    Memarena::StackPtr<Object> CheckNew(StackAllocator<StackAllocatorPolicy::policy>& allocator, Args&&... argList)            \
+    {                                                                                                                          \
+        Memarena::StackPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);                             \
+                                                                                                                               \
+        EXPECT_EQ(*(object.GetPtr()), Object(std::forward<Args>(argList)...));                                                 \
+                                                                                                                               \
+        return object;                                                                                                         \
+    }                                                                                                                          \
+                                                                                                                               \
+    template <typename Object, typename... Args>                                                                               \
+    Memarena::StackArrayPtr<Object> CheckNewArray(StackAllocator<StackAllocatorPolicy::policy>& allocator, size_t objectCount, \
+                                                  Args&&... argList)                                                           \
+    {                                                                                                                          \
+        Memarena::StackArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);         \
+                                                                                                                               \
+        for (int i = 0; i < objectCount; i++)                                                                                  \
+        {                                                                                                                      \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                         \
+        }                                                                                                                      \
+        return arr;                                                                                                            \
     }
-    return arr;
-}
 
-template <typename Object, typename... Args>
-Memarena::StackPtr<Object> CheckNew(StackAllocator<>& allocator, Args&&... argList)
-{
-    Memarena::StackPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);
+DECLARE_CHECK_HELPERS(Default)
+DECLARE_CHECK_HELPERS(Debug)
+DECLARE_CHECK_HELPERS(Release)
 
-    EXPECT_EQ(*(object.GetPtr()), Object(std::forward<Args>(argList)...));
-
-    return object;
-}
-
-template <typename Object, typename... Args>
-Memarena::StackArrayPtr<Object> CheckNewArray(StackAllocator<>& allocator, size_t objectCount, Args&&... argList)
-{
-    Memarena::StackArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);
-
-    for (int i = 0; i < objectCount; i++)
-    {
-        EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
+#define POLICY_TEST(name, policy, code)                                    \
+    TEST_F(StackAllocatorTest, name##_##policy##Policy)                    \
+    {                                                                      \
+        StackAllocator<StackAllocatorPolicy::policy> stackAllocator{1_MB}; \
+        code                                                               \
     }
-    return arr;
-}
 
-TEST_F(StackAllocatorTest, Initialize) { EXPECT_EQ(stackAllocator.GetUsedSize(), 0); }
+#define ALLOCATOR_TEST(name, code)    \
+    POLICY_TEST(name, Default, code); \
+    POLICY_TEST(name, Debug, code);   \
+    POLICY_TEST(name, Release, code);
 
-TEST_F(StackAllocatorTest, RawNewSingleObject) { CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F); }
+#define ALLOCATOR_DEBUG_TEST(name, code) \
+    POLICY_TEST(name, Default, code);    \
+    POLICY_TEST(name, Debug, code);
 
-TEST_F(StackAllocatorTest, RawNewMultipleObjects)
-{
+ALLOCATOR_TEST(Initialize, { EXPECT_EQ(stackAllocator.GetUsedSize(), 0); })
+
+ALLOCATOR_TEST(RawNewSingleObject, { CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F); })
+
+ALLOCATOR_TEST(RawNewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
@@ -79,17 +102,14 @@ TEST_F(StackAllocatorTest, RawNewMultipleObjects)
     {
         CheckNewRaw<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
     }
-}
+})
 
-TEST_F(StackAllocatorTest, RawNewDeleteSingleObject)
-{
+ALLOCATOR_TEST(RawNewDeleteSingleObject, {
     TestObject* object = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
-
     stackAllocator.Delete(object);
-}
+})
 
-TEST_F(StackAllocatorTest, RawNewDeleteMultipleObjects)
-{
+ALLOCATOR_TEST(RawNewDeleteMultipleObjects, {
     std::vector<TestObject*>  objects1;
     std::vector<TestObject2*> objects2;
 
@@ -115,19 +135,17 @@ TEST_F(StackAllocatorTest, RawNewDeleteMultipleObjects)
     {
         stackAllocator.Delete(objects1[i]);
     }
-}
+})
 
-TEST_F(StackAllocatorTest, RawNewDeleteNewSingleObject)
-{
+ALLOCATOR_TEST(RawNewDeleteNewSingleObject, {
     TestObject* object = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
 
     stackAllocator.Delete(object);
 
     TestObject* object2 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(StackAllocatorTest, RawNewDeleteNewMultipleObjects)
-{
+ALLOCATOR_TEST(RawNewDeleteNewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         TestObject* object =
@@ -141,29 +159,23 @@ TEST_F(StackAllocatorTest, RawNewDeleteNewMultipleObjects)
 
         stackAllocator.Delete(object);
     }
-}
+})
 
-TEST_F(StackAllocatorTest, RawNewArrayRaw)
-{
-    TestObject* arr = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
-}
+ALLOCATOR_TEST(RawNewArrayRaw, { TestObject* arr = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F); })
 
-TEST_F(StackAllocatorTest, RawNewDeleteArray)
-{
+ALLOCATOR_TEST(RawNewDeleteArray, {
     TestObject* arr = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     stackAllocator.DeleteArray(arr);
-}
+})
 
-TEST_F(StackAllocatorTest, RawNewMixed)
-{
+ALLOCATOR_TEST(RawNewMixed, {
     TestObject* arr1    = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     TestObject* object1 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
     TestObject* object2 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
     TestObject* arr2    = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(StackAllocatorTest, RawNewDeleteMixed)
-{
+ALLOCATOR_TEST(RawNewDeleteMixed, {
     TestObject* arr1    = CheckNewArrayRaw<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     TestObject* object1 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
     TestObject* object2 = CheckNewRaw<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
@@ -173,12 +185,11 @@ TEST_F(StackAllocatorTest, RawNewDeleteMixed)
     stackAllocator.Delete(object2);
     stackAllocator.Delete(object1);
     stackAllocator.DeleteArray(arr1);
-}
+})
 
-TEST_F(StackAllocatorTest, NewSingleObject) { StackPtr object = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F); }
+ALLOCATOR_TEST(NewSingleObject, { StackPtr object = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F); })
 
-TEST_F(StackAllocatorTest, NewMultipleObjects)
-{
+ALLOCATOR_TEST(NewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         StackPtr<TestObject> object =
@@ -188,17 +199,14 @@ TEST_F(StackAllocatorTest, NewMultipleObjects)
     {
         StackPtr<TestObject2> object = CheckNew<TestObject2>(stackAllocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
     }
-}
+})
 
-TEST_F(StackAllocatorTest, NewDeleteSingleObject)
-{
+ALLOCATOR_TEST(NewDeleteSingleObject, {
     StackPtr object = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
 
     stackAllocator.Delete(object);
-}
-
-TEST_F(StackAllocatorTest, NewDeleteMultipleObjects)
-{
+})
+ALLOCATOR_TEST(NewDeleteMultipleObjects, {
     std::vector<StackPtr<TestObject>>  objects1;
     std::vector<StackPtr<TestObject2>> objects2;
 
@@ -224,19 +232,17 @@ TEST_F(StackAllocatorTest, NewDeleteMultipleObjects)
     {
         stackAllocator.Delete(objects1[i]);
     }
-}
+})
 
-TEST_F(StackAllocatorTest, NewDeleteNewSingleObject)
-{
+ALLOCATOR_TEST(NewDeleteNewSingleObject, {
     StackPtr<TestObject> object = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
 
     stackAllocator.Delete(object);
 
     StackPtr<TestObject> object2 = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(StackAllocatorTest, NewDeleteNewMultipleObjects)
-{
+ALLOCATOR_TEST(NewDeleteNewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         StackPtr<TestObject> object =
@@ -250,29 +256,23 @@ TEST_F(StackAllocatorTest, NewDeleteNewMultipleObjects)
 
         stackAllocator.Delete(object);
     }
-}
+})
 
-TEST_F(StackAllocatorTest, NewArray)
-{
-    StackArrayPtr<TestObject> arr = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
-}
+ALLOCATOR_TEST(NewArray, { StackArrayPtr<TestObject> arr = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F); })
 
-TEST_F(StackAllocatorTest, NewDeleteArray)
-{
+ALLOCATOR_TEST(NewDeleteArray, {
     StackArrayPtr<TestObject> arr = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     stackAllocator.DeleteArray(arr);
-}
+})
 
-TEST_F(StackAllocatorTest, NewMixed)
-{
+ALLOCATOR_TEST(NewMixed, {
     StackArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     StackPtr<TestObject>      object1 = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
     StackPtr<TestObject>      object2 = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
     StackArrayPtr<TestObject> arr2    = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(StackAllocatorTest, NewDeleteMixed)
-{
+ALLOCATOR_TEST(NewDeleteMixed, {
     StackArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(stackAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     StackPtr<TestObject>      object1 = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
     StackPtr<TestObject>      object2 = CheckNew<TestObject>(stackAllocator, 1, 2.1F, 'a', false, 10.6F);
@@ -282,7 +282,7 @@ TEST_F(StackAllocatorTest, NewDeleteMixed)
     stackAllocator.Delete(object2);
     stackAllocator.Delete(object1);
     stackAllocator.DeleteArray(arr1);
-}
+})
 
 TEST_F(StackAllocatorTest, Templated)
 {
@@ -345,104 +345,97 @@ TEST_F(StackAllocatorTest, Multithreaded)
 {
     constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::Multithreaded;
 
-    StackAllocator<policy> stackAllocator2{sizeof(TestObject) * 5 * 10000};
+    StackAllocator<policy> stackAllocator{sizeof(TestObject) * 5 * 10000};
 
-    std::thread thread1(&ThreadFunction<policy>, std::ref(stackAllocator2));
-    std::thread thread2(&ThreadFunction<policy>, std::ref(stackAllocator2));
-    std::thread thread3(&ThreadFunction<policy>, std::ref(stackAllocator2));
-    std::thread thread4(&ThreadFunction<policy>, std::ref(stackAllocator2));
+    std::thread thread1(&ThreadFunction<policy>, std::ref(stackAllocator));
+    std::thread thread2(&ThreadFunction<policy>, std::ref(stackAllocator));
+    std::thread thread3(&ThreadFunction<policy>, std::ref(stackAllocator));
+    std::thread thread4(&ThreadFunction<policy>, std::ref(stackAllocator));
 
     thread1.join();
     thread2.join();
     thread3.join();
     thread4.join();
 
-    EXPECT_EQ(stackAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
+    EXPECT_EQ(stackAllocator.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
 TEST_F(StackAllocatorTest, Release)
 {
-    StackAllocator<> stackAllocator2{10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(8)))};
+    StackAllocator<> stackAllocator{10 * (sizeof(TestObject) + std::max(alignof(TestObject), std::size_t(8)))};
     for (int i = 0; i < 10; i++)
     {
         TestObject* object =
-            CheckNewRaw<TestObject>(stackAllocator2, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
 
-    stackAllocator2.Release();
+    stackAllocator.Release();
 
     for (int i = 0; i < 10; i++)
     {
         TestObject* object =
-            CheckNewRaw<TestObject>(stackAllocator2, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+            CheckNewRaw<TestObject>(stackAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
 }
 
 TEST_F(StackAllocatorTest, GetUsedSizeNew)
 {
     constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
-    StackAllocator<policy>         stackAllocator2{1_MB};
+    StackAllocator<policy>         stackAllocator{1_MB};
     const int                      numObjects = 10;
     for (int i = 0; i < numObjects; i++)
     {
         TestObject* object =
-            stackAllocator2.NewRaw<TestObject>(i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+            stackAllocator.NewRaw<TestObject>(i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
 
-    EXPECT_EQ(stackAllocator2.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(8))));
+    EXPECT_EQ(stackAllocator.GetUsedSize(), numObjects * (sizeof(TestObject) + std::max(alignof(TestObject), size_t(8))));
 }
 
-TEST_F(StackAllocatorTest, GetUsedSizeNewDelete)
-{
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
-    StackAllocator<policy>         stackAllocator2{1_MB};
-    const int                      numObjects = 10;
-    std::vector<TestObject*>       objects;
+ALLOCATOR_DEBUG_TEST(GetUsedSizeNewDelete, {
+    const int                numObjects = 10;
+    std::vector<TestObject*> objects;
     for (int i = 0; i < numObjects; i++)
     {
         TestObject* object =
-            stackAllocator2.NewRaw<TestObject>(i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+            stackAllocator.NewRaw<TestObject>(i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
         objects.push_back(object);
     }
 
     for (int i = numObjects - 1; i >= 0; i--)
     {
-        stackAllocator2.Delete(objects[i]);
+        stackAllocator.Delete(objects[i]);
     }
 
-    EXPECT_EQ(stackAllocator2.GetUsedSize(), 0);
-}
+    EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
+})
 
 TEST_F(StackAllocatorTest, GetUsedSizeNewArray)
 {
     constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
-    StackAllocator<policy>         stackAllocator2{1_MB};
+    StackAllocator<policy>         stackAllocator{1_MB};
 
     const int   numObjects = 10;
-    TestObject* arr        = stackAllocator2.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* arr        = stackAllocator.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6F);
 
-    EXPECT_EQ(stackAllocator2.GetUsedSize(), std::max(alignof(TestObject), size_t(8) + numObjects * sizeof(TestObject)));
+    EXPECT_EQ(stackAllocator.GetUsedSize(), std::max(alignof(TestObject), size_t(8) + numObjects * sizeof(TestObject)));
 }
 
-TEST_F(StackAllocatorTest, GetUsedSizeNewDeleteArray)
-{
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
-    StackAllocator<policy>         stackAllocator2{1_MB};
-
+ALLOCATOR_DEBUG_TEST(GetUsedSizeNewDeleteArray, {
     const int   numObjects = 10;
-    TestObject* arr        = stackAllocator2.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* arr        = stackAllocator.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6F);
 
-    stackAllocator2.DeleteArray(arr);
+    stackAllocator.DeleteArray(arr);
 
-    EXPECT_EQ(stackAllocator2.GetUsedSize(), 0);
-}
+    EXPECT_EQ(stackAllocator.GetUsedSize(), 0);
+})
 
 TEST_F(StackAllocatorTest, MemoryTracker)
 {
     constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
-    StackAllocator<policy>         stackAllocator2{1_MB};
+    StackAllocator<policy>         stackAllocator{1_MB};
 
-    int* num = static_cast<int*>(stackAllocator2.Allocate<int>("Testing/StackAllocator"));
+    int* num = static_cast<int*>(stackAllocator.Allocate<int>("Testing/StackAllocator"));
 
     const AllocatorVector allocators = MemoryTracker::GetAllocators();
 
@@ -460,27 +453,18 @@ TEST_F(StackAllocatorTest, MemoryTracker)
     }
 }
 
-TEST_F(StackAllocatorTest, DefaultBaseAllocator)
-{
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
-
-    StackAllocator<policy> stackAllocator2{1_MB};
-
-    int* num = static_cast<int*>(stackAllocator2.Allocate<int>("Testing/StackAllocator"));
-
-    EXPECT_EQ(Allocator::GetDefaultAllocator()->GetTotalSize(), 11_MB);
-}
+ALLOCATOR_DEBUG_TEST(DefaultBaseAllocator, {
+    int* num = static_cast<int*>(stackAllocator.Allocate<int>("Testing/StackAllocator"));
+    EXPECT_EQ(Allocator::GetDefaultAllocator()->GetTotalSize(), 1_MB);
+})
 
 TEST_F(StackAllocatorTest, CustomBaseAllocator)
 {
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
-
     auto baseAllocator = std::make_shared<Mallocator<MallocatorPolicy::Default>>("Mallocator");
 
-    StackAllocator<policy> stackAllocator2{1_MB, "TestAllocator", baseAllocator};
+    StackAllocator<StackAllocatorPolicy::Default> stackAllocator{1_MB, "TestAllocator", baseAllocator};
 
-    int* num = static_cast<int*>(stackAllocator2.Allocate<int>("Testing/StackAllocator"));
-
+    int* num = static_cast<int*>(stackAllocator.Allocate<int>("Testing/StackAllocator"));
     EXPECT_EQ(baseAllocator->GetTotalSize(), 1_MB);
 }
 
@@ -498,7 +482,7 @@ class StackAllocatorDeathTest : public ::testing::Test
 TEST_F(StackAllocatorDeathTest, MaxSizeAllocation)
 {
     // TODO Write proper exit messages
-    ASSERT_DEATH({ StackAllocator stackAllocator2{Size(std::numeric_limits<Offset>::max()) + 1}; }, ".*");
+    ASSERT_DEATH({ StackAllocator stackAllocator{Size(std::numeric_limits<Offset>::max()) + 1}; }, ".*");
 }
 
 TEST_F(StackAllocatorDeathTest, NewOutOfMemory)

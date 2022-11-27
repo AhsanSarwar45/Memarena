@@ -21,52 +21,69 @@ class PoolAllocatorTest : public ::testing::Test
   protected:
     void SetUp() override { MemoryTracker::ResetAllocators(); }
     void TearDown() override {}
-
-    PoolAllocator<> poolAllocator = PoolAllocator(sizeof(TestObject), 1000);
 };
 
-template <typename Object, typename... Args>
-PoolPtr<Object> CheckNew(PoolAllocator<>& allocator, Args&&... argList)
-{
-    PoolPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);
-
-    EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));
-
-    return object;
-}
-
-template <typename Object, typename... Args>
-PoolArrayPtr<Object> CheckNewArray(PoolAllocator<>& allocator, size_t objectCount, Args&&... argList)
-{
-    PoolArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);
-
-    for (int i = 0; i < objectCount; i++)
-    {
-        EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
+#define DECLARE_CHECK_HELPERS(policy)                                                                                                \
+    template <typename Object, typename... Args>                                                                                     \
+    PoolPtr<Object> CheckNew(PoolAllocator<PoolAllocatorPolicy::policy>& allocator, Args&&... argList)                               \
+    {                                                                                                                                \
+        PoolPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);                                              \
+                                                                                                                                     \
+        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                                  \
+                                                                                                                                     \
+        return object;                                                                                                               \
+    }                                                                                                                                \
+                                                                                                                                     \
+    template <typename Object, typename... Args>                                                                                     \
+    PoolArrayPtr<Object> CheckNewArray(PoolAllocator<PoolAllocatorPolicy::policy>& allocator, size_t objectCount, Args&&... argList) \
+    {                                                                                                                                \
+        PoolArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);                          \
+                                                                                                                                     \
+        for (int i = 0; i < objectCount; i++)                                                                                        \
+        {                                                                                                                            \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                               \
+        }                                                                                                                            \
+        return arr;                                                                                                                  \
     }
-    return arr;
-}
 
-TEST_F(PoolAllocatorTest, Initialize) { EXPECT_EQ(poolAllocator.GetUsedSize(), 0); }
-TEST_F(PoolAllocatorTest, NewSingleObject) { CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F); }
+DECLARE_CHECK_HELPERS(Default)
+DECLARE_CHECK_HELPERS(Debug)
+DECLARE_CHECK_HELPERS(Release)
 
-TEST_F(PoolAllocatorTest, NewMultipleObjects)
-{
+#define POLICY_TEST(name, policy, code)                                                     \
+    TEST_F(PoolAllocatorTest, name##_##policy##Policy)                                      \
+    {                                                                                       \
+        PoolAllocator<PoolAllocatorPolicy::policy> poolAllocator{sizeof(TestObject), 1000}; \
+        code                                                                                \
+    }
+
+#define ALLOCATOR_TEST(name, code)    \
+    POLICY_TEST(name, Default, code); \
+    POLICY_TEST(name, Debug, code);   \
+    POLICY_TEST(name, Release, code);
+
+#define ALLOCATOR_DEBUG_TEST(name, code) \
+    POLICY_TEST(name, Default, code);    \
+    POLICY_TEST(name, Debug, code);
+
+ALLOCATOR_TEST(Initialize, { EXPECT_EQ(poolAllocator.GetUsedSize(), 0); })
+
+ALLOCATOR_TEST(NewSingleObject, { CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F); })
+
+ALLOCATOR_TEST(NewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         CheckNew<TestObject>(poolAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
     }
-}
+})
 
-TEST_F(PoolAllocatorTest, NewDeleteSingleObject)
-{
+ALLOCATOR_TEST(NewDeleteSingleObject, {
     PoolPtr<TestObject> object = CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
 
     poolAllocator.Delete(object);
-}
+})
 
-TEST_F(PoolAllocatorTest, NewDeleteMultipleObjects)
-{
+ALLOCATOR_TEST(NewDeleteMultipleObjects, {
     std::vector<PoolPtr<TestObject>> objects1;
 
     for (int i = 0; i < 10; i++)
@@ -81,19 +98,17 @@ TEST_F(PoolAllocatorTest, NewDeleteMultipleObjects)
     {
         poolAllocator.Delete(objects1[i]);
     }
-}
+})
 
-TEST_F(PoolAllocatorTest, NewDeleteNewSingleObject)
-{
+ALLOCATOR_TEST(NewDeleteNewSingleObject, {
     PoolPtr<TestObject> object = CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
 
     poolAllocator.Delete(object);
 
     PoolPtr<TestObject> object2 = CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(PoolAllocatorTest, NewDeleteNewMultipleObjects)
-{
+ALLOCATOR_TEST(NewDeleteNewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         PoolPtr<TestObject> object =
@@ -101,29 +116,23 @@ TEST_F(PoolAllocatorTest, NewDeleteNewMultipleObjects)
 
         poolAllocator.Delete(object);
     }
-}
+})
 
-TEST_F(PoolAllocatorTest, NewArray)
-{
-    PoolArrayPtr<TestObject> arr = CheckNewArray<TestObject>(poolAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
-}
+ALLOCATOR_TEST(NewArray, { PoolArrayPtr<TestObject> arr = CheckNewArray<TestObject>(poolAllocator, 10, 1, 2.1F, 'a', false, 10.6F); })
 
-TEST_F(PoolAllocatorTest, NewDeleteArray)
-{
+ALLOCATOR_TEST(NewDeleteArray, {
     PoolArrayPtr<TestObject> arr = CheckNewArray<TestObject>(poolAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     poolAllocator.DeleteArray(arr);
-}
+})
 
-TEST_F(PoolAllocatorTest, NewMixed)
-{
+ALLOCATOR_TEST(NewMixed, {
     PoolArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(poolAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     PoolPtr<TestObject>      object1 = CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
     PoolPtr<TestObject>      object2 = CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
     PoolArrayPtr<TestObject> arr2    = CheckNewArray<TestObject>(poolAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(PoolAllocatorTest, NewDeleteMixed)
-{
+ALLOCATOR_TEST(NewDeleteMixed, {
     PoolArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(poolAllocator, 10, 1, 2.1F, 'a', false, 10.6F);
     PoolPtr<TestObject>      object1 = CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
     PoolPtr<TestObject>      object2 = CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
@@ -133,7 +142,7 @@ TEST_F(PoolAllocatorTest, NewDeleteMixed)
     poolAllocator.Delete(object2);
     poolAllocator.Delete(object1);
     poolAllocator.DeleteArray(arr1);
-}
+})
 
 template <PoolAllocatorPolicy policy>
 void ThreadFunction(PoolAllocator<policy>& poolAllocator)
@@ -158,19 +167,19 @@ TEST_F(PoolAllocatorTest, Multithreaded)
 {
     constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::Default | PoolAllocatorPolicy::Multithreaded;
 
-    PoolAllocator<policy> poolAllocator2{sizeof(TestObject), 50000};
+    PoolAllocator<policy> poolAllocator{sizeof(TestObject), 50000};
 
-    std::thread thread1(&ThreadFunction<policy>, std::ref(poolAllocator2));
-    std::thread thread2(&ThreadFunction<policy>, std::ref(poolAllocator2));
-    std::thread thread3(&ThreadFunction<policy>, std::ref(poolAllocator2));
-    std::thread thread4(&ThreadFunction<policy>, std::ref(poolAllocator2));
+    std::thread thread1(&ThreadFunction<policy>, std::ref(poolAllocator));
+    std::thread thread2(&ThreadFunction<policy>, std::ref(poolAllocator));
+    std::thread thread3(&ThreadFunction<policy>, std::ref(poolAllocator));
+    std::thread thread4(&ThreadFunction<policy>, std::ref(poolAllocator));
 
     thread1.join();
     thread2.join();
     thread3.join();
     thread4.join();
 
-    EXPECT_EQ(poolAllocator2.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
+    EXPECT_EQ(poolAllocator.GetUsedSize(), sizeof(TestObject) * 4 * 10000);
 }
 
 TEST_F(PoolAllocatorTest, Templated)
@@ -208,9 +217,9 @@ TEST_F(PoolAllocatorTest, Templated)
 
 TEST_F(PoolAllocatorTest, MemoryTracker)
 {
-    PoolAllocator<PoolAllocatorPolicy::Debug> poolAllocator2{sizeof(Int64), 1000};
+    PoolAllocator<PoolAllocatorPolicy::Debug> poolAllocator{sizeof(Int64), 1000};
 
-    Int64* num = static_cast<Int64*>(poolAllocator2.Allocate<Int64>("Testing/PoolAllocator").GetPtr());
+    Int64* num = static_cast<Int64*>(poolAllocator.Allocate<Int64>("Testing/PoolAllocator").GetPtr());
 
     const AllocatorVector allocators = MemoryTracker::GetAllocators();
 
@@ -226,18 +235,15 @@ TEST_F(PoolAllocatorTest, MemoryTracker)
     }
 }
 
-TEST_F(PoolAllocatorTest, GetUsedSizeNew)
-{
-    PoolAllocator<PoolAllocatorPolicy::Debug> poolAllocator2{sizeof(TestObject), 10};
-
+ALLOCATOR_DEBUG_TEST(GetUsedSizeNew, {
     const int numObjects = 10;
     for (size_t i = 0; i < numObjects; i++)
     {
-        PoolPtr<TestObject> object = poolAllocator2.New<TestObject>(i, 1.5F, 'a' + i, i % 2, 2.5F);
+        PoolPtr<TestObject> object = poolAllocator.New<TestObject>(i, 1.5F, 'a' + i, i % 2, 2.5F);
     }
 
-    EXPECT_EQ(poolAllocator2.GetUsedSize(), numObjects * (sizeof(TestObject)));
-}
+    EXPECT_EQ(poolAllocator.GetUsedSize(), numObjects * (sizeof(TestObject)));
+})
 
 #ifdef MEMARENA_ENABLE_ASSERTS
 
@@ -253,11 +259,11 @@ class PoolAllocatorDeathTest : public ::testing::Test
 // TEST_F(PoolAllocatorDeathTest, DeleteNullPointer)
 // {
 //     constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::NullDeallocCheck;
-//     PoolAllocator<policy>         poolAllocator2{sizeof(TestObject), 1000};
+//     PoolAllocator<policy>         poolAllocator{sizeof(TestObject), 1000};
 //     PoolPtr<TestObject>           ptr = PoolPtr<TestObject>(nullptr);
 
 //     // TODO Write proper exit messages
-//     ASSERT_DEATH({ poolAllocator2.Delete(ptr); }, ".*");
+//     ASSERT_DEATH({ poolAllocator.Delete(ptr); }, ".*");
 // }
 
 TEST_F(PoolAllocatorDeathTest, NewOutOfMemory)
@@ -295,13 +301,13 @@ TEST_F(PoolAllocatorDeathTest, NewWrongSizedObject)
 // TEST_F(MallocatorDeathTest, DoubleFree)
 // {
 //     constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::DoubleFreePrevention;
-//     PoolAllocator<policy>      poolAllocator2{};
+//     PoolAllocator<policy>      poolAllocator{};
 
-//     auto ptr = poolAllocator2.Allocate(4);
+//     auto ptr = poolAllocator.Allocate(4);
 
-//     poolAllocator2.Deallocate(ptr);
+//     poolAllocator.Deallocate(ptr);
 //     // TODO Write proper exit messages
-//     ASSERT_DEATH({ poolAllocator2.Deallocate(ptr); }, ".*");
+//     ASSERT_DEATH({ poolAllocator.Deallocate(ptr); }, ".*");
 // }
 
 #endif
