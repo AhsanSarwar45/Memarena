@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, StackAllocatorPolicy policy = GetDefaultPolicy<StackAllocatorPolicy>()>
+template <Allocatable Object, auto Settings = StackAllocatorSettings()>
 class StackAllocatorTemplated
 {
   public:
@@ -102,6 +102,6 @@ class StackAllocatorTemplated
     [[nodiscard]] std::string GetDebugName() const { return m_StackAllocator.GetDebugName(); }
 
   private:
-    StackAllocator<policy> m_StackAllocator;
+    StackAllocator<Settings> m_StackAllocator;
 };
 } // namespace Memarena

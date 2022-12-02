@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <PoolAllocatorPolicy policy = GetDefaultPolicy<PoolAllocatorPolicy>()>
+template <PoolAllocatorSettings Settings = poolAllocatorDefaultSettings>
 class PoolAllocatorPMR : public std::pmr::memory_resource
 {
   public:
@@ -21,7 +21,7 @@ class PoolAllocatorPMR : public std::pmr::memory_resource
     }
     [[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
 
-    const PoolAllocator<policy>& GetInternalAllocator() const { return m_PoolAllocator; }
+    const PoolAllocator<Settings>& GetInternalAllocator() const { return m_PoolAllocator; }
 
   private:
     [[nodiscard]] Size GetMinimumObjectCount(Size bytes) const
@@ -30,7 +30,7 @@ class PoolAllocatorPMR : public std::pmr::memory_resource
         return (bytes + objectSize - 1) / objectSize;
     }
 
-    PoolAllocator<policy> m_PoolAllocator;
+    PoolAllocator<Settings> m_PoolAllocator;
 };
 
 } // namespace Memarena

@@ -17,9 +17,9 @@ class MemoryTrackerTest : public ::testing::Test
 
 TEST_F(MemoryTrackerTest, StackAllocator)
 {
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::AllocationTracking;
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::AllocationTracking};
 
-    StackAllocator<policy> stackAllocator{10_MB};
+    StackAllocator<settings> stackAllocator{10_MB};
 
     int* num = static_cast<int*>(stackAllocator.Allocate<int>("Testing/StackAllocator"));
 

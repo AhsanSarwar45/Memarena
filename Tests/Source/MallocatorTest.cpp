@@ -153,8 +153,8 @@ TEST_F(MallocatorTest, NewDeleteMixed)
 
 TEST_F(MallocatorTest, GetUsedSizeNew)
 {
-    constexpr MallocatorPolicy policy = MallocatorPolicy::Debug;
-    Mallocator<policy>         mallocator2{};
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::Debug};
+    Mallocator<settings>         mallocator2{};
 
     const int numObjects = 10;
     for (size_t i = 0; i < numObjects; i++)
@@ -167,8 +167,8 @@ TEST_F(MallocatorTest, GetUsedSizeNew)
 
 TEST_F(MallocatorTest, GetUsedSizeNewArray)
 {
-    constexpr MallocatorPolicy policy = MallocatorPolicy::Debug;
-    Mallocator<policy>         mallocator2{};
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::Debug};
+    Mallocator<settings>         mallocator2{};
 
     const int                  numObjects = 10;
     MallocArrayPtr<TestObject> object     = mallocator2.NewArray<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6f);
@@ -176,8 +176,8 @@ TEST_F(MallocatorTest, GetUsedSizeNewArray)
     EXPECT_EQ(mallocator2.GetUsedSize(), std::max(alignof(TestObject), numObjects * sizeof(TestObject)));
 }
 
-template <MallocatorPolicy policy>
-void ThreadFunction(Mallocator<policy>& mallocator)
+template <MallocatorSettings Settings>
+void ThreadFunction(Mallocator<Settings>& mallocator)
 {
     std::vector<MallocPtr<TestObject>> objects;
 
@@ -197,14 +197,14 @@ void ThreadFunction(Mallocator<policy>& mallocator)
 
 TEST_F(MallocatorTest, Multithreaded)
 {
-    constexpr MallocatorPolicy policy = MallocatorPolicy::Default | MallocatorPolicy::Multithreaded;
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::Default | MallocatorPolicy::Multithreaded};
 
-    Mallocator<policy> mallocator2{};
+    Mallocator<settings> mallocator2{};
 
-    std::thread thread1(&ThreadFunction<policy>, std::ref(mallocator2));
-    std::thread thread2(&ThreadFunction<policy>, std::ref(mallocator2));
-    std::thread thread3(&ThreadFunction<policy>, std::ref(mallocator2));
-    std::thread thread4(&ThreadFunction<policy>, std::ref(mallocator2));
+    std::thread thread1(&ThreadFunction<settings>, std::ref(mallocator2));
+    std::thread thread2(&ThreadFunction<settings>, std::ref(mallocator2));
+    std::thread thread3(&ThreadFunction<settings>, std::ref(mallocator2));
+    std::thread thread4(&ThreadFunction<settings>, std::ref(mallocator2));
 
     thread1.join();
     thread2.join();
@@ -232,8 +232,8 @@ TEST_F(MallocatorTest, Templated)
 
 TEST_F(MallocatorTest, PmrVector)
 {
-    constexpr MallocatorPolicy policy = MallocatorPolicy::Debug;
-    MallocatorPMR<policy>      mallocatorPMR{};
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::Debug};
+    MallocatorPMR<settings>      mallocatorPMR{};
 
     auto vec = std::pmr::vector<TestObject>(0, &mallocatorPMR);
 
@@ -255,8 +255,8 @@ TEST_F(MallocatorTest, PmrVector)
 
 TEST_F(MallocatorTest, MemoryTracker)
 {
-    constexpr MallocatorPolicy policy = MallocatorPolicy::Debug;
-    Mallocator<policy>         mallocator2{};
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::Debug};
+    Mallocator<settings>         mallocator2{};
 
     int* num = static_cast<int*>(mallocator2.Allocate<int>("Testing/Mallocator").GetPtr());
 
@@ -288,9 +288,9 @@ class MallocatorDeathTest : public ::testing::Test
 
 TEST_F(MallocatorDeathTest, DeleteNullPointer)
 {
-    constexpr MallocatorPolicy policy = MallocatorPolicy::NullDeallocCheck;
-    Mallocator<policy>         mallocator2{};
-    MallocPtr<int>             ptr{nullptr, 0};
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::NullDeallocCheck};
+    Mallocator<settings>         mallocator2{};
+    MallocPtr<int>               ptr{nullptr, 0};
 
     // TODO Write proper exit messages
     ASSERT_DEATH({ mallocator2.Delete(ptr); }, ".*");
@@ -298,8 +298,8 @@ TEST_F(MallocatorDeathTest, DeleteNullPointer)
 
 TEST_F(MallocatorDeathTest, DoubleFree)
 {
-    constexpr MallocatorPolicy policy = MallocatorPolicy::DoubleFreePrevention;
-    Mallocator<policy>         mallocator2{};
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
+    Mallocator<settings>         mallocator2{};
 
     auto ptr = mallocator2.Allocate(4);
 

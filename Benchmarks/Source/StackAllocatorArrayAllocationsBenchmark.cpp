@@ -29,7 +29,8 @@ BENCHMARK(DefaultNewDeleteArray);
 
 static void StackAllocatorRawNewDeleteArray(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release> stackAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
+
+    StackAllocator stackAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -42,7 +43,7 @@ BENCHMARK(StackAllocatorRawNewDeleteArray);
 
 static void StackAllocatorNewDeleteArray(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release> stackAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
+    StackAllocator stackAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -55,7 +56,7 @@ BENCHMARK(StackAllocatorNewDeleteArray);
 
 static void LinearAllocatorRawNewReleaseArray(benchmark::State& state)
 {
-    LinearAllocator<LinearAllocatorPolicy::Release> linearAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
+    LinearAllocator linearAllocator{8 + NUM_OBJECTS * sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -68,7 +69,7 @@ BENCHMARK(LinearAllocatorRawNewReleaseArray);
 
 static void MallocatorNewDeleteArray(benchmark::State& state)
 {
-    Mallocator<MallocatorPolicy::Release> mallocator{};
+    Mallocator mallocator{};
 
     for (auto _ : state)
     {

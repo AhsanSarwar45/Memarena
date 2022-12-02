@@ -104,6 +104,21 @@ enum class MallocatorPolicy : UInt32
 
 MARK_AS_POLICY(MallocatorPolicy);
 
+enum class LocalAllocatorPolicy : UInt32
+{
+    BASE_ALLOCATOR_POLICIES,
+
+    NullAllocCheck       = Bit(0), // Check if malloc returns null
+    NullDeallocCheck     = Bit(1), // Check if the pointer is null when deallocating
+    DoubleFreePrevention = Bit(2), // Set the ptr to null on free to prevent double frees
+
+    Default = NullDeallocCheck | NullAllocCheck | SizeTracking | DoubleFreePrevention,
+    Release = Empty,
+    Debug   = NullDeallocCheck | NullAllocCheck | SizeTracking | AllocationTracking | DoubleFreePrevention,
+};
+
+MARK_AS_POLICY(LocalAllocatorPolicy);
+
 enum class VirtualAllocatorPolicy : UInt32
 {
     BASE_ALLOCATOR_POLICIES,

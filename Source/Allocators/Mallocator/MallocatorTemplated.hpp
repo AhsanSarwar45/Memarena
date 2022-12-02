@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, MallocatorPolicy policy = GetDefaultPolicy<MallocatorPolicy>()>
+template <Allocatable Object, MallocatorSettings Settings = mallocatorDefaultSettings>
 class MallocatorTemplated
 {
   public:
@@ -67,6 +67,6 @@ class MallocatorTemplated
     [[nodiscard]] std::string GetDebugName() const { return m_Mallocator.GetDebugName(); }
 
   private:
-    Mallocator<policy> m_Mallocator;
+    Mallocator<Settings> m_Mallocator;
 };
 } // namespace Memarena

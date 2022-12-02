@@ -6,6 +6,7 @@
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
+#include "Source/AllocatorSettings.hpp"
 #include "Source/AllocatorUtils.hpp"
 #include "Source/Assert.hpp"
 #include "Source/Macros.hpp"
@@ -17,21 +18,26 @@
 namespace Memarena
 {
 
+using LinearAllocatorSettings = AllocatorSettings<LinearAllocatorPolicy>;
+constexpr LinearAllocatorSettings linearAllocatorDefaultSettings{};
+
 /**
  * @brief A custom memory allocator that cannot deallocate individual allocations. To free allocations, you must
  *       free the entire arena by calling `Release`.
  *
  * @tparam policy
  */
-template <LinearAllocatorPolicy policy = GetDefaultPolicy<LinearAllocatorPolicy>()>
+template <LinearAllocatorSettings Settings = linearAllocatorDefaultSettings>
 class LinearAllocator : public Allocator
 {
   private:
-    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, LinearAllocatorPolicy::SizeCheck);
-    static constexpr bool IsGrowable                  = PolicyContains(policy, LinearAllocatorPolicy::Growable);
-    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, LinearAllocatorPolicy::SizeTracking);
-    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, LinearAllocatorPolicy::AllocationTracking);
-    static constexpr bool IsMultithreaded             = PolicyContains(policy, LinearAllocatorPolicy::Multithreaded);
+    static constexpr auto Policy = Settings.policy;
+
+    static constexpr bool SizeCheckIsEnabled          = PolicyContains(Policy, LinearAllocatorPolicy::SizeCheck);
+    static constexpr bool IsGrowable                  = PolicyContains(Policy, LinearAllocatorPolicy::Growable);
+    static constexpr bool UsageTrackingIsEnabled      = PolicyContains(Policy, LinearAllocatorPolicy::SizeTracking);
+    static constexpr bool AllocationTrackingIsEnabled = PolicyContains(Policy, LinearAllocatorPolicy::AllocationTracking);
+    static constexpr bool IsMultithreaded             = PolicyContains(Policy, LinearAllocatorPolicy::Multithreaded);
 
     using ThreadPolicy = MultithreadedPolicy<IsMultithreaded, IsGrowable>;
 
@@ -66,8 +72,10 @@ class LinearAllocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewRaw(Args&&... argList)
     {
-        void*   voidPtr = Allocate<Object>();
-        Object* ptr     = static_cast<Object*>(voidPtr);
+        void* voidPtr = Allocate<Object>();
+        RETURN_IF_NULLPTR(voidPtr);
+        Object* ptr = static_cast<Object*>(voidPtr);
+
         // return new (voidPtr) Object(std::forward<Args>(argList)...);
         return std::construct_at(ptr, std::forward<Args>(argList)...);
     }
@@ -76,16 +84,18 @@ class LinearAllocator : public Allocator
     NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         void* voidPtr = AllocateArray<Object>(objectCount);
+        RETURN_IF_NULLPTR(voidPtr);
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
     }
 
     NO_DISCARD void* Allocate(const Size size, const Alignment& alignment = defaultAlignment, const std::string& category = "",
                               const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        if constexpr (IsSizeCheckEnabled)
+        if constexpr (SizeCheckIsEnabled)
         {
-            MEMARENA_ASSERT(size <= m_BlockSize, "Error: Allocation size (%u) must be <= to block size (%u) for allocator '%s'!\n", size,
-                            m_BlockSize, GetDebugName().c_str());
+            MEMARENA_ASSERT_RETURN(size <= m_BlockSize, nullptr,
+                                   "Error: Allocation size (%u) must be <= to block size (%u) for allocator '%s'!\n", size, m_BlockSize,
+                                   GetDebugName().c_str());
         }
 
         UIntPtr alignedAddress = 0;
@@ -111,14 +121,14 @@ class LinearAllocator : public Allocator
                     return Allocate(size, alignment, category, sourceLocation);
                 }
             }
-            else if constexpr (IsSizeCheckEnabled)
+            else if constexpr (SizeCheckIsEnabled)
             {
-                MEMARENA_ASSERT(totalSizeAfterAllocation <= m_BlockSize, "Error: The allocator '%s' is out of memory!\n",
-                                GetDebugName().c_str());
+                MEMARENA_ASSERT_RETURN(totalSizeAfterAllocation <= m_BlockSize, nullptr, "Error: The allocator '%s' is out of memory!\n",
+                                       GetDebugName().c_str());
             }
         }
 
-        if constexpr (IsAllocationTrackingEnabled)
+        if constexpr (AllocationTrackingIsEnabled)
         {
             AddAllocation(size, category, sourceLocation);
         }
@@ -147,8 +157,8 @@ class LinearAllocator : public Allocator
     }
 
     /**
-     * @brief Releases the allocator to its initial state. Since LinearAllocators dont support de-allocating separate allocation, this is
-     * how you clean the memory
+     * @brief Releases the allocator to its initial state. Since LinearAllocators dont support de-allocating separate allocation, this
+     * is how you clean the memory
      *
      */
     inline void Release()
@@ -164,7 +174,7 @@ class LinearAllocator : public Allocator
     {
         m_CurrentOffset = offset;
 
-        if constexpr (IsUsageTrackingEnabled)
+        if constexpr (UsageTrackingIsEnabled)
         {
             SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize + offset);
         }
@@ -178,7 +188,7 @@ class LinearAllocator : public Allocator
         m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr());
         m_CurrentOffset       = 0;
 
-        if constexpr (IsUsageTrackingEnabled)
+        if constexpr (UsageTrackingIsEnabled)
         {
             SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize);
         }
@@ -210,7 +220,7 @@ class LinearAllocator : public Allocator
 
     inline void UpdateTotalSize()
     {
-        if constexpr (IsUsageTrackingEnabled)
+        if constexpr (UsageTrackingIsEnabled)
         {
             SetTotalSize(m_BlockPtrs.size() * m_BlockSize);
         }

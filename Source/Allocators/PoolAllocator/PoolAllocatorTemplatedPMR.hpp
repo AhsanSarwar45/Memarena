@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, PoolAllocatorPolicy policy = GetDefaultPolicy<PoolAllocatorPolicy>()>
+template <Allocatable Object, PoolAllocatorSettings Settings = poolAllocatorDefaultSettings>
 class PoolAllocatorTemplatedPMR : public std::pmr::memory_resource
 {
   public:
@@ -19,7 +19,7 @@ class PoolAllocatorTemplatedPMR : public std::pmr::memory_resource
     [[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
 
   private:
-    PoolAllocatorPMR<policy> m_PoolAllocator;
+    PoolAllocatorPMR<Settings> m_PoolAllocator;
 };
 
 } // namespace Memarena

@@ -4,6 +4,8 @@
 
 #include "MemoryTestObjects.hpp"
 #include "Source/Allocators/Mallocator/Mallocator.hpp"
+#include "Source/Allocators/StackAllocator/StackAllocator.hpp"
+#include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
 
@@ -30,7 +32,7 @@ BENCHMARK(UniquePtr);
 
 static void StackAllocatorNewDeleteRaw(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release> stackAllocator{sizeof(TestObject)};
+    StackAllocator stackAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -43,7 +45,7 @@ BENCHMARK(StackAllocatorNewDeleteRaw);
 
 static void StackAllocatorNewDelete(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release> stackAllocator{sizeof(TestObject)};
+    StackAllocator stackAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -56,7 +58,7 @@ BENCHMARK(StackAllocatorNewDelete);
 
 static void StackAllocatorTemplatedNewDelete(benchmark::State& state)
 {
-    StackAllocatorTemplated<TestObject, StackAllocatorPolicy::Release> stackAllocatorTemplated{sizeof(TestObject)};
+    StackAllocatorTemplated<TestObject> stackAllocatorTemplated{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -69,7 +71,8 @@ BENCHMARK(StackAllocatorTemplatedNewDelete);
 
 static void StackAllocatorNewDeleteRawMultithreaded(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release | StackAllocatorPolicy::Multithreaded> stackAllocator{sizeof(TestObject)};
+    constexpr StackAllocatorSettings settings = {.policy = GetDefaultPolicy<StackAllocatorPolicy>() | StackAllocatorPolicy::Multithreaded};
+    StackAllocator<settings>         stackAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -82,7 +85,8 @@ BENCHMARK(StackAllocatorNewDeleteRawMultithreaded);
 
 static void StackAllocatorNewDeleteMultithreaded(benchmark::State& state)
 {
-    StackAllocator<StackAllocatorPolicy::Release | StackAllocatorPolicy::Multithreaded> stackAllocator{sizeof(TestObject)};
+    constexpr StackAllocatorSettings settings = {.policy = GetDefaultPolicy<StackAllocatorPolicy>() | StackAllocatorPolicy::Multithreaded};
+    StackAllocator<settings>         stackAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -95,7 +99,7 @@ BENCHMARK(StackAllocatorNewDeleteMultithreaded);
 
 static void LinearAllocatorNewReleaseRaw(benchmark::State& state)
 {
-    LinearAllocator<LinearAllocatorPolicy::Release> linearAllocator{sizeof(TestObject)};
+    LinearAllocator linearAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -108,7 +112,10 @@ BENCHMARK(LinearAllocatorNewReleaseRaw);
 
 static void LinearAllocatorNewReleaseRawMultithreaded(benchmark::State& state)
 {
-    LinearAllocator<LinearAllocatorPolicy::Release | LinearAllocatorPolicy::Multithreaded> linearAllocator{sizeof(TestObject)};
+    constexpr LinearAllocatorSettings settings = {.policy =
+                                                      GetDefaultPolicy<LinearAllocatorPolicy>() | LinearAllocatorPolicy::Multithreaded};
+
+    LinearAllocator<settings> linearAllocator{sizeof(TestObject)};
 
     for (auto _ : state)
     {
@@ -121,7 +128,7 @@ BENCHMARK(LinearAllocatorNewReleaseRawMultithreaded);
 
 static void MallocatorNewDelete(benchmark::State& state)
 {
-    Mallocator<MallocatorPolicy::Release> mallocator{};
+    Mallocator mallocator{};
 
     for (auto _ : state)
     {

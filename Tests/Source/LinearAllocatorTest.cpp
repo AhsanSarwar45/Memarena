@@ -9,6 +9,7 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/Allocators/LinearAllocator/LinearAllocator.hpp"
 #include "Source/MemoryTracker.hpp"
 #include "Source/Policies/Policies.hpp"
 
@@ -22,34 +23,36 @@ class LinearAllocatorTest : public ::testing::Test
     void TearDown() override {}
 };
 
-#define DECLARE_CHECK_HELPERS(policy)                                                                                          \
-    template <typename Object, typename... Args>                                                                               \
-    Object* CheckNewRaw(LinearAllocator<LinearAllocatorPolicy::policy>& allocator, Args&&... argList)                          \
-    {                                                                                                                          \
-        Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);                                             \
-        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                            \
-        return object;                                                                                                         \
-    }                                                                                                                          \
-    template <typename Object, typename... Args>                                                                               \
-    Object* CheckNewArrayRaw(LinearAllocator<LinearAllocatorPolicy::policy>& allocator, size_t objectCount, Args&&... argList) \
-    {                                                                                                                          \
-        Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);                              \
-        for (size_t i = 0; i < objectCount; i++)                                                                               \
-        {                                                                                                                      \
-            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                         \
-        }                                                                                                                      \
-        return arr;                                                                                                            \
+#define DECLARE_CHECK_HELPERS(currentPolicy)                                                                             \
+    constexpr LinearAllocatorSettings currentPolicy##settings = {.policy = LinearAllocatorPolicy::currentPolicy};        \
+    template <typename Object, typename... Args>                                                                         \
+    Object* CheckNewRaw(LinearAllocator<currentPolicy##settings>& allocator, Args&&... argList)                          \
+    {                                                                                                                    \
+        Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);                                       \
+        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                      \
+        return object;                                                                                                   \
+    }                                                                                                                    \
+    template <typename Object, typename... Args>                                                                         \
+    Object* CheckNewArrayRaw(LinearAllocator<currentPolicy##settings>& allocator, size_t objectCount, Args&&... argList) \
+    {                                                                                                                    \
+        Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);                        \
+        for (size_t i = 0; i < objectCount; i++)                                                                         \
+        {                                                                                                                \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                   \
+        }                                                                                                                \
+        return arr;                                                                                                      \
     }
 
 DECLARE_CHECK_HELPERS(Default)
 DECLARE_CHECK_HELPERS(Debug)
 DECLARE_CHECK_HELPERS(Release)
 
-#define POLICY_TEST(name, policy, code)                                       \
-    TEST_F(LinearAllocatorTest, name##_##policy##Policy)                      \
-    {                                                                         \
-        LinearAllocator<LinearAllocatorPolicy::policy> linearAllocator{1_MB}; \
-        code                                                                  \
+#define POLICY_TEST(name, currentPolicy, code)                                                                               \
+    TEST_F(LinearAllocatorTest, name##_##currentPolicy##Policy)                                                              \
+    {                                                                                                                        \
+        constexpr LinearAllocatorSettings        currentPolicy##settings = {.policy = LinearAllocatorPolicy::currentPolicy}; \
+        LinearAllocator<currentPolicy##settings> linearAllocator{1_MB};                                                      \
+        code                                                                                                                 \
     }
 
 #define ALLOCATOR_TEST(name, code)    \
@@ -99,8 +102,8 @@ TEST_F(LinearAllocatorTest, Release)
     }
 }
 
-template <LinearAllocatorPolicy policy>
-void ThreadFunction(LinearAllocator<policy>& linearAllocator)
+template <LinearAllocatorSettings settings>
+void ThreadFunction(LinearAllocator<settings>& linearAllocator)
 {
     std::vector<TestObject*> objects;
 
@@ -115,14 +118,14 @@ void ThreadFunction(LinearAllocator<policy>& linearAllocator)
 
 TEST_F(LinearAllocatorTest, Multithreaded)
 {
-    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Multithreaded;
+    constexpr LinearAllocatorSettings settings = {.policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Multithreaded};
 
-    LinearAllocator<policy> linearAllocator{sizeof(TestObject) * 5 * 10000};
+    LinearAllocator<settings> linearAllocator{sizeof(TestObject) * 5 * 10000};
 
-    std::thread thread1(&ThreadFunction<policy>, std::ref(linearAllocator));
-    std::thread thread2(&ThreadFunction<policy>, std::ref(linearAllocator));
-    std::thread thread3(&ThreadFunction<policy>, std::ref(linearAllocator));
-    std::thread thread4(&ThreadFunction<policy>, std::ref(linearAllocator));
+    std::thread thread1(&ThreadFunction<settings>, std::ref(linearAllocator));
+    std::thread thread2(&ThreadFunction<settings>, std::ref(linearAllocator));
+    std::thread thread3(&ThreadFunction<settings>, std::ref(linearAllocator));
+    std::thread thread4(&ThreadFunction<settings>, std::ref(linearAllocator));
 
     thread1.join();
     thread2.join();
@@ -134,9 +137,9 @@ TEST_F(LinearAllocatorTest, Multithreaded)
 
 TEST_F(LinearAllocatorTest, Growable)
 {
-    constexpr LinearAllocatorPolicy policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Growable;
+    constexpr LinearAllocatorSettings settings = {.policy = LinearAllocatorPolicy::Default | LinearAllocatorPolicy::Growable};
 
-    LinearAllocator<policy> linearAllocator{sizeof(TestObject) * 2};
+    LinearAllocator<settings> linearAllocator{sizeof(TestObject) * 2};
 
     const int numObjects = 10;
     for (size_t i = 0; i < numObjects; i++)
@@ -149,7 +152,7 @@ TEST_F(LinearAllocatorTest, Growable)
 
     const int blockSize = sizeof(TestObject) * 2 - 4;
 
-    LinearAllocator<policy> linearAllocator2{blockSize};
+    LinearAllocator<settings> linearAllocator2{blockSize};
 
     for (size_t i = 0; i < numObjects; i++)
     {
@@ -178,9 +181,9 @@ TEST_F(LinearAllocatorTest, Templated)
 
 TEST_F(LinearAllocatorTest, PmrVector)
 {
-    const int blockSize = 10_KB;
-
-    LinearAllocatorPMR<LinearAllocatorPolicy::Debug> linearAllocatorPMR{blockSize};
+    const int                         blockSize = 10_KB;
+    constexpr LinearAllocatorSettings settings  = {.policy = LinearAllocatorPolicy::Debug};
+    LinearAllocatorPMR<settings>      linearAllocatorPMR{blockSize};
 
     auto vec = std::pmr::vector<TestObject>(0, &linearAllocatorPMR);
 
@@ -203,7 +206,8 @@ TEST_F(LinearAllocatorTest, PmrVector)
 
 TEST_F(LinearAllocatorTest, MemoryTracker)
 {
-    LinearAllocator<LinearAllocatorPolicy::Debug> linearAllocator{1_MB};
+    constexpr LinearAllocatorSettings settings = {.policy = LinearAllocatorPolicy::Debug};
+    LinearAllocator<settings>         linearAllocator{1_MB};
 
     const AllocatorVector allocators = MemoryTracker::GetAllocators();
     EXPECT_EQ(allocators.size(), 1);
@@ -228,9 +232,12 @@ ALLOCATOR_DEBUG_TEST(DefaultBaseAllocator, {
 
 TEST_F(LinearAllocatorTest, CustomBaseAllocator)
 {
-    auto baseAllocator = std::make_shared<Mallocator<MallocatorPolicy::Default>>("Mallocator");
+    constexpr MallocatorSettings mallocatorSettings = {.policy = MallocatorPolicy::Default};
 
-    LinearAllocator<LinearAllocatorPolicy::Debug> linearAllocator{1_MB, "TestAllocator", baseAllocator};
+    auto baseAllocator = std::make_shared<Mallocator<mallocatorSettings>>("Mallocator");
+
+    constexpr LinearAllocatorSettings settings = {.policy = LinearAllocatorPolicy::Debug};
+    LinearAllocator<settings>         linearAllocator{1_MB, "TestAllocator", baseAllocator};
 
     int* num = static_cast<int*>(linearAllocator.Allocate<int>("Testing/LinearAllocator"));
     EXPECT_EQ(baseAllocator->GetTotalSize(), 1_MB);

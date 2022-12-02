@@ -8,6 +8,7 @@
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
 #include "Source/AllocatorData.hpp"
+#include "Source/Allocators/StackAllocator/StackAllocator.hpp"
 #include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
@@ -24,60 +25,62 @@ class StackAllocatorTest : public ::testing::Test
     // StackAllocator<> stackAllocator{10_MB};
 };
 
-#define DECLARE_CHECK_HELPERS(policy)                                                                                          \
-    template <typename Object, typename... Args>                                                                               \
-    Object* CheckNewRaw(StackAllocator<StackAllocatorPolicy::policy>& allocator, Args&&... argList)                            \
-    {                                                                                                                          \
-        Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);                                             \
-                                                                                                                               \
-        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                            \
-                                                                                                                               \
-        return object;                                                                                                         \
-    }                                                                                                                          \
-    template <typename Object, typename... Args>                                                                               \
-    Object* CheckNewArrayRaw(StackAllocator<StackAllocatorPolicy::policy>& allocator, size_t objectCount, Args&&... argList)   \
-    {                                                                                                                          \
-        Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);                              \
-                                                                                                                               \
-        for (int i = 0; i < objectCount; i++)                                                                                  \
-        {                                                                                                                      \
-            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                         \
-        }                                                                                                                      \
-        return arr;                                                                                                            \
-    }                                                                                                                          \
-                                                                                                                               \
-    template <typename Object, typename... Args>                                                                               \
-    Memarena::StackPtr<Object> CheckNew(StackAllocator<StackAllocatorPolicy::policy>& allocator, Args&&... argList)            \
-    {                                                                                                                          \
-        Memarena::StackPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);                             \
-                                                                                                                               \
-        EXPECT_EQ(*(object.GetPtr()), Object(std::forward<Args>(argList)...));                                                 \
-                                                                                                                               \
-        return object;                                                                                                         \
-    }                                                                                                                          \
-                                                                                                                               \
-    template <typename Object, typename... Args>                                                                               \
-    Memarena::StackArrayPtr<Object> CheckNewArray(StackAllocator<StackAllocatorPolicy::policy>& allocator, size_t objectCount, \
-                                                  Args&&... argList)                                                           \
-    {                                                                                                                          \
-        Memarena::StackArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);         \
-                                                                                                                               \
-        for (int i = 0; i < objectCount; i++)                                                                                  \
-        {                                                                                                                      \
-            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                         \
-        }                                                                                                                      \
-        return arr;                                                                                                            \
+#define DECLARE_CHECK_HELPERS(currentPolicy)                                                                              \
+    constexpr StackAllocatorSettings currentPolicy##settings = {.policy = StackAllocatorPolicy::currentPolicy};           \
+    template <typename Object, typename... Args>                                                                          \
+    Object* CheckNewRaw(StackAllocator<currentPolicy##settings>& allocator, Args&&... argList)                            \
+    {                                                                                                                     \
+        Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);                                        \
+                                                                                                                          \
+        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                       \
+                                                                                                                          \
+        return object;                                                                                                    \
+    }                                                                                                                     \
+    template <typename Object, typename... Args>                                                                          \
+    Object* CheckNewArrayRaw(StackAllocator<currentPolicy##settings>& allocator, size_t objectCount, Args&&... argList)   \
+    {                                                                                                                     \
+        Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);                         \
+                                                                                                                          \
+        for (int i = 0; i < objectCount; i++)                                                                             \
+        {                                                                                                                 \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                    \
+        }                                                                                                                 \
+        return arr;                                                                                                       \
+    }                                                                                                                     \
+                                                                                                                          \
+    template <typename Object, typename... Args>                                                                          \
+    Memarena::StackPtr<Object> CheckNew(StackAllocator<currentPolicy##settings>& allocator, Args&&... argList)            \
+    {                                                                                                                     \
+        Memarena::StackPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);                        \
+                                                                                                                          \
+        EXPECT_EQ(*(object.GetPtr()), Object(std::forward<Args>(argList)...));                                            \
+                                                                                                                          \
+        return object;                                                                                                    \
+    }                                                                                                                     \
+                                                                                                                          \
+    template <typename Object, typename... Args>                                                                          \
+    Memarena::StackArrayPtr<Object> CheckNewArray(StackAllocator<currentPolicy##settings>& allocator, size_t objectCount, \
+                                                  Args&&... argList)                                                      \
+    {                                                                                                                     \
+        Memarena::StackArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);    \
+                                                                                                                          \
+        for (int i = 0; i < objectCount; i++)                                                                             \
+        {                                                                                                                 \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                    \
+        }                                                                                                                 \
+        return arr;                                                                                                       \
     }
 
 DECLARE_CHECK_HELPERS(Default)
 DECLARE_CHECK_HELPERS(Debug)
 DECLARE_CHECK_HELPERS(Release)
 
-#define POLICY_TEST(name, policy, code)                                    \
-    TEST_F(StackAllocatorTest, name##_##policy##Policy)                    \
-    {                                                                      \
-        StackAllocator<StackAllocatorPolicy::policy> stackAllocator{1_MB}; \
-        code                                                               \
+#define POLICY_TEST(name, currentPolicy, code)                                                                             \
+    TEST_F(StackAllocatorTest, name##_##currentPolicy##Policy)                                                             \
+    {                                                                                                                      \
+        constexpr StackAllocatorSettings        currentPolicy##settings = {.policy = StackAllocatorPolicy::currentPolicy}; \
+        StackAllocator<currentPolicy##settings> stackAllocator{1_MB};                                                      \
+        code                                                                                                               \
     }
 
 #define ALLOCATOR_TEST(name, code)    \
@@ -323,8 +326,8 @@ TEST_F(StackAllocatorTest, PMR)
     EXPECT_EQ(vec[2], 2);
 }
 
-template <StackAllocatorPolicy policy>
-void ThreadFunction(StackAllocator<policy>& stackAllocator)
+template <AllocatorSettings settings>
+void ThreadFunction(StackAllocator<settings>& stackAllocator)
 {
     std::vector<StackPtr<TestObject>> objects;
 
@@ -343,14 +346,14 @@ void ThreadFunction(StackAllocator<policy>& stackAllocator)
 
 TEST_F(StackAllocatorTest, Multithreaded)
 {
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::Multithreaded;
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::Default | StackAllocatorPolicy::Multithreaded};
 
-    StackAllocator<policy> stackAllocator{sizeof(TestObject) * 5 * 10000};
+    StackAllocator<settings> stackAllocator{sizeof(TestObject) * 5 * 10000};
 
-    std::thread thread1(&ThreadFunction<policy>, std::ref(stackAllocator));
-    std::thread thread2(&ThreadFunction<policy>, std::ref(stackAllocator));
-    std::thread thread3(&ThreadFunction<policy>, std::ref(stackAllocator));
-    std::thread thread4(&ThreadFunction<policy>, std::ref(stackAllocator));
+    std::thread thread1(&ThreadFunction<settings>, std::ref(stackAllocator));
+    std::thread thread2(&ThreadFunction<settings>, std::ref(stackAllocator));
+    std::thread thread3(&ThreadFunction<settings>, std::ref(stackAllocator));
+    std::thread thread4(&ThreadFunction<settings>, std::ref(stackAllocator));
 
     thread1.join();
     thread2.join();
@@ -380,9 +383,9 @@ TEST_F(StackAllocatorTest, Release)
 
 TEST_F(StackAllocatorTest, GetUsedSizeNew)
 {
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
-    StackAllocator<policy>         stackAllocator{1_MB};
-    const int                      numObjects = 10;
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::Default};
+    StackAllocator<settings>         stackAllocator{1_MB};
+    const int                        numObjects = 10;
     for (int i = 0; i < numObjects; i++)
     {
         TestObject* object =
@@ -412,8 +415,8 @@ ALLOCATOR_DEBUG_TEST(GetUsedSizeNewDelete, {
 
 TEST_F(StackAllocatorTest, GetUsedSizeNewArray)
 {
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Default;
-    StackAllocator<policy>         stackAllocator{1_MB};
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::Default};
+    StackAllocator<settings>         stackAllocator{1_MB};
 
     const int   numObjects = 10;
     TestObject* arr        = stackAllocator.NewArrayRaw<TestObject>(numObjects, 1, 2.1F, 'a', false, 10.6F);
@@ -432,8 +435,8 @@ ALLOCATOR_DEBUG_TEST(GetUsedSizeNewDeleteArray, {
 
 TEST_F(StackAllocatorTest, MemoryTracker)
 {
-    constexpr StackAllocatorPolicy policy = StackAllocatorPolicy::Debug;
-    StackAllocator<policy>         stackAllocator{1_MB};
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::Debug};
+    StackAllocator<settings>         stackAllocator{1_MB};
 
     int* num = static_cast<int*>(stackAllocator.Allocate<int>("Testing/StackAllocator"));
 
@@ -460,9 +463,11 @@ ALLOCATOR_DEBUG_TEST(DefaultBaseAllocator, {
 
 TEST_F(StackAllocatorTest, CustomBaseAllocator)
 {
-    auto baseAllocator = std::make_shared<Mallocator<MallocatorPolicy::Default>>("Mallocator");
+    constexpr MallocatorSettings mallocatorSettings = {.policy = MallocatorPolicy::Default};
+    auto                         baseAllocator      = std::make_shared<Mallocator<mallocatorSettings>>("Mallocator");
 
-    StackAllocator<StackAllocatorPolicy::Default> stackAllocator{1_MB, "TestAllocator", baseAllocator};
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::Default};
+    StackAllocator<settings>         stackAllocator{1_MB, "TestAllocator", baseAllocator};
 
     int* num = static_cast<int*>(stackAllocator.Allocate<int>("Testing/StackAllocator"));
     EXPECT_EQ(baseAllocator->GetTotalSize(), 1_MB);
@@ -511,7 +516,8 @@ TEST_F(StackAllocatorDeathTest, DeleteNotOwnedPointer)
 
 TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 {
-    StackAllocator<StackAllocatorPolicy::BoundsCheck> stackAllocator2{1_KB};
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::BoundsCheck};
+    StackAllocator<settings>         stackAllocator2{1_KB};
 
     TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 1.5F, 'a', false, 2.5F);
     EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));
@@ -532,7 +538,8 @@ TEST_F(StackAllocatorDeathTest, MemoryStompingDetection)
 
 TEST_F(StackAllocatorDeathTest, DeleteWrongOrder)
 {
-    StackAllocator<StackAllocatorPolicy::StackCheck> stackAllocator2{1_KB};
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::StackCheck};
+    StackAllocator<settings>         stackAllocator2{1_KB};
 
     TestObject* testObject = stackAllocator2.NewRaw<TestObject>(1, 1.5F, 'a', false, 2.5F);
     EXPECT_EQ(*testObject, TestObject(1, 1.5F, 'a', false, 2.5F));

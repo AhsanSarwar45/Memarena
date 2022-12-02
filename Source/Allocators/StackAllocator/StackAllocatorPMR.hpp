@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <StackAllocatorPolicy policy = GetDefaultPolicy<StackAllocatorPolicy>()>
+template <auto Settings = StackAllocatorSettings()>
 class StackAllocatorPMR : public std::pmr::memory_resource
 {
   public:
@@ -19,7 +19,7 @@ class StackAllocatorPMR : public std::pmr::memory_resource
     [[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
 
   private:
-    StackAllocator<policy> m_StackAllocator;
+    StackAllocator<Settings> m_StackAllocator;
 };
 
 } // namespace Memarena

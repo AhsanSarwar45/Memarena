@@ -5,6 +5,7 @@
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
+#include "Source/AllocatorSettings.hpp"
 #include "Source/AllocatorUtils.hpp"
 #include "Source/Assert.hpp"
 #include "Source/Macros.hpp"
@@ -15,38 +16,28 @@
 
 namespace Memarena
 {
-
-// template <typename T>
-// concept Allocatable = requires(T a)
-// {
-//     {
-//         std::hash<T>{}(a)
-//         } -> std::convertible_to<std::size_t>;
-// };
-
 template <typename T>
 using MallocPtr = Internal::BaseAllocatorPtr<T>;
 template <typename T>
 using MallocArrayPtr = Internal::BaseAllocatorArrayPtr<T>;
 
-/**
- * @brief A custom memory allocator that cannot deallocate individual allocations. To free allocations, you must
- *       free the entire arena by calling `Release`.
- *
- * @tparam policy
- */
-template <MallocatorPolicy policy = GetDefaultPolicy<MallocatorPolicy>()>
+using MallocatorSettings = AllocatorSettings<MallocatorPolicy>;
+constexpr MallocatorSettings mallocatorDefaultSettings{};
+
+template <MallocatorSettings Settings = mallocatorDefaultSettings>
 class Mallocator : public Allocator
 {
   private:
-    static constexpr bool IsDoubleFreePreventionEnabled = PolicyContains(policy, MallocatorPolicy::DoubleFreePrevention);
-    static constexpr bool IsNullDeallocCheckEnabled =
-        PolicyContains(policy, MallocatorPolicy::NullDeallocCheck) || IsDoubleFreePreventionEnabled;
-    static constexpr bool IsNullAllocCheckEnabled     = PolicyContains(policy, MallocatorPolicy::NullAllocCheck);
-    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, MallocatorPolicy::AllocationTracking);
-    static constexpr bool IsSizeTrackingEnabled       = PolicyContains(policy, MallocatorPolicy::SizeTracking);
-    static constexpr bool NeedsMultithreading         = IsAllocationTrackingEnabled || IsSizeTrackingEnabled;
-    static constexpr bool IsMultithreaded             = PolicyContains(policy, MallocatorPolicy::Multithreaded) && NeedsMultithreading;
+    static constexpr MallocatorPolicy Policy = Settings.policy;
+
+    static constexpr bool DoubleFreePreventionIsEnabled = PolicyContains(Policy, MallocatorPolicy::DoubleFreePrevention);
+    static constexpr bool NullDeallocCheckIsEnabled =
+        PolicyContains(Policy, MallocatorPolicy::NullDeallocCheck) || DoubleFreePreventionIsEnabled;
+    static constexpr bool NullAllocCheckIsEnabled     = PolicyContains(Policy, MallocatorPolicy::NullAllocCheck);
+    static constexpr bool AllocationTrackingIsEnabled = PolicyContains(Policy, MallocatorPolicy::AllocationTracking);
+    static constexpr bool SizeTrackingIsEnabled       = PolicyContains(Policy, MallocatorPolicy::SizeTracking);
+    static constexpr bool NeedsMultithreading         = AllocationTrackingIsEnabled || SizeTrackingIsEnabled;
+    static constexpr bool IsMultithreaded             = PolicyContains(Policy, MallocatorPolicy::Multithreaded) && NeedsMultithreading;
 
     using ThreadPolicy = MultithreadedPolicy<IsMultithreaded>;
 
@@ -71,8 +62,9 @@ class Mallocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD MallocPtr<Object> New(Args&&... argList)
     {
-        MallocPtr<void> voidPtr   = Allocate<Object>();
-        Object*         objectPtr = new (voidPtr.GetPtr()) Object(std::forward<Args>(argList)...);
+        MallocPtr<void> voidPtr = Allocate<Object>();
+        RETURN_VAL_IF_NULLPTR(voidPtr.GetPtr(), MallocPtr<Object>(nullptr, 0));
+        Object* objectPtr = new (voidPtr.GetPtr()) Object(std::forward<Args>(argList)...);
         return MallocPtr<Object>(objectPtr, sizeof(Object));
     }
 
@@ -86,8 +78,9 @@ class Mallocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD MallocArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
-        MallocPtr<void> voidPtr   = AllocateArray<Object>(objectCount);
-        Object*         objectPtr = Internal::ConstructArray<Object>(voidPtr.GetPtr(), objectCount, std::forward<Args>(argList)...);
+        MallocPtr<void> voidPtr = AllocateArray<Object>(objectCount);
+        RETURN_VAL_IF_NULLPTR(voidPtr.GetPtr(), MallocArrayPtr<Object>(nullptr, 0, 0));
+        Object* objectPtr = Internal::ConstructArray<Object>(voidPtr.GetPtr(), objectCount, std::forward<Args>(argList)...);
         return MallocArrayPtr<Object>(objectPtr, objectCount * sizeof(Object), objectCount);
     }
 
@@ -138,18 +131,19 @@ class Mallocator : public Allocator
 
         void* ptr = malloc(size);
 
-        if constexpr (IsNullAllocCheckEnabled)
+        if constexpr (NullAllocCheckIsEnabled)
         {
-            MEMARENA_ASSERT(ptr != nullptr, "Error: The allocator '%s' couldn't allocate any memory!\n", GetDebugName().c_str());
+            MEMARENA_ASSERT_RETURN(ptr != nullptr, nullptr, "Error: The allocator '%s' couldn't allocate any memory!\n",
+                                   GetDebugName().c_str());
         }
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
-            if constexpr (IsAllocationTrackingEnabled)
+            if constexpr (AllocationTrackingIsEnabled)
             {
                 AddAllocation(size, category, sourceLocation);
             }
-            if constexpr (IsSizeTrackingEnabled)
+            if constexpr (SizeTrackingIsEnabled)
             {
                 IncreaseTotalSize(size);
                 IncreaseUsedSize(size);
@@ -165,7 +159,7 @@ class Mallocator : public Allocator
     {
         DeallocateInternal(static_cast<void*>(ptr.GetPtr()), size);
 
-        if constexpr (IsDoubleFreePreventionEnabled)
+        if constexpr (DoubleFreePreventionIsEnabled)
         {
             ptr.Reset();
         }
@@ -173,9 +167,9 @@ class Mallocator : public Allocator
 
     void DeallocateInternal(void* ptr, Size size)
     {
-        if constexpr (IsNullDeallocCheckEnabled)
+        if constexpr (NullDeallocCheckIsEnabled)
         {
-            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
+            MEMARENA_ASSERT_RETURN(ptr, void(), "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }
 
         free(static_cast<void*>(ptr));
@@ -183,11 +177,11 @@ class Mallocator : public Allocator
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
-            if constexpr (IsAllocationTrackingEnabled)
+            if constexpr (AllocationTrackingIsEnabled)
             {
                 AddDeallocation();
             }
-            if constexpr (IsSizeTrackingEnabled)
+            if constexpr (SizeTrackingIsEnabled)
             {
 
                 DecreaseTotalSize(size);

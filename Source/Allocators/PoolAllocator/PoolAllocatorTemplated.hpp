@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, PoolAllocatorPolicy policy = GetDefaultPolicy<PoolAllocatorPolicy>()>
+template <Allocatable Object, PoolAllocatorSettings Settings = poolAllocatorDefaultSettings>
 class PoolAllocatorTemplated
 {
   public:
@@ -67,6 +67,6 @@ class PoolAllocatorTemplated
     [[nodiscard]] std::string GetDebugName() const { return m_PoolAllocator.GetDebugName(); }
 
   private:
-    PoolAllocator<policy> m_PoolAllocator;
+    PoolAllocator<Settings> m_PoolAllocator;
 };
 } // namespace Memarena

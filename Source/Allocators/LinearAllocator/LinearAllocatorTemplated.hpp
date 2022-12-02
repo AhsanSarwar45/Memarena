@@ -4,7 +4,7 @@
 
 namespace Memarena
 {
-template <Allocatable Object, LinearAllocatorPolicy policy = GetDefaultPolicy<LinearAllocatorPolicy>()>
+template <Allocatable Object, auto Settings = AllocatorSettings<LinearAllocatorPolicy>()>
 class LinearAllocatorTemplated
 {
   public:
@@ -71,6 +71,6 @@ class LinearAllocatorTemplated
     [[nodiscard]] std::string GetDebugName() const { return m_LinearAllocator.GetDebugName(); }
 
   private:
-    LinearAllocator<policy> m_LinearAllocator;
+    LinearAllocator<Settings> m_LinearAllocator;
 };
 } // namespace Memarena

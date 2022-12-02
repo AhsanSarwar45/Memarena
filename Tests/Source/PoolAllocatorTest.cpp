@@ -23,38 +23,40 @@ class PoolAllocatorTest : public ::testing::Test
     void TearDown() override {}
 };
 
-#define DECLARE_CHECK_HELPERS(policy)                                                                                                \
-    template <typename Object, typename... Args>                                                                                     \
-    PoolPtr<Object> CheckNew(PoolAllocator<PoolAllocatorPolicy::policy>& allocator, Args&&... argList)                               \
-    {                                                                                                                                \
-        PoolPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);                                              \
-                                                                                                                                     \
-        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                                  \
-                                                                                                                                     \
-        return object;                                                                                                               \
-    }                                                                                                                                \
-                                                                                                                                     \
-    template <typename Object, typename... Args>                                                                                     \
-    PoolArrayPtr<Object> CheckNewArray(PoolAllocator<PoolAllocatorPolicy::policy>& allocator, size_t objectCount, Args&&... argList) \
-    {                                                                                                                                \
-        PoolArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);                          \
-                                                                                                                                     \
-        for (int i = 0; i < objectCount; i++)                                                                                        \
-        {                                                                                                                            \
-            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                               \
-        }                                                                                                                            \
-        return arr;                                                                                                                  \
+#define DECLARE_CHECK_HELPERS(currentPolicy)                                                                                     \
+    constexpr PoolAllocatorSettings currentPolicy##settings = {.policy = PoolAllocatorPolicy::currentPolicy};                    \
+    template <typename Object, typename... Args>                                                                                 \
+    PoolPtr<Object> CheckNew(PoolAllocator<currentPolicy##settings>& allocator, Args&&... argList)                               \
+    {                                                                                                                            \
+        PoolPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);                                          \
+                                                                                                                                 \
+        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                              \
+                                                                                                                                 \
+        return object;                                                                                                           \
+    }                                                                                                                            \
+                                                                                                                                 \
+    template <typename Object, typename... Args>                                                                                 \
+    PoolArrayPtr<Object> CheckNewArray(PoolAllocator<currentPolicy##settings>& allocator, size_t objectCount, Args&&... argList) \
+    {                                                                                                                            \
+        PoolArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);                      \
+                                                                                                                                 \
+        for (int i = 0; i < objectCount; i++)                                                                                    \
+        {                                                                                                                        \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                           \
+        }                                                                                                                        \
+        return arr;                                                                                                              \
     }
 
 DECLARE_CHECK_HELPERS(Default)
 DECLARE_CHECK_HELPERS(Debug)
 DECLARE_CHECK_HELPERS(Release)
 
-#define POLICY_TEST(name, policy, code)                                                     \
-    TEST_F(PoolAllocatorTest, name##_##policy##Policy)                                      \
-    {                                                                                       \
-        PoolAllocator<PoolAllocatorPolicy::policy> poolAllocator{sizeof(TestObject), 1000}; \
-        code                                                                                \
+#define POLICY_TEST(name, currentPolicy, code)                                                                           \
+    TEST_F(PoolAllocatorTest, name##_##currentPolicy##Policy)                                                            \
+    {                                                                                                                    \
+        constexpr PoolAllocatorSettings        currentPolicy##settings = {.policy = PoolAllocatorPolicy::currentPolicy}; \
+        PoolAllocator<currentPolicy##settings> poolAllocator{sizeof(TestObject), 1000};                                  \
+        code                                                                                                             \
     }
 
 #define ALLOCATOR_TEST(name, code)    \
@@ -144,8 +146,8 @@ ALLOCATOR_TEST(NewDeleteMixed, {
     poolAllocator.DeleteArray(arr1);
 })
 
-template <PoolAllocatorPolicy policy>
-void ThreadFunction(PoolAllocator<policy>& poolAllocator)
+template <PoolAllocatorSettings settings>
+void ThreadFunction(PoolAllocator<settings>& poolAllocator)
 {
     std::vector<PoolPtr<TestObject>> objects;
 
@@ -165,14 +167,14 @@ void ThreadFunction(PoolAllocator<policy>& poolAllocator)
 
 TEST_F(PoolAllocatorTest, Multithreaded)
 {
-    constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::Default | PoolAllocatorPolicy::Multithreaded;
+    constexpr PoolAllocatorSettings settings = {.policy = PoolAllocatorPolicy::Default | PoolAllocatorPolicy::Multithreaded};
 
-    PoolAllocator<policy> poolAllocator{sizeof(TestObject), 50000};
+    PoolAllocator<settings> poolAllocator{sizeof(TestObject), 50000};
 
-    std::thread thread1(&ThreadFunction<policy>, std::ref(poolAllocator));
-    std::thread thread2(&ThreadFunction<policy>, std::ref(poolAllocator));
-    std::thread thread3(&ThreadFunction<policy>, std::ref(poolAllocator));
-    std::thread thread4(&ThreadFunction<policy>, std::ref(poolAllocator));
+    std::thread thread1(&ThreadFunction<settings>, std::ref(poolAllocator));
+    std::thread thread2(&ThreadFunction<settings>, std::ref(poolAllocator));
+    std::thread thread3(&ThreadFunction<settings>, std::ref(poolAllocator));
+    std::thread thread4(&ThreadFunction<settings>, std::ref(poolAllocator));
 
     thread1.join();
     thread2.join();
@@ -217,7 +219,9 @@ TEST_F(PoolAllocatorTest, Templated)
 
 TEST_F(PoolAllocatorTest, MemoryTracker)
 {
-    PoolAllocator<PoolAllocatorPolicy::Debug> poolAllocator{sizeof(Int64), 1000};
+    constexpr PoolAllocatorSettings settings = {.policy = PoolAllocatorPolicy::Debug};
+
+    PoolAllocator<settings> poolAllocator{sizeof(Int64), 1000};
 
     Int64* num = static_cast<Int64*>(poolAllocator.Allocate<Int64>("Testing/PoolAllocator").GetPtr());
 

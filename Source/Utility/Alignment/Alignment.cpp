@@ -7,7 +7,8 @@ namespace Memarena
 
 Alignment::Alignment(Size alignment)
 {
-    MEMARENA_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment in  must be a power of 2 and not equal to 0!", alignment)
+    MEMARENA_DEFAULT_ASSERT(IsAlignmentValid(alignment), "Invalid alignment %d. Alignment in  must be a power of 2 and not equal to 0!",
+                            alignment)
     value = alignment;
 }
 

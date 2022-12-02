@@ -1,44 +1,35 @@
 #pragma once
 
+#include <iostream>
+
 #include "Aliases.hpp"
 #include "DebugBreak.hpp"
 
-#ifdef MEMARENA_ENABLE_ASSERTS
-    #include <iostream>
-    #ifndef MEMARENA_ASSERT
-        #define MEMARENA_ASSERT(x, ...)           \
-            {                                     \
-                if (!(x))                         \
-                {                                 \
-                    fprintf(stderr, __VA_ARGS__); \
-                    DEBUG_BREAK();                \
-                }                                 \
-            }
-    #endif
-    #ifdef MEMARENA_ENABLE_ASSERTS_RETURN
-        #ifndef MEMARENA_ASSERT_RETURN
-            #define MEMARENA_ASSERT_RETURN(x, returnValue, ...) \
-                {                                               \
-                    if (!(x))                                   \
-                    {                                           \
-                        return returnValue                      \
-                    }                                           \
-                }
-        #endif
-    #else
-        #ifndef MEMARENA_ASSERT_RETURN
-            #define MEMARENA_ASSERT_RETURN(x, returnValue, ...) MEMARENA_ASSERT(x, __VA_ARGS__)
-        #endif
-    #endif
-#else
-    #ifndef MEMARENA_ASSERT
-        #define MEMARENA_ASSERT(x, ...) \
-            {                           \
-            }
-    #endif
-    #ifndef MEMARENA_ASSERT_RETURN
-        #define MEMARENA_ASSERT_RETURN(x, returnValue, ...) \
-            {                                               \
-            }
-    #endif
-#endif
+#define MEMARENA_HANDLE_ASSERT_FAILURE(breakOnFailureIsEnabled, failureLoggingIsEnabled, ...) \
+    if constexpr (failureLoggingIsEnabled)                                                    \
+    {                                                                                         \
+        fprintf(stderr, __VA_ARGS__);                                                         \
+    }                                                                                         \
+    if constexpr (breakOnFailureIsEnabled)                                                    \
+    {                                                                                         \
+        DEBUG_BREAK();                                                                        \
+    }
+
+#define MEMARENA_ASSERT(predicate, ...)                                                                                  \
+    if (!(predicate))                                                                                                    \
+    {                                                                                                                    \
+        MEMARENA_HANDLE_ASSERT_FAILURE(Settings.breakOnFailureIsEnabled, Settings.failureLoggingIsEnabled, __VA_ARGS__); \
+    }
+
+#define MEMARENA_DEFAULT_ASSERT(predicate, ...)                  \
+    if (!(predicate))                                            \
+    {                                                            \
+        MEMARENA_HANDLE_ASSERT_FAILURE(true, true, __VA_ARGS__); \
+    }
+
+#define MEMARENA_ASSERT_RETURN(predicate, returnValue, ...)                                                              \
+    if (!(predicate))                                                                                                    \
+    {                                                                                                                    \
+        MEMARENA_HANDLE_ASSERT_FAILURE(Settings.breakOnFailureIsEnabled, Settings.failureLoggingIsEnabled, __VA_ARGS__); \
+        return returnValue;                                                                                              \
+    }

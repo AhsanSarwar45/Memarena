@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <LinearAllocatorPolicy policy = GetDefaultPolicy<LinearAllocatorPolicy>()>
+template <auto Settings = AllocatorSettings<LinearAllocatorPolicy>()>
 class LinearAllocatorPMR : public std::pmr::memory_resource
 {
   public:
@@ -19,10 +19,10 @@ class LinearAllocatorPMR : public std::pmr::memory_resource
     void               do_deallocate(void* ptr, size_t bytes, size_t alignment) override {}
     [[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
 
-    const LinearAllocator<policy>& GetInternalAllocator() const { return m_LinearAllocator; }
+    const LinearAllocator<Settings>& GetInternalAllocator() const { return m_LinearAllocator; }
 
   private:
-    LinearAllocator<policy> m_LinearAllocator;
+    LinearAllocator<Settings> m_LinearAllocator;
 };
 
 } // namespace Memarena

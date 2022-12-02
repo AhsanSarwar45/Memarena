@@ -40,9 +40,9 @@
 //     // static constexpr bool IsNullDeallocCheckEnabled =
 //     //     PolicyContains(policy, VirtualAllocatorPolicy::NullDeallocCheck) || IsDoubleFreePreventionEnabled;
 //     // static constexpr bool IsNullAllocCheckEnabled     = PolicyContains(policy, VirtualAllocatorPolicy::NullAllocCheck);
-//     // static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, VirtualAllocatorPolicy::AllocationTracking);
+//     // static constexpr bool AllocationTrackingIsEnabled = PolicyContains(policy, VirtualAllocatorPolicy::AllocationTracking);
 //     // static constexpr bool IsSizeTrackingEnabled       = PolicyContains(policy, VirtualAllocatorPolicy::SizeTracking);
-//     // static constexpr bool NeedsMultithreading         = IsAllocationTrackingEnabled || IsSizeTrackingEnabled;
+//     // static constexpr bool NeedsMultithreading         = AllocationTrackingIsEnabled || IsSizeTrackingEnabled;
 //     // static constexpr bool IsMultithreaded = PolicyContains(policy, VirtualAllocatorPolicy::Multithreaded) && NeedsMultithreading;
 
 //     // using ThreadPolicy = MultithreadedPolicy<IsMultithreaded>;

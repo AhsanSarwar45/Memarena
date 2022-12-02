@@ -5,6 +5,7 @@
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
+#include "Source/AllocatorSettings.hpp"
 #include "Source/AllocatorUtils.hpp"
 #include "Source/Assert.hpp"
 #include "Source/Macros.hpp"
@@ -16,6 +17,8 @@
 
 namespace Memarena
 {
+using StackAllocatorSettings = AllocatorSettings<StackAllocatorPolicy>;
+constexpr StackAllocatorSettings stackAllocatorDefaultSettings{};
 
 namespace Internal
 {
@@ -48,7 +51,7 @@ template <typename T>
 class StackPtr : public Ptr<T>
 {
     // Allow only StackAllocator to create a StackPtr by making constructors private
-    template <StackAllocatorPolicy policy>
+    template <StackAllocatorSettings Settings>
     friend class StackAllocator;
 
   public:
@@ -64,7 +67,7 @@ template <typename T>
 class StackArrayPtr : public ArrayPtr<T>
 {
     // Allow only StackAllocator to create a StackArrayPtr by making constructors private
-    template <StackAllocatorPolicy policy>
+    template <StackAllocatorSettings Settings>
     friend class StackAllocator;
 
   public:
@@ -94,21 +97,23 @@ class StackArrayPtr : public ArrayPtr<T>
  *
  * @tparam policy The `StackAllocatorPolicy`mjn object to define the behaviour of this allocator
  */
-template <StackAllocatorPolicy policy = GetDefaultPolicy<StackAllocatorPolicy>()>
+template <StackAllocatorSettings Settings = stackAllocatorDefaultSettings>
 class StackAllocator : public Allocator
 {
   private:
-    static constexpr bool IsStackCheckEnabled         = PolicyContains(policy, StackAllocatorPolicy::StackCheck);
-    static constexpr bool IsBoundsCheckEnabled        = PolicyContains(policy, StackAllocatorPolicy::BoundsCheck);
-    static constexpr bool IsNullDeallocCheckEnabled   = PolicyContains(policy, StackAllocatorPolicy::NullDeallocCheck);
-    static constexpr bool IsSizeCheckEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
-    static constexpr bool IsOwnershipCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
-    static constexpr bool IsUsageTrackingEnabled      = PolicyContains(policy, StackAllocatorPolicy::SizeTracking);
-    static constexpr bool IsMultithreaded             = PolicyContains(policy, StackAllocatorPolicy::Multithreaded);
-    static constexpr bool IsAllocationTrackingEnabled = PolicyContains(policy, StackAllocatorPolicy::AllocationTracking);
-    static constexpr bool IsResizable                 = PolicyContains(policy, StackAllocatorPolicy::Resizable);
+    static constexpr auto Policy = Settings.policy;
 
-    using InplaceHeader      = typename std::conditional<IsStackCheckEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
+    static constexpr bool StackCheckIsEnabled         = PolicyContains(Policy, StackAllocatorPolicy::StackCheck);
+    static constexpr bool BoundsCheckIsEnabled        = PolicyContains(Policy, StackAllocatorPolicy::BoundsCheck);
+    static constexpr bool IsNullDeallocCheckEnabled   = PolicyContains(Policy, StackAllocatorPolicy::NullDeallocCheck);
+    static constexpr bool SizeCheckIsEnabled          = PolicyContains(Policy, StackAllocatorPolicy::SizeCheck);
+    static constexpr bool OwnershipIsCheckEnabled     = PolicyContains(Policy, StackAllocatorPolicy::OwnershipCheck);
+    static constexpr bool UsageTrackingIsEnabled      = PolicyContains(Policy, StackAllocatorPolicy::SizeTracking);
+    static constexpr bool IsMultithreaded             = PolicyContains(Policy, StackAllocatorPolicy::Multithreaded);
+    static constexpr bool AllocationTrackingIsEnabled = PolicyContains(Policy, StackAllocatorPolicy::AllocationTracking);
+    static constexpr bool IsResizable                 = PolicyContains(Policy, StackAllocatorPolicy::Resizable);
+
+    using InplaceHeader      = typename std::conditional<StackCheckIsEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
     using Header             = Internal::StackHeader;
     using InplaceArrayHeader = Internal::StackArrayHeader;
     using ArrayHeader        = Internal::StackArrayHeader;
@@ -119,7 +124,7 @@ class StackAllocator : public Allocator
     using LockGuard = typename ThreadPolicy::template LockGuard<SyncPrimitive>;
     using Mutex     = typename ThreadPolicy::Mutex;
 
-    static constexpr Size BackGuardSize = IsBoundsCheckEnabled ? sizeof(BoundGuardBack) : 0;
+    static constexpr Size BackGuardSize = BoundsCheckIsEnabled ? sizeof(BoundGuardBack) : 0;
 
   public:
     // Prohibit default construction, moving and assignment
@@ -308,13 +313,13 @@ class StackAllocator : public Allocator
 
         Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
-        if constexpr (IsSizeCheckEnabled)
+        if constexpr (SizeCheckIsEnabled)
         {
             MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator '%s' is out of memory!\n",
                             GetDebugName().c_str());
         }
 
-        if constexpr (IsBoundsCheckEnabled)
+        if constexpr (BoundsCheckIsEnabled)
         {
             totalSizeAfterAllocation += sizeof(BoundGuardBack);
 
@@ -331,7 +336,7 @@ class StackAllocator : public Allocator
 
         void* allocatedPtr = std::bit_cast<void*>(alignedAddress);
 
-        if constexpr (IsAllocationTrackingEnabled)
+        if constexpr (AllocationTrackingIsEnabled)
         {
             AddAllocation(size, category, sourceLocation);
         }
@@ -346,13 +351,13 @@ class StackAllocator : public Allocator
 
         const Offset newOffset = header.startOffset;
 
-        if constexpr (IsStackCheckEnabled)
+        if constexpr (StackCheckIsEnabled)
         {
             MEMARENA_ASSERT(header.endOffset == m_CurrentOffset,
                             "Error: Attempt to deallocate in wrong order in the stack allocator '%s'!\n", GetDebugName().c_str());
         }
 
-        if constexpr (IsBoundsCheckEnabled)
+        if constexpr (BoundsCheckIsEnabled)
         {
             const UIntPtr          frontGuardAddress = addressMarker - sizeof(BoundGuardFront);
             const BoundGuardFront* frontGuard        = std::bit_cast<BoundGuardFront*>(frontGuardAddress);
@@ -365,7 +370,7 @@ class StackAllocator : public Allocator
                             newOffset, address);
         }
 
-        if constexpr (IsAllocationTrackingEnabled)
+        if constexpr (AllocationTrackingIsEnabled)
         {
             AddDeallocation();
         }
@@ -382,7 +387,7 @@ class StackAllocator : public Allocator
 
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
-        if constexpr (IsOwnershipCheckEnabled)
+        if constexpr (OwnershipIsCheckEnabled)
         {
             MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(),
                             address);
@@ -394,7 +399,7 @@ class StackAllocator : public Allocator
     template <Size headerSize>
     static consteval Size GetTotalHeaderSize()
     {
-        if constexpr (IsBoundsCheckEnabled)
+        if constexpr (BoundsCheckIsEnabled)
         {
             return headerSize + sizeof(BoundGuardFront);
         }
@@ -408,7 +413,7 @@ class StackAllocator : public Allocator
     {
         m_CurrentOffset = offset;
 
-        if constexpr (IsUsageTrackingEnabled)
+        if constexpr (UsageTrackingIsEnabled)
         {
             SetUsedSize(m_CurrentOffset);
         }

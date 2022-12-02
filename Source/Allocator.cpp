@@ -13,11 +13,11 @@ namespace Memarena
 {
 Allocator::Allocator(Size totalSize, const std::string& debugName, bool isBaseAllocator)
 {
-    MEMARENA_ASSERT(totalSize <= std::numeric_limits<Offset>::max(),
-                    "Error: Max size of allocator cannot be more than %u! Value passed was %u.\n", std::numeric_limits<Offset>::max(),
-                    totalSize);
+    MEMARENA_DEFAULT_ASSERT(totalSize <= std::numeric_limits<Offset>::max(),
+                            "Error: Max size of allocator cannot be more than %u! Value passed was %u.\n",
+                            std::numeric_limits<Offset>::max(), totalSize);
 
-    MEMARENA_ASSERT(totalSize >= 0, "Error: Max size of allocator must be >= 0! Value passed was %d", totalSize);
+    MEMARENA_DEFAULT_ASSERT(totalSize >= 0, "Error: Max size of allocator must be >= 0! Value passed was %d", totalSize);
 
     m_Data =
         std::make_shared<AllocatorData>(AllocatorData{.debugName = debugName, .totalSize = totalSize, .isBaseAllocator = isBaseAllocator});
@@ -45,7 +45,9 @@ void Allocator::AddAllocation(const Size size, const std::string& category, cons
     m_Data->allocationCount++;
 }
 
+constexpr MallocatorSettings defaultAllocatorSettings = {.policy = MallocatorPolicy::Default};
+
 const std::shared_ptr<Allocator> Allocator::m_DefaultAllocator =
-    std::make_shared<Mallocator<MallocatorPolicy::Default>>("DefaultMallocator");
+    std::make_shared<Mallocator<defaultAllocatorSettings>>("DefaultMallocator");
 
 } // namespace Memarena

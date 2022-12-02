@@ -6,7 +6,7 @@
 
 namespace Memarena
 {
-template <MallocatorPolicy policy = GetDefaultPolicy<MallocatorPolicy>()>
+template <MallocatorSettings Settings = mallocatorDefaultSettings>
 class MallocatorPMR : public std::pmr::memory_resource
 {
   public:
@@ -16,10 +16,10 @@ class MallocatorPMR : public std::pmr::memory_resource
     void               do_deallocate(void* ptr, size_t bytes, size_t /*alignment*/) override { m_Mallocator.Deallocate(ptr, bytes); }
     [[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
 
-    const Mallocator<policy>& GetInternalAllocator() const { return m_Mallocator; }
+    const Mallocator<Settings>& GetInternalAllocator() const { return m_Mallocator; }
 
   private:
-    Mallocator<policy> m_Mallocator;
+    Mallocator<Settings> m_Mallocator;
 };
 
 } // namespace Memarena

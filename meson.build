@@ -59,3 +59,13 @@ benchmark_dep = dependency('benchmark')
 benchmark_dependencies = [benchmark_dep, memarena_dep]
 
 benchmark_exe = executable('MemarenaBenchmarks', sources: benchmark_sources , dependencies : benchmark_dependencies)
+
+# ======== EXAMPLE ========
+
+example_sources = [
+'Example/Source/Main.cpp',
+]
+
+example_dependencies = [memarena_dep]
+
+example_exe = executable('MemarenaExample', sources: example_sources , dependencies : example_dependencies)
