@@ -26,25 +26,32 @@ Padding CalculateAlignedPaddingWithHeader(const UIntPtr baseAddress, const Align
 {
     UInt8 padding = CalculateShortestAlignedPadding(baseAddress, alignment);
 
+    return ExtendPaddingForHeader(padding, alignment, headerSize);
+}
+
+Padding ExtendPaddingForHeader(const Padding padding, const Alignment& alignment, const Size headerSize)
+{
+    Padding newPadding = padding;
+
     Size neededSpace = headerSize;
 
-    if (padding < neededSpace)
+    if (newPadding < neededSpace)
     {
         // Header does not fit - Calculate next aligned address that header fits
-        neededSpace -= padding;
+        neededSpace -= newPadding;
 
         // How many alignments I need to fit the header
         if (neededSpace % alignment > 0)
         {
-            padding += alignment * (1 + (neededSpace / alignment));
+            newPadding += alignment * (1 + (neededSpace / alignment));
         }
         else
         {
-            padding += alignment * (neededSpace / alignment);
+            newPadding += alignment * (neededSpace / alignment);
         }
     }
 
-    return padding;
+    return newPadding;
 }
 
 bool IsAlignmentValid(const int alignment) { return (alignment != 0) && ((alignment & (alignment - 1)) == 0); }

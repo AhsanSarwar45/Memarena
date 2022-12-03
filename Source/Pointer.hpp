@@ -47,26 +47,6 @@ class ArrayPtr : public Ptr<T>
 
 namespace Internal
 {
-template <typename T>
-class BaseAllocatorPtr : public Ptr<T>
-{
-  public:
-    inline BaseAllocatorPtr(T* ptr, Size size) : Ptr<T>(ptr), m_Size(size) {}
-    [[nodiscard]] Size GetSize() const { return m_Size; }
 
-  private:
-    Size m_Size;
-};
-
-template <typename T>
-class BaseAllocatorArrayPtr : public ArrayPtr<T>
-{
-  public:
-    inline BaseAllocatorArrayPtr(T* ptr, Size size, Size count) : ArrayPtr<T>(ptr, count), m_Size(size) {}
-    [[nodiscard]] Size GetSize() const { return m_Size; }
-
-  private:
-    Size m_Size;
-};
 } // namespace Internal
 } // namespace Memarena

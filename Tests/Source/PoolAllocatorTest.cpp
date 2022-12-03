@@ -45,6 +45,15 @@ class PoolAllocatorTest : public ::testing::Test
             EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                           \
         }                                                                                                                        \
         return arr;                                                                                                              \
+    }                                                                                                                            \
+    template <typename Object, typename... Args>                                                                                 \
+    Object* CheckNewRaw(PoolAllocator<currentPolicy##settings>& allocator, Args&&... argList)                                    \
+    {                                                                                                                            \
+        Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);                                               \
+                                                                                                                                 \
+        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                              \
+                                                                                                                                 \
+        return object;                                                                                                           \
     }
 
 DECLARE_CHECK_HELPERS(Default)
@@ -69,6 +78,56 @@ DECLARE_CHECK_HELPERS(Release)
     POLICY_TEST(name, Debug, code);
 
 ALLOCATOR_TEST(Initialize, { EXPECT_EQ(poolAllocator.GetUsedSize(), 0); })
+
+ALLOCATOR_TEST(RawNewSingleObject, { CheckNewRaw<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F); })
+
+ALLOCATOR_TEST(RawNewMultipleObjects, {
+    for (int i = 0; i < 10; i++)
+    {
+        CheckNewRaw<TestObject>(poolAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+    }
+})
+
+ALLOCATOR_TEST(RawNewDeleteSingleObject, {
+    TestObject* object = CheckNewRaw<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
+
+    poolAllocator.DeleteRaw(object);
+})
+
+ALLOCATOR_TEST(RawNewDeleteMultipleObjects, {
+    std::vector<TestObject*> objects1;
+
+    for (int i = 0; i < 10; i++)
+    {
+        TestObject* object =
+            CheckNewRaw<TestObject>(poolAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+
+        objects1.push_back(object);
+    }
+
+    for (int i = static_cast<int>(objects1.size()) - 1; i >= 0; i--)
+    {
+        poolAllocator.DeleteRaw(objects1[i]);
+    }
+})
+
+ALLOCATOR_TEST(RawNewDeleteNewSingleObject, {
+    TestObject* object = CheckNewRaw<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
+
+    poolAllocator.DeleteRaw(object);
+
+    TestObject* object2 = CheckNewRaw<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
+})
+
+ALLOCATOR_TEST(RawNewDeleteNewMultipleObjects, {
+    for (int i = 0; i < 10; i++)
+    {
+        TestObject* object =
+            CheckNewRaw<TestObject>(poolAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+
+        poolAllocator.DeleteRaw(object);
+    }
+})
 
 ALLOCATOR_TEST(NewSingleObject, { CheckNew<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F); })
 
@@ -223,7 +282,7 @@ TEST_F(PoolAllocatorTest, MemoryTracker)
 
     PoolAllocator<settings> poolAllocator{sizeof(Int64), 1000};
 
-    Int64* num = static_cast<Int64*>(poolAllocator.Allocate<Int64>("Testing/PoolAllocator").GetPtr());
+    Int64* num = static_cast<Int64*>(poolAllocator.Allocate("Testing/PoolAllocator").GetPtr());
 
     const AllocatorVector allocators = MemoryTracker::GetAllocators();
 

@@ -54,7 +54,7 @@ class StackAllocatorTemplated
 
     void DeleteArray(StackArrayPtr<Object> ptr) { m_StackAllocator.DeleteArray(ptr); }
 
-    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment = defaultAlignment, const std::string& category = "",
                               const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_StackAllocator.Allocate(size, alignment, category, sourceLocation);
@@ -96,6 +96,8 @@ class StackAllocatorTemplated
      *
      */
     inline void Release() { m_StackAllocator.Release(); }
+
+    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return m_StackAllocator.OwnsAddress(address); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_StackAllocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_StackAllocator.GetTotalSize(); }

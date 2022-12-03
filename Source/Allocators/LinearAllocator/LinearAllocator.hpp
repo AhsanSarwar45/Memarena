@@ -167,6 +167,18 @@ class LinearAllocator : public Allocator
         DeallocateBlocks();
     };
 
+    [[nodiscard]] bool OwnsAddress(UIntPtr address) const
+    {
+        for (const auto& blockPtr : m_BlockPtrs)
+        {
+            const UIntPtr startAddress = std::bit_cast<UIntPtr>(blockPtr);
+            const UIntPtr endAddress   = startAddress + m_BlockSize;
+            if (address >= startAddress && address <= endAddress)
+            {
+                return true;
+            }
+        }
+    }
     // NO_DISCARD BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
 
   private:
@@ -183,9 +195,9 @@ class LinearAllocator : public Allocator
     inline void AllocateBlock()
     {
 
-        Internal::BaseAllocatorPtr<void> newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
+        void* newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
         m_BlockPtrs.push_back(newBlockPtr);
-        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr());
+        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back());
         m_CurrentOffset       = 0;
 
         if constexpr (UsageTrackingIsEnabled)
@@ -207,7 +219,7 @@ class LinearAllocator : public Allocator
             UpdateTotalSize();
         }
 
-        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs[0].GetPtr());
+        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs[0]);
 
         SetCurrentOffset(0);
     }
@@ -229,8 +241,8 @@ class LinearAllocator : public Allocator
     ThreadPolicy m_MultithreadedPolicy;
 
     // Dont change member variable declaration order in this block!
-    std::vector<Internal::BaseAllocatorPtr<void>> m_BlockPtrs;
-    UIntPtr                                       m_CurrentStartAddress = 0;
+    std::vector<void*> m_BlockPtrs;
+    UIntPtr            m_CurrentStartAddress = 0;
     // ---------------------------------------
 
     Size   m_BlockSize;

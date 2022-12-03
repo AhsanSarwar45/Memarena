@@ -53,14 +53,7 @@ class PoolAllocatorTemplated
 
     void DeallocateArray(PoolArrayPtr<void> ptr) { m_PoolAllocator.Deallocate(ptr); }
 
-    /**
-     * @brief Releases the allocator to its initial state. Any further allocations
-     * will possibly overwrite all object allocated prior to calling this method.
-     * So make sure to only call this when you don't need any objects previously
-     * allocated by this allocator.
-     *
-     */
-    // inline void Release() { m_PoolAllocator.Release(); }
+    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return m_PoolAllocator.OwnsAddress(address); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_PoolAllocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_PoolAllocator.GetTotalSize(); }

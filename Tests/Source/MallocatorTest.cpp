@@ -258,7 +258,7 @@ TEST_F(MallocatorTest, MemoryTracker)
     constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::Debug};
     Mallocator<settings>         mallocator2{};
 
-    int* num = static_cast<int*>(mallocator2.Allocate<int>("Testing/Mallocator").GetPtr());
+    int* num = static_cast<int*>(mallocator2.Allocate<int>("Testing/Mallocator"));
 
     const AllocatorVector allocators = MemoryTracker::GetBaseAllocators();
 
@@ -301,7 +301,7 @@ TEST_F(MallocatorDeathTest, DoubleFree)
     constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
     Mallocator<settings>         mallocator2{};
 
-    auto ptr = mallocator2.Allocate(4);
+    void* ptr = mallocator2.Allocate(4);
 
     mallocator2.Deallocate(ptr);
     // TODO Write proper exit messages

@@ -31,25 +31,26 @@ class MallocatorTemplated
         return m_Mallocator.template NewArray<Object>(objectCount, std::forward<Args>(argList)...);
     }
 
-    NO_DISCARD MallocPtr<void> Allocate(const Size size, const std::string& category = "",
-                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const Size size, const std::string& category = "",
+                              const SourceLocation& sourceLocation = SourceLocation::current())
     {
+
         return m_Mallocator.Allocate(size, category, sourceLocation);
     }
 
-    NO_DISCARD MallocPtr<void> Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_Mallocator.Allocate(sizeof(Object), category, sourceLocation);
     }
 
-    NO_DISCARD MallocPtr<void> AllocateArray(const Size objectCount, const Size objectSize, const std::string& category = "",
-                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return m_Mallocator.AllocateArray(objectCount, objectSize, category, sourceLocation);
     }
 
-    NO_DISCARD MallocPtr<void> AllocateArray(const Size objectCount, const std::string& category = "",
-                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
@@ -58,9 +59,8 @@ class MallocatorTemplated
 
     void DeleteArray(MallocArrayPtr<Object>& ptr) { m_Mallocator.DeleteArray(ptr); }
 
-    void Deallocate(MallocPtr<void>& ptr) { m_Mallocator.Deallocate(ptr); }
-    void Deallocate(void* ptr, Size size) { m_Mallocator.Deallocate(ptr, size); }
-    void Deallocate(MallocArrayPtr<void>& ptr) { m_Mallocator.Deallocate(ptr); }
+    void Deallocate(void* ptr) { m_Mallocator.Deallocate(ptr); }
+    void DeallocateArray(void* ptr) { m_Mallocator.DeallocateArray(ptr); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_Mallocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_Mallocator.GetTotalSize(); }

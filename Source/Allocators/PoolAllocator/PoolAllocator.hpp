@@ -105,20 +105,26 @@ class PoolAllocator : public Allocator
     }
 
     template <Allocatable Object, typename... Args>
-    NO_DISCARD PoolPtr<Object> New(Args&&... argList)
+    NO_DISCARD Object* NewRaw(Args&&... argList)
     {
         if constexpr (IsAllocationSizeCheckEnabled)
         {
             MEMARENA_ASSERT_RETURN(
-                m_ObjectSize == sizeof(Object), PoolPtr<Object>(nullptr),
+                m_ObjectSize == sizeof(Object), nullptr,
                 "Error: Object size (%u) is not equal to the size specified at initialization (%u) for the allocator '%s'", sizeof(Object),
                 m_ObjectSize, GetDebugName().c_str());
         }
 
         void* voidPtr = AllocateInternal();
-        RETURN_VAL_IF_NULLPTR(voidPtr, PoolPtr<Object>(nullptr));
+        RETURN_IF_NULLPTR(voidPtr);
         Object* ptr = static_cast<Object*>(voidPtr);
-        return PoolPtr<Object>(std::construct_at(ptr, std::forward<Args>(argList)...));
+        return std::construct_at(ptr, std::forward<Args>(argList)...);
+    }
+
+    template <Allocatable Object, typename... Args>
+    NO_DISCARD PoolPtr<Object> New(Args&&... argList)
+    {
+        return PoolPtr<Object>(NewRaw<Object>(std::forward<Args>(argList)...));
     }
 
     template <Allocatable Object, typename... Args>
@@ -139,7 +145,7 @@ class PoolAllocator : public Allocator
     }
 
     template <Allocatable Object>
-    void Delete(PoolPtr<Object> ptr)
+    void DeleteRaw(Object* ptr)
     {
         if constexpr (IsAllocationSizeCheckEnabled)
         {
@@ -148,9 +154,16 @@ class PoolAllocator : public Allocator
                 "Error: Object size (%u) is not equal to the size specified at initialization (%u) for the allocator '%s'", sizeof(Object),
                 m_ObjectSize, GetDebugName().c_str());
         }
-        DeallocateInternal(ptr.GetPtr()); // NOLINT
+        DeallocateInternal(ptr); // NOLINT
         ptr->~Object();
     }
+
+    template <Allocatable Object>
+    void Delete(PoolPtr<Object> ptr)
+    {
+        DeleteRaw<Object>(ptr.GetPtr());
+    }
+
     template <Allocatable Object>
     void DeleteArray(PoolArrayPtr<Object> ptr)
     {
@@ -170,23 +183,41 @@ class PoolAllocator : public Allocator
         return PoolPtr<void>(AllocateInternal(category, sourceLocation));
     }
 
+    NO_DISCARD void* Allocate(const Size size, const std::string& category = "",
+                              const SourceLocation& sourceLocation = SourceLocation::current())
+    {
+        MEMARENA_ASSERT_RETURN(
+            size == m_ObjectSize, nullptr,
+            "Error: Allocation size (%u) is not equal to the size specified at initialization (%u) for the allocator '%s'", size,
+            m_ObjectSize, GetDebugName().c_str());
+        return AllocateInternal(category, sourceLocation);
+    }
+
     NO_DISCARD PoolArrayPtr<void> AllocateArray(const Size objectCount, const std::string& category = "",
                                                 const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return PoolArrayPtr<void>(AllocateArrayInternal(objectCount, category, sourceLocation), objectCount);
     }
 
+    void Deallocate(PoolPtr<void> ptr) { DeallocateInternal(ptr.GetPtr()); }
+    void Deallocate(void* ptr) { DeallocateInternal(ptr); }
+
     void DeallocateArray(PoolArrayPtr<void> ptr) { DeallocateArrayInternal(ptr.GetPtr(), ptr.GetCount()); }
 
-    template <typename Object>
-    NO_DISCARD PoolPtr<void> Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
-    {
-        return Allocate(category, sourceLocation);
-    }
-
-    void Deallocate(PoolPtr<void> ptr) { DeallocateInternal(ptr.GetPtr()); }
-
     [[nodiscard]] Size GetObjectSize() const { return m_ObjectSize; }
+
+    [[nodiscard]] bool OwnsAddress(UIntPtr address) const
+    {
+        for (const auto& blockPtr : m_BlockPtrs)
+        {
+            const UIntPtr startAddress = std::bit_cast<UIntPtr>(blockPtr);
+            const UIntPtr endAddress   = startAddress + m_BlockSize;
+            if (address >= startAddress && address <= endAddress)
+            {
+                return true;
+            }
+        }
+    }
 
   private:
     NO_DISCARD
@@ -349,10 +380,10 @@ class PoolAllocator : public Allocator
     void AllocateBlock()
     {
         // The first chunk of the new block
-        Internal::BaseAllocatorPtr<void> newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
+        void* newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
 
         // Once the block is allocated, we need to chain all the chunks in this block:
-        Chunk* currentChunk = std::bit_cast<Chunk*>(newBlockPtr.GetPtr());
+        Chunk* currentChunk = std::bit_cast<Chunk*>(newBlockPtr);
 
         for (int i = 0; i < m_ObjectsPerBlock - 1; ++i)
         {
@@ -371,7 +402,7 @@ class PoolAllocator : public Allocator
 
         UpdateTotalSize();
 
-        m_CurrentPtr = newBlockPtr.GetPtr();
+        m_CurrentPtr = newBlockPtr;
     }
 
     inline void DeallocateBlocks()
@@ -385,7 +416,7 @@ class PoolAllocator : public Allocator
             UpdateTotalSize();
         }
 
-        m_CurrentPtr = m_BlockPtrs[0].GetPtr();
+        m_CurrentPtr = m_BlockPtrs[0];
     }
 
     inline bool CheckPtr(void* ptr)
@@ -420,21 +451,8 @@ class PoolAllocator : public Allocator
         }
     }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const
-    {
-        for (const auto& blockPtr : m_BlockPtrs)
-        {
-            const UIntPtr startAddress = std::bit_cast<UIntPtr>(blockPtr.GetPtr());
-            const UIntPtr endAddress   = startAddress + m_BlockSize;
-            if (address >= startAddress && address <= endAddress)
-            {
-                return true;
-            }
-        }
-    }
-
-    std::shared_ptr<Allocator>                    m_BaseAllocator;
-    std::vector<Internal::BaseAllocatorPtr<void>> m_BlockPtrs;
+    std::shared_ptr<Allocator> m_BaseAllocator;
+    std::vector<void*>         m_BlockPtrs;
 
     ThreadPolicy m_MultithreadedPolicy;
 

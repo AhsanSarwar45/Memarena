@@ -41,6 +41,17 @@ constexpr UInt32 PolicyToInt(Policy policy)
     return static_cast<UInt32>(policy);
 }
 
+enum class FallbackAllocatorPolicy : UInt32
+{
+    BASE_ALLOCATOR_POLICIES,
+
+    Default = SizeTracking,
+    Release = Empty,
+    Debug   = SizeTracking | AllocationTracking,
+};
+
+MARK_AS_POLICY(FallbackAllocatorPolicy);
+
 enum class StackAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,

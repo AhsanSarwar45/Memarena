@@ -39,8 +39,8 @@ class Allocator
 
     [[nodiscard]] static std::shared_ptr<Allocator> GetDefaultAllocator() { return m_DefaultAllocator; }
 
-    NO_DISCARD virtual Internal::BaseAllocatorPtr<void> AllocateBase(Size /*size*/) { return {nullptr, 0}; }
-    virtual void                                        DeallocateBase(Internal::BaseAllocatorPtr<void> ptr) {}
+    NO_DISCARD virtual void* AllocateBase(Size /*size*/) { return nullptr; }
+    virtual void             DeallocateBase(void* ptr) {}
 
   protected:
     Allocator(Size totalSize, const std::string& debugName, bool isBaseAllocator = false);

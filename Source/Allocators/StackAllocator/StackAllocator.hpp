@@ -138,7 +138,7 @@ class StackAllocator : public Allocator
     explicit StackAllocator(const Size totalSize, const std::string& debugName = "StackAllocator",
                             std::shared_ptr<Allocator> baseAllocator = Allocator::GetDefaultAllocator())
         : Allocator(totalSize, debugName), m_StartPtr(baseAllocator->AllocateBase(totalSize)),
-          m_StartAddress(std::bit_cast<UIntPtr>(m_StartPtr.GetPtr())), m_EndAddress(m_StartAddress + totalSize),
+          m_StartAddress(std::bit_cast<UIntPtr>(m_StartPtr)), m_EndAddress(m_StartAddress + totalSize),
           m_BaseAllocator(std::move(baseAllocator))
     {
     }
@@ -150,7 +150,7 @@ class StackAllocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD StackPtr<Object> New(Args&&... argList)
     {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(sizeof(Object), alignof(Object));
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal(sizeof(Object), alignof(Object));
         Object* objectPtr                      = new (voidPtr) Object(std::forward<Args>(argList)...);
         return StackPtr<Object>(objectPtr, startOffset, endOffset);
     }
@@ -180,7 +180,7 @@ class StackAllocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
-        auto [voidPtr, startOffset, endOffset] = AllocateInternal<0>(objectCount * sizeof(Object), alignof(Object));
+        auto [voidPtr, startOffset, endOffset] = AllocateInternal(objectCount * sizeof(Object), alignof(Object));
         return StackArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
                                      objectCount);
     }
@@ -206,7 +206,7 @@ class StackAllocator : public Allocator
         std::destroy_n(ptr.GetPtr(), objectCount);
     }
 
-    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment, const std::string& category = "",
+    NO_DISCARD void* Allocate(const Size size, const Alignment& alignment = defaultAlignment, const std::string& category = "",
                               const SourceLocation& sourceLocation = SourceLocation::current())
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment, category, sourceLocation);
@@ -285,8 +285,10 @@ class StackAllocator : public Allocator
         SetCurrentOffset(0);
     };
 
+    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
+
   private:
-    template <Size HeaderSize>
+    template <Size HeaderSize = 0>
     std::tuple<void*, Offset, Offset> AllocateInternal(const Size size, const Alignment& alignment, const std::string& category = "",
                                                        const SourceLocation& sourceLocation = SourceLocation::current())
     {
@@ -419,14 +421,12 @@ class StackAllocator : public Allocator
         }
     }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
-
     ThreadPolicy m_MultithreadedPolicy;
 
     // Dont change member variable declaration order in this block!
-    Internal::BaseAllocatorPtr<void> m_StartPtr;
-    UIntPtr                          m_StartAddress;
-    UIntPtr                          m_EndAddress;
+    void*   m_StartPtr;
+    UIntPtr m_StartAddress;
+    UIntPtr m_EndAddress;
     // -------------------
 
     Offset m_CurrentOffset = 0;

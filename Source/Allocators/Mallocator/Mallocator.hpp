@@ -16,10 +16,33 @@
 
 namespace Memarena
 {
+
+struct MallocHeader
+{
+    Size size;
+};
+
 template <typename T>
-using MallocPtr = Internal::BaseAllocatorPtr<T>;
+class MallocPtr : public Ptr<T>
+{
+  public:
+    inline MallocPtr(T* ptr, Size size) : Ptr<T>(ptr), m_Header({size}) {}
+    [[nodiscard]] Size GetSize() const { return m_Header.size; }
+
+  private:
+    MallocHeader m_Header;
+};
+
 template <typename T>
-using MallocArrayPtr = Internal::BaseAllocatorArrayPtr<T>;
+class MallocArrayPtr : public ArrayPtr<T>
+{
+  public:
+    inline MallocArrayPtr(T* ptr, Size size, Size count) : ArrayPtr<T>(ptr, count), m_Header({size}) {}
+    [[nodiscard]] Size GetSize() const { return m_Header.size; }
+
+  private:
+    MallocHeader m_Header;
+};
 
 using MallocatorSettings = AllocatorSettings<MallocatorPolicy>;
 constexpr MallocatorSettings mallocatorDefaultSettings{};
@@ -62,9 +85,9 @@ class Mallocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD MallocPtr<Object> New(Args&&... argList)
     {
-        MallocPtr<void> voidPtr = Allocate<Object>();
-        RETURN_VAL_IF_NULLPTR(voidPtr.GetPtr(), MallocPtr<Object>(nullptr, 0));
-        Object* objectPtr = new (voidPtr.GetPtr()) Object(std::forward<Args>(argList)...);
+        void* voidPtr = AllocateInternal(sizeof(Object));
+        RETURN_VAL_IF_NULLPTR(voidPtr, MallocPtr<Object>(nullptr, 0));
+        Object* objectPtr = new (voidPtr) Object(std::forward<Args>(argList)...);
         return MallocPtr<Object>(objectPtr, sizeof(Object));
     }
 
@@ -78,9 +101,9 @@ class Mallocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD MallocArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
-        MallocPtr<void> voidPtr = AllocateArray<Object>(objectCount);
-        RETURN_VAL_IF_NULLPTR(voidPtr.GetPtr(), MallocArrayPtr<Object>(nullptr, 0, 0));
-        Object* objectPtr = Internal::ConstructArray<Object>(voidPtr.GetPtr(), objectCount, std::forward<Args>(argList)...);
+        void* voidPtr = AllocateInternal(sizeof(Object) * objectCount);
+        RETURN_VAL_IF_NULLPTR(voidPtr, MallocArrayPtr<Object>(nullptr, 0, 0));
+        Object* objectPtr = Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
         return MallocArrayPtr<Object>(objectPtr, objectCount * sizeof(Object), objectCount);
     }
 
@@ -91,51 +114,49 @@ class Mallocator : public Allocator
         std::destroy_n(ptr.GetPtr(), ptr.GetCount());
     }
 
-    NO_DISCARD MallocPtr<void> Allocate(const Size size, const std::string& category = "",
-                                        const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const Size size, const std::string& category = "",
+                              const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return MallocPtr<void>(AllocateInternal(size, category, sourceLocation), size);
+        return AllocateInternalWithHeader(size, category, sourceLocation);
     }
 
     template <typename Object>
-    NO_DISCARD MallocPtr<void> Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        return Allocate(sizeof(Object), category, sourceLocation);
+        return AllocateInternalWithHeader(sizeof(Object), category, sourceLocation);
     }
 
-    NO_DISCARD MallocPtr<void> AllocateArray(const Size objectCount, const Size objectSize, const std::string& category = "",
-                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        const Size allocationSize = objectCount * objectSize;
-        return MallocPtr<void>(AllocateInternal(allocationSize, category, sourceLocation), allocationSize);
+        return AllocateInternalWithHeader(objectCount * objectSize, category, sourceLocation);
     }
 
     template <typename Object>
-    NO_DISCARD MallocPtr<void> AllocateArray(const Size objectCount, const std::string& category = "",
-                                             const SourceLocation& sourceLocation = SourceLocation::current())
+    NO_DISCARD void* AllocateArray(const Size objectCount, const std::string& category = "",
+                                   const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return AllocateArray(objectCount, sizeof(Object), category, sourceLocation);
     }
 
-    void Deallocate(MallocPtr<void>& ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
-    void Deallocate(void* ptr, Size size) { DeallocateInternal(ptr, size); }
-    void Deallocate(MallocArrayPtr<void>& ptr) { DeallocateInternal(ptr, ptr.GetSize()); }
+    void Deallocate(void*& ptr) { DeallocateInternalWithHeader(ptr); }
+    void DeallocateArray(void*& ptr) { Deallocate(ptr); }
 
-    NO_DISCARD Internal::BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
-    void                                        DeallocateBase(Internal::BaseAllocatorPtr<void> ptr) final { Deallocate(ptr); }
+    NO_DISCARD void* AllocateBase(const Size size) final { return Allocate(size); }
+    void             DeallocateBase(void* ptr) final { Deallocate(ptr); }
 
   private:
     NO_DISCARD void* AllocateInternal(const Size size, const std::string& category = "",
-                                      const SourceLocation& sourceLocation = SourceLocation::current())
+                                      const SourceLocation& sourceLocation = SourceLocation::current(), Padding padding = 0)
     {
-
-        void* ptr = malloc(size);
+        void* ptr = malloc(padding + size);
 
         if constexpr (NullAllocCheckIsEnabled)
         {
             MEMARENA_ASSERT_RETURN(ptr != nullptr, nullptr, "Error: The allocator '%s' couldn't allocate any memory!\n",
                                    GetDebugName().c_str());
         }
+
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
@@ -150,8 +171,19 @@ class Mallocator : public Allocator
             }
         }
 
+        UIntPtr address       = std::bit_cast<UIntPtr>(ptr);
+        void*   allocationPtr = std::bit_cast<void*>(address + padding);
+
+        return allocationPtr;
+    }
+
+    void* AllocateInternalWithHeader(const Size size, const std::string& category = "",
+                                     const SourceLocation& sourceLocation = SourceLocation::current())
+    {
+        const Padding padding = ExtendPaddingForHeader(0, alignof(size), sizeof(MallocHeader));
+        void*         ptr     = AllocateInternal(size, category, sourceLocation, padding);
+        Internal::AllocateHeader<MallocHeader>(ptr, size);
         return ptr;
-        ;
     }
 
     template <typename Object>
@@ -165,6 +197,24 @@ class Mallocator : public Allocator
         }
     }
 
+    void DeallocateInternalWithHeader(void*& ptr)
+    {
+        const UIntPtr address        = std::bit_cast<UIntPtr>(ptr);
+        auto [header, headerAddress] = Internal::GetHeaderFromAddress<MallocHeader>(address);
+        const Padding padding        = ExtendPaddingForHeader(0, alignof(header.size), sizeof(MallocHeader));
+
+        // We can't call `free(ptr)` because `ptr` not the same as the one returned by malloc, since we added padding for header
+        // So we subtract that padding to get the original pointer
+        const UIntPtr mallocAddress = address - padding;
+        void*         mallocPtr     = std::bit_cast<void*>(mallocAddress);
+        DeallocateInternal(mallocPtr, header.size);
+
+        if constexpr (DoubleFreePreventionIsEnabled)
+        {
+            ptr = nullptr;
+        }
+    }
+
     void DeallocateInternal(void* ptr, Size size)
     {
         if constexpr (NullDeallocCheckIsEnabled)
@@ -172,7 +222,7 @@ class Mallocator : public Allocator
             MEMARENA_ASSERT_RETURN(ptr, void(), "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }
 
-        free(static_cast<void*>(ptr));
+        free(ptr);
 
         {
             LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
@@ -189,6 +239,8 @@ class Mallocator : public Allocator
             }
         }
     }
+
+    void AllocateHeader(void* ptr) {}
 
     ThreadPolicy m_MultithreadedPolicy;
 };

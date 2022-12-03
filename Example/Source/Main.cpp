@@ -1,5 +1,3 @@
-#include "Source/Allocators/Mallocator/Mallocator.hpp"
-#include "Source/Policies/Policies.hpp"
 // #define MEMARENA_ENABLE_ASSERTS_BREAK 0
 // #define MEMARENA_ENABLE_ASSERTS_ERROR_MSG 0
 
@@ -25,6 +23,9 @@ int main()
 
     Memarena::Mallocator allocator;
     auto                 ptr = allocator.New<TestStruct>();
+
+    std::cout << alignof(std::max_align_t) << '\n';
+    std::cout << alignof(7) << '\n';
 
     if (!ptr.IsNullPtr())
     {
