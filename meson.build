@@ -35,6 +35,7 @@ test_sources = [
 'Tests/Source/LinearAllocatorTest.cpp',
 'Tests/Source/PoolAllocatorTest.cpp',
 'Tests/Source/MallocatorTest.cpp',
+'Tests/Source/FallbackAllocatorTest.cpp',
 'Tests/Source/AlignmentTest.cpp',
 'Tests/Source/MemoryTrackerTest.cpp'
 ]

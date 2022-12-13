@@ -167,7 +167,7 @@ class LinearAllocator : public Allocator
         DeallocateBlocks();
     };
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const
+    [[nodiscard]] bool Owns(UIntPtr address) const
     {
         for (const auto& blockPtr : m_BlockPtrs)
         {
@@ -179,6 +179,8 @@ class LinearAllocator : public Allocator
             }
         }
     }
+    [[nodiscard]] bool Owns(void* ptr) const { return Owns(std::bit_cast<UIntPtr>(ptr)); }
+
     // NO_DISCARD BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
 
   private:

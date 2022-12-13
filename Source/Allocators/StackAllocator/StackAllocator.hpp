@@ -285,7 +285,8 @@ class StackAllocator : public Allocator
         SetCurrentOffset(0);
     };
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
+    [[nodiscard]] bool Owns(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
+    [[nodiscard]] bool Owns(void* ptr) const { return Owns(std::bit_cast<UIntPtr>(ptr)); }
 
   private:
     template <Size HeaderSize = 0>
@@ -391,8 +392,7 @@ class StackAllocator : public Allocator
 
         if constexpr (OwnershipIsCheckEnabled)
         {
-            MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(),
-                            address);
+            MEMARENA_ASSERT(Owns(address), "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(), address);
         }
 
         return address;

@@ -206,7 +206,7 @@ class PoolAllocator : public Allocator
 
     [[nodiscard]] Size GetObjectSize() const { return m_ObjectSize; }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const
+    [[nodiscard]] bool Owns(UIntPtr address) const
     {
         for (const auto& blockPtr : m_BlockPtrs)
         {
@@ -218,6 +218,7 @@ class PoolAllocator : public Allocator
             }
         }
     }
+    [[nodiscard]] bool Owns(void* ptr) const { return Owns(std::bit_cast<UIntPtr>(ptr)); }
 
   private:
     NO_DISCARD
@@ -430,8 +431,8 @@ class PoolAllocator : public Allocator
 
         if constexpr (OwnershipIsCheckEnabled)
         {
-            MEMARENA_ASSERT_RETURN(OwnsAddress(address), false, "Error: The allocator %s does not own the pointer %d!\n",
-                                   GetDebugName().c_str(), address);
+            MEMARENA_ASSERT_RETURN(Owns(address), false, "Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(),
+                                   address);
         }
 
         return true;

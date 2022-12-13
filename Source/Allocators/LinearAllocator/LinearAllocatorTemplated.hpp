@@ -66,7 +66,7 @@ class LinearAllocatorTemplated
      */
     inline void Release() { m_LinearAllocator.Release(); }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return m_LinearAllocator.OwnsAddress(address); }
+    [[nodiscard]] bool Owns(UIntPtr address) const { return m_LinearAllocator.Owns(address); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_LinearAllocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_LinearAllocator.GetTotalSize(); }

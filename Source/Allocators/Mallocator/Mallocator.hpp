@@ -91,10 +91,26 @@ class Mallocator : public Allocator
         return MallocPtr<Object>(objectPtr, sizeof(Object));
     }
 
+    template <Allocatable Object, typename... Args>
+    NO_DISCARD Object* NewRaw(Args&&... argList)
+    {
+        void* voidPtr = Allocate(sizeof(Object));
+        RETURN_VAL_IF_NULLPTR(voidPtr, nullptr);
+        Object* objectPtr = new (voidPtr) Object(std::forward<Args>(argList)...);
+        return objectPtr;
+    }
+
     template <Allocatable Object>
     void Delete(MallocPtr<Object>& ptr)
     {
         DeallocateInternal(ptr, ptr.GetSize());
+        ptr->~Object();
+    }
+
+    template <Allocatable Object>
+    void Delete(Object*& ptr)
+    {
+        Deallocate(ptr);
         ptr->~Object();
     }
 
@@ -107,11 +123,27 @@ class Mallocator : public Allocator
         return MallocArrayPtr<Object>(objectPtr, objectCount * sizeof(Object), objectCount);
     }
 
+    template <Allocatable Object, typename... Args>
+    NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    {
+        void* voidPtr = AllocateArray(objectCount, sizeof(Object));
+        RETURN_VAL_IF_NULLPTR(voidPtr, nullptr);
+        Object* objectPtr = Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
+        return objectPtr;
+    }
+
     template <Allocatable Object>
     void DeleteArray(MallocArrayPtr<Object>& ptr)
     {
         DeallocateInternal(ptr, ptr.GetSize());
         std::destroy_n(ptr.GetPtr(), ptr.GetCount());
+    }
+
+    template <Allocatable Object>
+    void DeleteArray(Object*& ptr)
+    {
+        const Size size = DeallocateArray(ptr);
+        std::destroy_n(ptr, size / sizeof(Object));
     }
 
     NO_DISCARD void* Allocate(const Size size, const std::string& category = "",
@@ -140,7 +172,7 @@ class Mallocator : public Allocator
     }
 
     void Deallocate(void*& ptr) { DeallocateInternalWithHeader(ptr); }
-    void DeallocateArray(void*& ptr) { Deallocate(ptr); }
+    Size DeallocateArray(void*& ptr) { return DeallocateInternalWithHeader(ptr); }
 
     NO_DISCARD void* AllocateBase(const Size size) final { return Allocate(size); }
     void             DeallocateBase(void* ptr) final { Deallocate(ptr); }
@@ -197,7 +229,7 @@ class Mallocator : public Allocator
         }
     }
 
-    void DeallocateInternalWithHeader(void*& ptr)
+    Size DeallocateInternalWithHeader(void*& ptr)
     {
         const UIntPtr address        = std::bit_cast<UIntPtr>(ptr);
         auto [header, headerAddress] = Internal::GetHeaderFromAddress<MallocHeader>(address);
@@ -213,6 +245,8 @@ class Mallocator : public Allocator
         {
             ptr = nullptr;
         }
+
+        return header.size;
     }
 
     void DeallocateInternal(void* ptr, Size size)

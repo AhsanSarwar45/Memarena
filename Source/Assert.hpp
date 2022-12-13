@@ -33,3 +33,5 @@
         MEMARENA_HANDLE_ASSERT_FAILURE(Settings.breakOnFailureIsEnabled, Settings.failureLoggingIsEnabled, __VA_ARGS__); \
         return returnValue;                                                                                              \
     }
+
+#define MEMARENA_ERROR(...) MEMARENA_ASSERT(false, __VA_ARGS__)

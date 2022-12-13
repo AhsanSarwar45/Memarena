@@ -43,11 +43,11 @@ constexpr UInt32 PolicyToInt(Policy policy)
 
 enum class FallbackAllocatorPolicy : UInt32
 {
-    BASE_ALLOCATOR_POLICIES,
+    // BASE_ALLOCATOR_POLICIES,
 
-    Default = SizeTracking,
-    Release = Empty,
-    Debug   = SizeTracking | AllocationTracking,
+    Default = 0,
+    Release = 0,
+    Debug   = 0,
 };
 
 MARK_AS_POLICY(FallbackAllocatorPolicy);

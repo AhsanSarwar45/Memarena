@@ -356,8 +356,7 @@ class StackAllocator : public Allocator
 
         if constexpr (OwnershipIsCheckEnabled)
         {
-            MEMARENA_ASSERT(OwnsAddress(address), "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(),
-                            address);
+            MEMARENA_ASSERT(Owns(address), "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(), address);
         }
 
         return address;
@@ -386,7 +385,7 @@ class StackAllocator : public Allocator
         }
     }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
+    [[nodiscard]] bool Owns(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
 
     ThreadPolicy m_MultithreadedPolicy;
 

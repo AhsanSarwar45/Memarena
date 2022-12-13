@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "Source/Aliases.hpp"
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
 #include "Source/AllocatorSettings.hpp"
@@ -19,39 +20,43 @@
 namespace Memarena
 {
 
+template <typename>
+constexpr std::false_type ImplementsOwnsHelper(Int32);
+
 template <typename T>
-concept PrimaryAllocatable = requires(T a)
-{
-    {
-        a.Allocate(0)
-        } -> std::same_as<Ptr<void>>;
+constexpr auto ImplementsOwnsHelper(int) -> decltype(std::declval<T>().Owns(), std::true_type{});
 
-    a.Deallocate(Ptr<void>(nullptr));
-    {
-        a.OwnsAddress(0)
-        } -> std::same_as<bool>;
-}
-|| requires(T a)
+template <typename T>
+using ImplementsOwns = decltype(ImplementsOwnsHelper<T>(0));
+
+template <typename T>
+concept PrimaryAllocatable = requires(T allocator, void* voidPtr, int* ptr)
 {
     {
-        a.Allocate(0)
+        allocator.Allocate(0)
         } -> std::same_as<void*>;
-
-    a.Deallocate(nullptr);
     {
-        a.OwnsAddress(0)
+        allocator.template NewRaw<int>(0)
+        } -> std::same_as<int*>;
+    allocator.Deallocate(voidPtr);
+    allocator.Delete(ptr);
+    {
+        allocator.Owns(voidPtr)
         } -> std::same_as<bool>;
 };
 
 template <typename T>
-concept FallbackAllocatable = requires(T a)
+concept FallbackAllocatable = requires(T allocator, void* voidPtr, int* ptr)
 {
+
     {
-        a.Allocate(0)
-        } -> std::same_as<Ptr<void>>;
+        allocator.Allocate(0)
+        } -> std::same_as<void*>;
     {
-        a.Deallocate(nullptr)
-        } -> std::same_as<Ptr<void>>;
+        allocator.template NewRaw<int>(0)
+        } -> std::same_as<int*>;
+    allocator.Deallocate(voidPtr);
+    allocator.Delete(ptr);
 };
 
 // template <PrimaryAllocatable PrimaryAllocator>
@@ -75,11 +80,11 @@ template <PrimaryAllocatable PrimaryAllocatorType, FallbackAllocatable FallbackA
 class FallbackAllocator : public Allocator
 {
   private:
-    static constexpr auto Policy = Settings.policy;
+    // static constexpr auto Policy = Settings.policy;
 
-    static constexpr bool UsageTrackingIsEnabled      = PolicyContains(Policy, FallbackAllocatorPolicy::SizeTracking);
-    static constexpr bool AllocationTrackingIsEnabled = PolicyContains(Policy, FallbackAllocatorPolicy::AllocationTracking);
-    static constexpr bool IsMultithreaded             = PolicyContains(Policy, FallbackAllocatorPolicy::Multithreaded);
+    // static constexpr bool UsageTrackingIsEnabled      = PolicyContains(Policy, FallbackAllocatorPolicy::SizeTracking);
+    // static constexpr bool AllocationTrackingIsEnabled = PolicyContains(Policy, FallbackAllocatorPolicy::AllocationTracking);
+    // static constexpr bool IsMultithreaded             = PolicyContains(Policy, FallbackAllocatorPolicy::Multithreaded);
 
     // using ThreadPolicy = MultithreadedPolicy<IsMultithreaded, IsGrowable>;
 
@@ -96,12 +101,10 @@ class FallbackAllocator : public Allocator
     FallbackAllocator& operator=(const FallbackAllocator&) = delete;
     FallbackAllocator& operator=(FallbackAllocator&&) = delete;
 
-    explicit FallbackAllocator(PrimaryAllocatorType primaryAllocator, FallbackAllocatorType fallbackAllocator,
-                               const std::string&         debugName     = "FallbackAllocator",
-                               std::shared_ptr<Allocator> baseAllocator = Allocator::GetDefaultAllocator())
+    explicit FallbackAllocator(std::shared_ptr<PrimaryAllocatorType>  primaryAllocator,
+                               std::shared_ptr<FallbackAllocatorType> fallbackAllocator, const std::string& debugName = "FallbackAllocator")
         : Allocator(0, debugName), m_PrimaryAllocator(std::move(primaryAllocator)), m_FallbackAllocator(std::move(fallbackAllocator))
     {
-        AllocateBlock();
     }
 
     ~FallbackAllocator(){
@@ -111,28 +114,65 @@ class FallbackAllocator : public Allocator
     template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewRaw(Args&&... argList)
     {
-        void* voidPtr = Allocate<Object>();
-        RETURN_IF_NULLPTR(voidPtr);
-        Object* ptr = static_cast<Object*>(voidPtr);
+        Object* ptr = m_PrimaryAllocator->template NewRaw<Object>(std::forward<Args>(argList)...);
+        if (ptr == nullptr)
+        {
+            ptr = m_FallbackAllocator->template NewRaw<Object>(std::forward<Args>(argList)...);
+        }
 
-        // return new (voidPtr) Object(std::forward<Args>(argList)...);
-        return std::construct_at(ptr, std::forward<Args>(argList)...);
+        return ptr;
     }
 
-    template <Allocatable Object, typename... Args>
-    NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    // template <Allocatable Object, typename... Args>
+    // NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
+    // {
+    //     void* voidPtr = AllocateArray<Object>(objectCount);
+    //     RETURN_IF_NULLPTR(voidPtr);
+    //     return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
+    // }
+
+    template <Allocatable Object>
+    void Delete(Object* ptr)
     {
-        void* voidPtr = AllocateArray<Object>(objectCount);
-        RETURN_IF_NULLPTR(voidPtr);
-        return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
+        const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
+
+        if (m_PrimaryAllocator->Owns(address))
+        {
+            m_PrimaryAllocator->Delete(ptr);
+            return;
+        }
+
+        if constexpr (ImplementsOwns<FallbackAllocatorType>{})
+        {
+            if (m_FallbackAllocator->Owns(address))
+            {
+                m_FallbackAllocator->Delete(ptr);
+                return;
+            }
+        }
+
+        MEMARENA_ERROR("Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(), address);
     }
+
+    [[nodiscard]] bool Owns(void* ptr) const { return m_PrimaryAllocator->Owns(ptr) || m_PrimaryAllocator->Owns(ptr); }
+
+    // template <Allocatable Object>
+    // void DeleteArrayRaw(Object* ptr)
+    // {
+    //     const Size objectCount = DeallocateArray(ptr, sizeof(Object));
+    //     std::destroy_n(ptr, objectCount);
+    // }
 
     NO_DISCARD void* Allocate(const Size size, const Alignment& alignment = defaultAlignment, const std::string& category = "",
                               const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        const void* primaryPtr = m_PrimaryAllocator.Allocate(size, alignment, category, sourceLocation);
+        void* ptr = m_PrimaryAllocator->Allocate(size, alignment, category, sourceLocation);
+        if (ptr != nullptr)
+        {
+            ptr = m_FallbackAllocator->Allocate(size, alignment, category, sourceLocation);
+        }
 
-        return std::bit_cast<void*>(alignedAddress);
+        return ptr;
     }
 
     template <typename Object>
@@ -155,79 +195,32 @@ class FallbackAllocator : public Allocator
         return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
-    /**
-     * @brief Releases the allocator to its initial state. Since FallbackAllocators dont support de-allocating separate allocation, this
-     * is how you clean the memory
-     *
-     */
-    inline void Release()
+    void Deallocate(void* ptr)
     {
-        LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
-        DeallocateBlocks();
-    };
+        const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
-    // NO_DISCARD BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
+        if (m_PrimaryAllocator->Owns(address))
+        {
+            m_PrimaryAllocator->Deallocate(ptr);
+            return;
+        }
+
+        if constexpr (ImplementsOwns<FallbackAllocatorType>{})
+        {
+            if (m_FallbackAllocator->Owns(address))
+            {
+                m_FallbackAllocator->Deallocate(ptr);
+                return;
+            }
+        }
+
+        MEMARENA_ERROR("Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(), address);
+    }
+
+    void DeallocateArray(void* ptr) { Deallocate(ptr); }
 
   private:
-    void SetCurrentOffset(const Offset offset)
-    {
-        m_CurrentOffset = offset;
-
-        if constexpr (UsageTrackingIsEnabled)
-        {
-            SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize + offset);
-        }
-    }
-
-    inline void AllocateBlock()
-    {
-
-        Internal::BaseAllocatorPtr<void> newBlockPtr = m_BaseAllocator->AllocateBase(m_BlockSize);
-        m_BlockPtrs.push_back(newBlockPtr);
-        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs.back().GetPtr());
-        m_CurrentOffset       = 0;
-
-        if constexpr (UsageTrackingIsEnabled)
-        {
-            SetUsedSize((m_BlockPtrs.size() - 1) * m_BlockSize);
-        }
-        UpdateTotalSize();
-    }
-
-    // Deallocates all but the first block
-    inline void DeallocateBlocks()
-    {
-        if constexpr (IsGrowable)
-        {
-            while (m_BlockPtrs.size() > 1)
-            {
-                FreeLastBlock();
-            }
-            UpdateTotalSize();
-        }
-
-        m_CurrentStartAddress = std::bit_cast<UIntPtr>(m_BlockPtrs[0].GetPtr());
-
-        SetCurrentOffset(0);
-    }
-
-    inline void FreeLastBlock()
-    {
-        m_BaseAllocator->DeallocateBase(m_BlockPtrs.back());
-        m_BlockPtrs.pop_back();
-    }
-
-    inline void UpdateTotalSize()
-    {
-        if constexpr (UsageTrackingIsEnabled)
-        {
-            SetTotalSize(m_BlockPtrs.size() * m_BlockSize);
-        }
-    }
-
-    // ThreadPolicy m_MultithreadedPolicy;
-
-    PrimaryAllocatorType  m_PrimaryAllocator;
-    FallbackAllocatorType m_FallbackAllocator;
+    std::shared_ptr<PrimaryAllocatorType>  m_PrimaryAllocator;
+    std::shared_ptr<FallbackAllocatorType> m_FallbackAllocator;
 };
 } // namespace Memarena

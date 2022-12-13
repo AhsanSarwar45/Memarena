@@ -53,7 +53,7 @@ class PoolAllocatorTemplated
 
     void DeallocateArray(PoolArrayPtr<void> ptr) { m_PoolAllocator.Deallocate(ptr); }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return m_PoolAllocator.OwnsAddress(address); }
+    [[nodiscard]] bool Owns(UIntPtr address) const { return m_PoolAllocator.Owns(address); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_PoolAllocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_PoolAllocator.GetTotalSize(); }

@@ -97,7 +97,7 @@ class StackAllocatorTemplated
      */
     inline void Release() { m_StackAllocator.Release(); }
 
-    [[nodiscard]] bool OwnsAddress(UIntPtr address) const { return m_StackAllocator.OwnsAddress(address); }
+    [[nodiscard]] bool Owns(UIntPtr address) const { return m_StackAllocator.Owns(address); }
 
     [[nodiscard]] Size        GetUsedSize() const { return m_StackAllocator.GetUsedSize(); }
     [[nodiscard]] Size        GetTotalSize() const { return m_StackAllocator.GetTotalSize(); }
