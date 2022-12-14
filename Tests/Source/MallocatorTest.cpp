@@ -9,6 +9,7 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/Allocators/Mallocator/Mallocator.hpp"
 #include "Source/MemoryTracker.hpp"
 #include "Source/Policies/Policies.hpp"
 
@@ -20,36 +21,79 @@ class MallocatorTest : public ::testing::Test
   protected:
     void SetUp() override { MemoryTracker::ResetBaseAllocators(); }
     void TearDown() override {}
-
-    Mallocator<> mallocator = Mallocator();
 };
 
-template <typename Object, typename... Args>
-MallocPtr<Object> CheckNew(Mallocator<>& allocator, Args&&... argList)
-{
-    MallocPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);
-
-    EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));
-
-    return object;
-}
-template <typename Object, typename... Args>
-MallocArrayPtr<Object> CheckNewArray(Mallocator<>& allocator, size_t objectCount, Args&&... argList)
-{
-    MallocArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);
-
-    for (size_t i = 0; i < objectCount; i++)
-    {
-        EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));
+#define DECLARE_CHECK_HELPERS(currentPolicy)                                                                                              \
+    constexpr MallocatorSettings currentPolicy##settings = {.policy = MallocatorPolicy::currentPolicy};                                   \
+    template <typename Object, typename... Args>                                                                                          \
+    Object* CheckNewRaw(Mallocator<currentPolicy##settings>& allocator, Args&&... argList)                                                \
+    {                                                                                                                                     \
+        Object* object = allocator.NewRaw<Object>(std::forward<Args>(argList)...);                                                        \
+                                                                                                                                          \
+        EXPECT_EQ(*object, Object(std::forward<Args>(argList)...));                                                                       \
+                                                                                                                                          \
+        return object;                                                                                                                    \
+    }                                                                                                                                     \
+    template <typename Object, typename... Args>                                                                                          \
+    Object* CheckNewArrayRaw(Mallocator<currentPolicy##settings>& allocator, size_t objectCount, Args&&... argList)                       \
+    {                                                                                                                                     \
+        Object* arr = allocator.NewArrayRaw<Object>(objectCount, std::forward<Args>(argList)...);                                         \
+                                                                                                                                          \
+        for (int i = 0; i < objectCount; i++)                                                                                             \
+        {                                                                                                                                 \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                                    \
+        }                                                                                                                                 \
+        return arr;                                                                                                                       \
+    }                                                                                                                                     \
+                                                                                                                                          \
+    template <typename Object, typename... Args>                                                                                          \
+    Memarena::MallocPtr<Object> CheckNew(Mallocator<currentPolicy##settings>& allocator, Args&&... argList)                               \
+    {                                                                                                                                     \
+        Memarena::MallocPtr<Object> object = allocator.New<Object>(std::forward<Args>(argList)...);                                       \
+                                                                                                                                          \
+        EXPECT_EQ(*(object.GetPtr()), Object(std::forward<Args>(argList)...));                                                            \
+                                                                                                                                          \
+        return object;                                                                                                                    \
+    }                                                                                                                                     \
+                                                                                                                                          \
+    template <typename Object, typename... Args>                                                                                          \
+    Memarena::MallocArrayPtr<Object> CheckNewArray(Mallocator<currentPolicy##settings>& allocator, size_t objectCount, Args&&... argList) \
+    {                                                                                                                                     \
+        Memarena::MallocArrayPtr<Object> arr = allocator.NewArray<Object>(objectCount, std::forward<Args>(argList)...);                   \
+                                                                                                                                          \
+        for (int i = 0; i < objectCount; i++)                                                                                             \
+        {                                                                                                                                 \
+            EXPECT_EQ(arr[i], Object(std::forward<Args>(argList)...));                                                                    \
+        }                                                                                                                                 \
+        return arr;                                                                                                                       \
     }
-    return arr;
-}
 
-TEST_F(MallocatorTest, Initialize) { EXPECT_EQ(mallocator.GetUsedSize(), 0); }
-TEST_F(MallocatorTest, NewSingleObject) { CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F); }
+DECLARE_CHECK_HELPERS(Default)
+DECLARE_CHECK_HELPERS(Debug)
+DECLARE_CHECK_HELPERS(Release)
 
-TEST_F(MallocatorTest, NewMultipleObjects)
-{
+#define POLICY_TEST(name, currentPolicy, code)                                                                     \
+    TEST_F(MallocatorTest, name##_##currentPolicy##Policy)                                                         \
+    {                                                                                                              \
+        constexpr MallocatorSettings        currentPolicy##settings = {.policy = MallocatorPolicy::currentPolicy}; \
+        Mallocator<currentPolicy##settings> mallocator{};                                                          \
+        code                                                                                                       \
+    }
+
+#define ALLOCATOR_TEST(name, code)    \
+    POLICY_TEST(name, Default, code); \
+    POLICY_TEST(name, Debug, code);   \
+    POLICY_TEST(name, Release, code);
+
+#define ALLOCATOR_DEBUG_TEST(name, code) \
+    POLICY_TEST(name, Default, code);    \
+    POLICY_TEST(name, Debug, code);
+
+ALLOCATOR_TEST(Initialize, { EXPECT_EQ(mallocator.GetUsedSize(), 0); })
+
+ALLOCATOR_TEST(NewSingleObject, { CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F); })
+
+ALLOCATOR_TEST(NewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         CheckNew<TestObject>(mallocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
@@ -58,17 +102,15 @@ TEST_F(MallocatorTest, NewMultipleObjects)
     {
         CheckNew<TestObject2>(mallocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
     }
-}
+})
 
-TEST_F(MallocatorTest, NewDeleteSingleObject)
-{
+ALLOCATOR_TEST(NewDeleteSingleObject, {
     MallocPtr<TestObject> object = CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
 
     mallocator.Delete(object);
-}
+})
 
-TEST_F(MallocatorTest, NewDeleteMultipleObjects)
-{
+ALLOCATOR_TEST(NewDeleteMultipleObjects, {
     std::vector<MallocPtr<TestObject>>  objects1;
     std::vector<MallocPtr<TestObject2>> objects2;
 
@@ -94,19 +136,17 @@ TEST_F(MallocatorTest, NewDeleteMultipleObjects)
     {
         mallocator.Delete(objects1[i]);
     }
-}
+})
 
-TEST_F(MallocatorTest, NewDeleteNewSingleObject)
-{
+ALLOCATOR_TEST(NewDeleteNewSingleObject, {
     MallocPtr<TestObject> object = CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
 
     mallocator.Delete(object);
 
     MallocPtr<TestObject> object2 = CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(MallocatorTest, NewDeleteNewMultipleObjects)
-{
+ALLOCATOR_TEST(NewDeleteNewMultipleObjects, {
     for (int i = 0; i < 10; i++)
     {
         MallocPtr<TestObject> object =
@@ -120,26 +160,23 @@ TEST_F(MallocatorTest, NewDeleteNewMultipleObjects)
 
         mallocator.Delete(object);
     }
-}
+})
 
-TEST_F(MallocatorTest, NewArray) { MallocArrayPtr<TestObject> arr = CheckNewArray<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F); }
+ALLOCATOR_TEST(NewArray, { MallocArrayPtr<TestObject> arr = CheckNewArray<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F); })
 
-TEST_F(MallocatorTest, NewDeleteArray)
-{
+ALLOCATOR_TEST(NewDeleteArray, {
     MallocArrayPtr<TestObject> arr = CheckNewArray<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
     mallocator.DeleteArray(arr);
-}
+})
 
-TEST_F(MallocatorTest, NewMixed)
-{
+ALLOCATOR_TEST(NewMixed, {
     MallocArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
     MallocPtr<TestObject>      object1 = CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
     MallocPtr<TestObject>      object2 = CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
     MallocArrayPtr<TestObject> arr2    = CheckNewArray<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
-}
+})
 
-TEST_F(MallocatorTest, NewDeleteMixed)
-{
+ALLOCATOR_TEST(NewDeleteMixed, {
     MallocArrayPtr<TestObject> arr1    = CheckNewArray<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
     MallocPtr<TestObject>      object1 = CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
     MallocPtr<TestObject>      object2 = CheckNew<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
@@ -149,7 +186,104 @@ TEST_F(MallocatorTest, NewDeleteMixed)
     mallocator.Delete(object2);
     mallocator.Delete(object1);
     mallocator.DeleteArray(arr1);
-}
+})
+
+ALLOCATOR_TEST(RawNewSingleObject, { CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F); })
+
+ALLOCATOR_TEST(RawNewMultipleObjects, {
+    for (int i = 0; i < 10; i++)
+    {
+        CheckNewRaw<TestObject>(mallocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+    }
+    for (int i = 0; i < 10; i++)
+    {
+        CheckNewRaw<TestObject2>(mallocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
+    }
+})
+
+ALLOCATOR_TEST(RawNewDeleteSingleObject, {
+    TestObject* object = CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
+
+    mallocator.Delete(object);
+})
+
+ALLOCATOR_TEST(RawNewDeleteMultipleObjects, {
+    std::vector<TestObject*>  objects1;
+    std::vector<TestObject2*> objects2;
+
+    for (int i = 0; i < 10; i++)
+    {
+        TestObject* object =
+            CheckNewRaw<TestObject>(mallocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+
+        objects1.push_back(object);
+    }
+    for (int i = 0; i < 10; i++)
+    {
+        TestObject2* object = CheckNewRaw<TestObject2>(mallocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2});
+
+        objects2.push_back(object);
+    }
+
+    for (int i = static_cast<int>(objects2.size()) - 1; i >= 0; i--)
+    {
+        mallocator.Delete(objects2[i]);
+    }
+    for (int i = static_cast<int>(objects1.size()) - 1; i >= 0; i--)
+    {
+        mallocator.Delete(objects1[i]);
+    }
+})
+
+ALLOCATOR_TEST(RawNewDeleteNewSingleObject, {
+    TestObject* object = CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
+
+    mallocator.Delete(object);
+
+    TestObject* object2 = CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
+})
+
+ALLOCATOR_TEST(RawNewDeleteNewMultipleObjects, {
+    for (int i = 0; i < 10; i++)
+    {
+        TestObject* object =
+            CheckNewRaw<TestObject>(mallocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
+
+        mallocator.Delete(object);
+    }
+    for (int i = 0; i < 10; i++)
+    {
+        TestObject2* object = CheckNewRaw<TestObject2>(mallocator, i, i + 1.5, i + 2.5, i % 2, Pair{1, 2.5});
+
+        mallocator.Delete(object);
+    }
+})
+
+ALLOCATOR_TEST(RawNewArray, { TestObject* arr = CheckNewArrayRaw<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F); })
+
+ALLOCATOR_TEST(RawNewDeleteArray, {
+    TestObject* arr = CheckNewArrayRaw<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
+    mallocator.DeleteArray(arr);
+})
+
+ALLOCATOR_TEST(RawNewMixed, {
+    TestObject* arr1    = CheckNewArrayRaw<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* object1 = CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* object2 = CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* arr2    = CheckNewArrayRaw<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
+})
+
+ALLOCATOR_TEST(RawNewDeleteMixed, {
+    TestObject* arr1    = CheckNewArrayRaw<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* object1 = CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* object2 = CheckNewRaw<TestObject>(mallocator, 1, 2.1F, 'a', false, 10.6F);
+    TestObject* arr2    = CheckNewArrayRaw<TestObject>(mallocator, 10, 1, 2.1F, 'a', false, 10.6F);
+
+    mallocator.DeleteArray(arr2);
+    mallocator.Delete(object2);
+    mallocator.Delete(object1);
+    mallocator.DeleteArray(arr1);
+})
 
 TEST_F(MallocatorTest, GetUsedSizeNew)
 {
@@ -282,30 +416,50 @@ class MallocatorDeathTest : public ::testing::Test
   protected:
     void SetUp() override {}
     void TearDown() override {}
-
-    Mallocator<> mallocator = Mallocator();
 };
 
 TEST_F(MallocatorDeathTest, DeleteNullPointer)
 {
     constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::NullDeallocCheck};
-    Mallocator<settings>         mallocator2{};
+    Mallocator<settings>         mallocator{};
     MallocPtr<int>               ptr{nullptr, 0};
 
     // TODO Write proper exit messages
-    ASSERT_DEATH({ mallocator2.Delete(ptr); }, ".*");
+    ASSERT_DEATH({ mallocator.Delete(ptr); }, ".*");
+}
+
+TEST_F(MallocatorDeathTest, DeleteNullPointerRaw)
+{
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::NullDeallocCheck};
+    Mallocator<settings>         mallocator{};
+    int*                         ptr = nullptr;
+
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ mallocator.Delete(ptr); }, ".*");
 }
 
 TEST_F(MallocatorDeathTest, DoubleFree)
 {
     constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
-    Mallocator<settings>         mallocator2{};
+    Mallocator<settings>         mallocator{};
 
-    void* ptr = mallocator2.Allocate(4);
+    MallocPtr<int> ptr = mallocator.New<int>(4);
 
-    mallocator2.Deallocate(ptr);
+    mallocator.Delete(ptr);
     // TODO Write proper exit messages
-    ASSERT_DEATH({ mallocator2.Deallocate(ptr); }, ".*");
+    ASSERT_DEATH({ mallocator.Delete(ptr); }, ".*");
+}
+
+TEST_F(MallocatorDeathTest, DoubleFreeRaw)
+{
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
+    Mallocator<settings>         mallocator{};
+
+    int* ptr = mallocator.NewRaw<int>(4);
+
+    mallocator.Delete(ptr);
+    // TODO Write proper exit messages
+    ASSERT_DEATH({ mallocator.Delete(ptr); }, ".*");
 }
 
 #endif

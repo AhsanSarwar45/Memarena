@@ -151,16 +151,19 @@ class StackAllocator : public Allocator
     NO_DISCARD StackPtr<Object> New(Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal(sizeof(Object), alignof(Object));
-        Object* objectPtr                      = new (voidPtr) Object(std::forward<Args>(argList)...);
-        return StackPtr<Object>(objectPtr, startOffset, endOffset);
+        RETURN_VAL_IF_NULLPTR(voidPtr, StackPtr<Object>(nullptr, 0, 0));
+        Object* ptr = static_cast<Object*>(voidPtr);
+        ptr         = std::construct_at(ptr, std::forward<Args>(argList)...);
+        return StackPtr<Object>(ptr, startOffset, endOffset);
     }
 
     template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewRaw(Args&&... argList)
     {
-        void*   voidPtr   = Allocate<Object>();
-        Object* objectPtr = new (voidPtr) Object(std::forward<Args>(argList)...);
-        return objectPtr;
+        void* voidPtr = Allocate<Object>();
+        RETURN_IF_NULLPTR(voidPtr);
+        Object* ptr = static_cast<Object*>(voidPtr);
+        return std::construct_at(ptr, std::forward<Args>(argList)...);
     }
 
     template <Allocatable Object>
@@ -181,14 +184,16 @@ class StackAllocator : public Allocator
     NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal(objectCount * sizeof(Object), alignof(Object));
-        return StackArrayPtr<Object>(Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...), startOffset,
-                                     objectCount);
+        RETURN_VAL_IF_NULLPTR(voidPtr, StackArrayPtr<Object>(nullptr, 0, 0));
+        Object* ptr = Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
+        return StackArrayPtr<Object>(ptr, startOffset, objectCount);
     }
 
     template <Allocatable Object, typename... Args>
     NO_DISCARD Object* NewArrayRaw(const Size objectCount, Args&&... argList)
     {
         void* voidPtr = AllocateArray<Object>(objectCount);
+        RETURN_IF_NULLPTR(voidPtr);
         return Internal::ConstructArray<Object>(voidPtr, objectCount, std::forward<Args>(argList)...);
     }
 
@@ -210,6 +215,7 @@ class StackAllocator : public Allocator
                               const SourceLocation& sourceLocation = SourceLocation::current())
     {
         auto [voidPtr, startOffset, endOffset] = AllocateInternal<sizeof(InplaceHeader)>(size, alignment, category, sourceLocation);
+        RETURN_IF_NULLPTR(voidPtr);
         Internal::AllocateHeader<InplaceHeader>(voidPtr, startOffset, endOffset);
         return voidPtr;
     }
@@ -240,6 +246,7 @@ class StackAllocator : public Allocator
         const Size allocationSize = objectCount * objectSize;
         auto [voidPtr, startOffset, endOffset] =
             AllocateInternal<sizeof(InplaceArrayHeader)>(allocationSize, alignment, category, sourceLocation);
+        RETURN_IF_NULLPTR(voidPtr);
         Internal::AllocateHeader<InplaceArrayHeader>(voidPtr, startOffset, objectCount);
         return voidPtr;
     }
@@ -318,8 +325,8 @@ class StackAllocator : public Allocator
 
         if constexpr (SizeCheckIsEnabled)
         {
-            MEMARENA_ASSERT(totalSizeAfterAllocation <= GetTotalSize(), "Error: The allocator '%s' is out of memory!\n",
-                            GetDebugName().c_str());
+            MEMARENA_ASSERT_RETURN(totalSizeAfterAllocation <= GetTotalSize(), (std::tuple(nullptr, 0, 0)),
+                                   "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
         }
 
         if constexpr (BoundsCheckIsEnabled)
@@ -356,8 +363,8 @@ class StackAllocator : public Allocator
 
         if constexpr (StackCheckIsEnabled)
         {
-            MEMARENA_ASSERT(header.endOffset == m_CurrentOffset,
-                            "Error: Attempt to deallocate in wrong order in the stack allocator '%s'!\n", GetDebugName().c_str());
+            MEMARENA_ASSERT_RETURN(header.endOffset == m_CurrentOffset, void(),
+                                   "Error: Attempt to deallocate in wrong order in the stack allocator '%s'!\n", GetDebugName().c_str());
         }
 
         if constexpr (BoundsCheckIsEnabled)
@@ -368,9 +375,9 @@ class StackAllocator : public Allocator
             const UIntPtr         backGuardAddress = address + frontGuard->allocationSize;
             const BoundGuardBack* backGuard        = std::bit_cast<BoundGuardBack*>(backGuardAddress);
 
-            MEMARENA_ASSERT(frontGuard->offset == newOffset && backGuard->offset == newOffset,
-                            "Error: Memory stomping detected in allocator '%s' at offset %d and address %d!\n", GetDebugName().c_str(),
-                            newOffset, address);
+            MEMARENA_ASSERT_RETURN(frontGuard->offset == newOffset && backGuard->offset == newOffset, void(),
+                                   "Error: Memory stomping detected in allocator '%s' at offset %d and address %d!\n",
+                                   GetDebugName().c_str(), newOffset, address);
         }
 
         if constexpr (AllocationTrackingIsEnabled)
@@ -385,14 +392,15 @@ class StackAllocator : public Allocator
     {
         if constexpr (IsNullDeallocCheckEnabled)
         {
-            MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
+            MEMARENA_ASSERT_RETURN(ptr, 0, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }
 
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
         if constexpr (OwnershipIsCheckEnabled)
         {
-            MEMARENA_ASSERT(Owns(address), "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(), address);
+            MEMARENA_ASSERT_RETURN(Owns(address), 0, "Error: The allocator '%s' does not own the pointer %d!\n", GetDebugName().c_str(),
+                                   address);
         }
 
         return address;

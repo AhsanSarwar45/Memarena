@@ -98,7 +98,7 @@ class PoolAllocator : public Allocator
 
     ~PoolAllocator()
     {
-        for (auto ptr : m_BlockPtrs)
+        for (void* ptr : m_BlockPtrs)
         {
             m_BaseAllocator->DeallocateBase(ptr);
         };
@@ -145,7 +145,7 @@ class PoolAllocator : public Allocator
     }
 
     template <Allocatable Object>
-    void DeleteRaw(Object* ptr)
+    void Delete(Object* ptr)
     {
         if constexpr (IsAllocationSizeCheckEnabled)
         {
@@ -161,7 +161,7 @@ class PoolAllocator : public Allocator
     template <Allocatable Object>
     void Delete(PoolPtr<Object> ptr)
     {
-        DeleteRaw<Object>(ptr.GetPtr());
+        Delete<Object>(ptr.GetPtr());
     }
 
     template <Allocatable Object>

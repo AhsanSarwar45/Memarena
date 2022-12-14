@@ -110,7 +110,9 @@ class Mallocator : public Allocator
     template <Allocatable Object>
     void Delete(Object*& ptr)
     {
-        Deallocate(ptr);
+        void* voidPtr = ptr;
+        Deallocate(voidPtr);
+        ptr = static_cast<Object*>(voidPtr);
         ptr->~Object();
     }
 
@@ -142,7 +144,9 @@ class Mallocator : public Allocator
     template <Allocatable Object>
     void DeleteArray(Object*& ptr)
     {
-        const Size size = DeallocateArray(ptr);
+        void*      voidPtr = ptr;
+        const Size size    = DeallocateArray(voidPtr);
+        ptr                = static_cast<Object*>(voidPtr);
         std::destroy_n(ptr, size / sizeof(Object));
     }
 
@@ -221,7 +225,12 @@ class Mallocator : public Allocator
     template <typename Object>
     void DeallocateInternal(Ptr<Object>& ptr, Size size)
     {
-        DeallocateInternal(static_cast<void*>(ptr.GetPtr()), size);
+        if constexpr (NullDeallocCheckIsEnabled || DoubleFreePreventionIsEnabled)
+        {
+            MEMARENA_ASSERT_RETURN(ptr, void(), "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
+        }
+
+        DeallocateInternal(ptr.GetPtr(), size);
 
         if constexpr (DoubleFreePreventionIsEnabled)
         {
@@ -231,6 +240,11 @@ class Mallocator : public Allocator
 
     Size DeallocateInternalWithHeader(void*& ptr)
     {
+        if constexpr (NullDeallocCheckIsEnabled || DoubleFreePreventionIsEnabled)
+        {
+            MEMARENA_ASSERT_RETURN(ptr, 0, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
+        }
+
         const UIntPtr address        = std::bit_cast<UIntPtr>(ptr);
         auto [header, headerAddress] = Internal::GetHeaderFromAddress<MallocHeader>(address);
         const Padding padding        = ExtendPaddingForHeader(0, alignof(header.size), sizeof(MallocHeader));
@@ -251,10 +265,6 @@ class Mallocator : public Allocator
 
     void DeallocateInternal(void* ptr, Size size)
     {
-        if constexpr (NullDeallocCheckIsEnabled)
-        {
-            MEMARENA_ASSERT_RETURN(ptr, void(), "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
-        }
 
         free(ptr);
 

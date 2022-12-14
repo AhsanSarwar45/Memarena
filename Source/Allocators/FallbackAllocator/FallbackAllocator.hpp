@@ -132,29 +132,48 @@ class FallbackAllocator : public Allocator
     // }
 
     template <Allocatable Object>
-    void Delete(Object* ptr)
+    void Delete(Object*& ptr)
     {
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
         if (m_PrimaryAllocator->Owns(address))
         {
             m_PrimaryAllocator->Delete(ptr);
-            return;
         }
 
-        if constexpr (ImplementsOwns<FallbackAllocatorType>{})
+        else if constexpr (ImplementsOwns<FallbackAllocatorType>{})
         {
             if (m_FallbackAllocator->Owns(address))
             {
                 m_FallbackAllocator->Delete(ptr);
-                return;
+            }
+            else
+            {
+                MEMARENA_ERROR("Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(), address);
             }
         }
-
-        MEMARENA_ERROR("Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(), address);
+        else
+        {
+            m_FallbackAllocator->Delete(ptr);
+        }
     }
 
-    [[nodiscard]] bool Owns(void* ptr) const { return m_PrimaryAllocator->Owns(ptr) || m_PrimaryAllocator->Owns(ptr); }
+    [[nodiscard]] bool Owns(UIntPtr ptr) const
+    {
+        if constexpr (ImplementsOwns<FallbackAllocatorType>{})
+        {
+            return m_PrimaryAllocator->Owns(ptr) || m_PrimaryAllocator->Owns(ptr);
+        }
+        else
+        {
+            return m_PrimaryAllocator->Owns(ptr);
+        }
+    }
+    [[nodiscard]] bool Owns(void* ptr) const
+    {
+        const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
+        return Owns(address);
+    }
 
     // template <Allocatable Object>
     // void DeleteArrayRaw(Object* ptr)
@@ -195,29 +214,33 @@ class FallbackAllocator : public Allocator
         return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
-    void Deallocate(void* ptr)
+    void Deallocate(void*& ptr)
     {
         const UIntPtr address = std::bit_cast<UIntPtr>(ptr);
 
         if (m_PrimaryAllocator->Owns(address))
         {
             m_PrimaryAllocator->Deallocate(ptr);
-            return;
         }
 
-        if constexpr (ImplementsOwns<FallbackAllocatorType>{})
+        else if constexpr (ImplementsOwns<FallbackAllocatorType>{})
         {
             if (m_FallbackAllocator->Owns(address))
             {
                 m_FallbackAllocator->Deallocate(ptr);
-                return;
+            }
+            else
+            {
+                MEMARENA_ERROR("Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(), address);
             }
         }
-
-        MEMARENA_ERROR("Error: The allocator %s does not own the pointer %d!\n", GetDebugName().c_str(), address);
+        else
+        {
+            m_FallbackAllocator->Deallocate(ptr);
+        }
     }
 
-    void DeallocateArray(void* ptr) { Deallocate(ptr); }
+    void DeallocateArray(void*& ptr) { Deallocate(ptr); }
 
   private:
     std::shared_ptr<PrimaryAllocatorType>  m_PrimaryAllocator;

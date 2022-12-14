@@ -9,6 +9,8 @@
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
+#include "Source/Allocators/StackAllocator/StackAllocator.hpp"
+#include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -61,17 +63,42 @@ class FallbackAllocatorTest : public ::testing::Test
 //     POLICY_TEST(name, Default, code);    \
 //     POLICY_TEST(name, Debug, code);
 
-TEST_F(FallbackAllocatorTest, Release)
+#define FALLBACK_TEST(primaryAllocator, secondaryAllocator)            \
+    auto              primaryAlloc   = primaryAllocator;               \
+    auto              secondaryAlloc = secondaryAllocator;             \
+    FallbackAllocator fallbackAllocator{primaryAlloc, secondaryAlloc}; \
+    int*              ptr  = fallbackAllocator.NewRaw<int>(5);         \
+    int*              ptr2 = fallbackAllocator.NewRaw<int>(6);         \
+    EXPECT_EQ(*ptr, 5);                                                \
+    EXPECT_EQ(*ptr2, 6);                                               \
+    EXPECT_EQ(primaryAlloc->Owns(ptr), true);                          \
+    EXPECT_EQ(primaryAlloc->Owns(ptr2), false);                        \
+    fallbackAllocator.Delete(ptr);                                     \
+    fallbackAllocator.Delete(ptr2);
+
+TEST_F(FallbackAllocatorTest, StackMalloc)
 {
-    auto                                              stackAllocator = std::make_shared<StackAllocator<>>(1_KB);
-    auto                                              mallocator     = std::make_shared<Mallocator<>>();
-    FallbackAllocator<StackAllocator<>, Mallocator<>> fallbackAllocator{stackAllocator, mallocator};
-
-    int* ptr = fallbackAllocator.NewRaw<int>(5);
-    EXPECT_EQ(*ptr, 5);
-
-    fallbackAllocator.Delete(ptr);
+    constexpr StackAllocatorSettings settings = {.breakOnFailureIsEnabled = false, .failureLoggingIsEnabled = false};
+    FALLBACK_TEST(std::make_shared<StackAllocator<settings>>(16), std::make_shared<Mallocator<>>());
 }
+
+TEST_F(FallbackAllocatorTest, PoolMalloc)
+{
+    constexpr PoolAllocatorSettings settings = {.breakOnFailureIsEnabled = false, .failureLoggingIsEnabled = false};
+    FALLBACK_TEST(std::make_shared<PoolAllocator<settings>>(sizeof(int), 1), std::make_shared<Mallocator<>>());
+}
+
+// TEST_F(FallbackAllocatorTest, PoolStack)
+// {
+//     auto                                              stackAllocator = std::make_shared<StackAllocator<>>(1_KB);
+//     auto                                              mallocator     = std::make_shared<Mallocator<>>();
+//     FallbackAllocator<StackAllocator<>, Mallocator<>> fallbackAllocator{stackAllocator, mallocator};
+
+//     int* ptr = fallbackAllocator.NewRaw<int>(5);
+//     EXPECT_EQ(*ptr, 5);
+
+//     fallbackAllocator.Delete(ptr);
+// }
 // ALLOCATOR_TEST(Initialize, { EXPECT_EQ(linearAllocator.GetUsedSize(), 0); })
 
 // ALLOCATOR_TEST(RawNewSingleObject, { CheckNewRaw<TestObject>(linearAllocator, 1, 2.1F, 'a', false, 10.6f); })

@@ -91,7 +91,7 @@ ALLOCATOR_TEST(RawNewMultipleObjects, {
 ALLOCATOR_TEST(RawNewDeleteSingleObject, {
     TestObject* object = CheckNewRaw<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
 
-    poolAllocator.DeleteRaw(object);
+    poolAllocator.Delete(object);
 })
 
 ALLOCATOR_TEST(RawNewDeleteMultipleObjects, {
@@ -107,14 +107,14 @@ ALLOCATOR_TEST(RawNewDeleteMultipleObjects, {
 
     for (int i = static_cast<int>(objects1.size()) - 1; i >= 0; i--)
     {
-        poolAllocator.DeleteRaw(objects1[i]);
+        poolAllocator.Delete(objects1[i]);
     }
 })
 
 ALLOCATOR_TEST(RawNewDeleteNewSingleObject, {
     TestObject* object = CheckNewRaw<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
 
-    poolAllocator.DeleteRaw(object);
+    poolAllocator.Delete(object);
 
     TestObject* object2 = CheckNewRaw<TestObject>(poolAllocator, 1, 2.1F, 'a', false, 10.6F);
 })
@@ -125,7 +125,7 @@ ALLOCATOR_TEST(RawNewDeleteNewMultipleObjects, {
         TestObject* object =
             CheckNewRaw<TestObject>(poolAllocator, i, static_cast<float>(i) + 1.5F, 'a' + i, i % 2, static_cast<float>(i) + 2.5F);
 
-        poolAllocator.DeleteRaw(object);
+        poolAllocator.Delete(object);
     }
 })
 
