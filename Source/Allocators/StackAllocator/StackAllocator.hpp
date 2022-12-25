@@ -103,15 +103,16 @@ class StackAllocator : public Allocator
   private:
     static constexpr auto Policy = Settings.policy;
 
-    static constexpr bool StackCheckIsEnabled         = PolicyContains(Policy, StackAllocatorPolicy::StackCheck);
-    static constexpr bool BoundsCheckIsEnabled        = PolicyContains(Policy, StackAllocatorPolicy::BoundsCheck);
-    static constexpr bool IsNullDeallocCheckEnabled   = PolicyContains(Policy, StackAllocatorPolicy::NullDeallocCheck);
-    static constexpr bool SizeCheckIsEnabled          = PolicyContains(Policy, StackAllocatorPolicy::SizeCheck);
-    static constexpr bool OwnershipIsCheckEnabled     = PolicyContains(Policy, StackAllocatorPolicy::OwnershipCheck);
-    static constexpr bool UsageTrackingIsEnabled      = PolicyContains(Policy, StackAllocatorPolicy::SizeTracking);
-    static constexpr bool IsMultithreaded             = PolicyContains(Policy, StackAllocatorPolicy::Multithreaded);
-    static constexpr bool AllocationTrackingIsEnabled = PolicyContains(Policy, StackAllocatorPolicy::AllocationTracking);
-    static constexpr bool IsResizable                 = PolicyContains(Policy, StackAllocatorPolicy::Resizable);
+    static constexpr bool StackCheckIsEnabled           = PolicyContains(Policy, StackAllocatorPolicy::StackCheck);
+    static constexpr bool BoundsCheckIsEnabled          = PolicyContains(Policy, StackAllocatorPolicy::BoundsCheck);
+    static constexpr bool NullDeallocCheckIsEnabled     = PolicyContains(Policy, StackAllocatorPolicy::NullDeallocCheck);
+    static constexpr bool SizeCheckIsEnabled            = PolicyContains(Policy, StackAllocatorPolicy::SizeCheck);
+    static constexpr bool OwnershipIsCheckEnabled       = PolicyContains(Policy, StackAllocatorPolicy::OwnershipCheck);
+    static constexpr bool UsageTrackingIsEnabled        = PolicyContains(Policy, StackAllocatorPolicy::SizeTracking);
+    static constexpr bool IsMultithreaded               = PolicyContains(Policy, StackAllocatorPolicy::Multithreaded);
+    static constexpr bool AllocationTrackingIsEnabled   = PolicyContains(Policy, StackAllocatorPolicy::AllocationTracking);
+    static constexpr bool IsResizable                   = PolicyContains(Policy, StackAllocatorPolicy::Resizable);
+    static constexpr bool DoubleFreePreventionIsEnabled = PolicyContains(Policy, StackAllocatorPolicy::DoubleFreePrevention);
 
     using InplaceHeader      = typename std::conditional<StackCheckIsEnabled, Internal::StackHeader, Internal::StackHeaderLite>::type;
     using Header             = Internal::StackHeader;
@@ -166,20 +167,6 @@ class StackAllocator : public Allocator
         return std::construct_at(ptr, std::forward<Args>(argList)...);
     }
 
-    template <Allocatable Object>
-    void Delete(StackPtr<Object> ptr)
-    {
-        Deallocate(StackPtr<void>(ptr.GetPtr(), ptr.m_Header));
-        ptr->~Object();
-    }
-
-    template <Allocatable Object>
-    void Delete(Object* ptr)
-    {
-        Deallocate(ptr);
-        ptr->~Object();
-    }
-
     template <Allocatable Object, typename... Args>
     NO_DISCARD StackArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
@@ -198,16 +185,30 @@ class StackAllocator : public Allocator
     }
 
     template <Allocatable Object>
-    void DeleteArray(Object* ptr)
+    void Delete(StackPtr<Object>& ptr)
     {
-        const Size objectCount = DeallocateArray(ptr, sizeof(Object));
+        DeallocateInternal(ptr);
+        ptr->~Object();
+    }
+
+    template <Allocatable Object>
+    void Delete(Object*& ptr)
+    {
+        DeallocateInternal(ptr);
+        ptr->~Object();
+    }
+
+    template <Allocatable Object>
+    void DeleteArray(Object*& ptr)
+    {
+        const Size objectCount = DeallocateArrayInternal(ptr, sizeof(Object));
         std::destroy_n(ptr, objectCount);
     }
 
     template <Allocatable Object>
-    void DeleteArray(StackArrayPtr<Object> ptr)
+    void DeleteArray(StackArrayPtr<Object>& ptr)
     {
-        const Size objectCount = DeallocateArray(StackArrayPtr<void>(ptr.GetPtr(), ptr.m_Header), sizeof(Object));
+        const Size objectCount = DeallocateArrayInternal(ptr, sizeof(Object));
         std::destroy_n(ptr.GetPtr(), objectCount);
     }
 
@@ -224,20 +225,6 @@ class StackAllocator : public Allocator
     NO_DISCARD void* Allocate(const std::string& category = "", const SourceLocation& sourceLocation = SourceLocation::current())
     {
         return Allocate(sizeof(Object), alignof(Object), category, sourceLocation);
-    }
-
-    void Deallocate(void* ptr)
-    {
-        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
-        auto [header, headerAddress] = Internal::GetHeaderFromAddress<InplaceHeader>(currentAddress);
-        DeallocateInternal(currentAddress, headerAddress, header);
-    }
-
-    void Deallocate(const StackPtr<void>& ptr)
-    {
-        const void*   voidPtr        = ptr.GetPtr();
-        const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
-        DeallocateInternal(currentAddress, currentAddress, ptr.GetHeader());
     }
 
     NO_DISCARD void* AllocateArray(const Size objectCount, const Size objectSize, const Alignment& alignment,
@@ -258,26 +245,13 @@ class StackAllocator : public Allocator
         return AllocateArray(objectCount, sizeof(Object), alignof(Object), category, sourceLocation);
     }
 
-    Size DeallocateArray(void* ptr, const Size objectSize)
-    {
-        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
-        auto [header, headerAddress] = Internal::GetHeaderFromAddress<InplaceArrayHeader>(currentAddress);
-        DeallocateInternal(currentAddress, headerAddress,
-                           Header(header.startOffset,
-                                  Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize, BackGuardSize)));
-        return header.count;
-    }
+    void Deallocate(void*& ptr) { DeallocateInternal(ptr); }
 
-    Size DeallocateArray(const StackArrayPtr<void>& ptr, const Size objectSize)
-    {
-        const void*                      voidPtr        = ptr.GetPtr();
-        const UIntPtr                    currentAddress = GetAddressFromPtr(voidPtr);
-        const Internal::StackArrayHeader header         = ptr.GetHeader();
-        DeallocateInternal(currentAddress, currentAddress,
-                           Header(header.startOffset,
-                                  Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize, BackGuardSize)));
-        return header.count;
-    }
+    void Deallocate(StackPtr<void>& ptr) { DeallocateInternal(ptr); }
+
+    Size DeallocateArray(void*& ptr, const Size objectSize) { return DeallocateArrayInternal(ptr, objectSize); }
+
+    Size DeallocateArray(StackArrayPtr<void>& ptr, const Size objectSize) { return DeallocateArrayInternal(ptr, objectSize); }
 
     /**
      * @brief Releases the allocator to its initial state. Any further allocations
@@ -296,6 +270,50 @@ class StackAllocator : public Allocator
     [[nodiscard]] bool Owns(void* ptr) const { return Owns(std::bit_cast<UIntPtr>(ptr)); }
 
   private:
+    template <typename T>
+    void DeallocateInternal(T*& ptr)
+    {
+        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
+        auto [header, headerAddress] = Internal::GetHeaderFromAddress<InplaceHeader>(currentAddress);
+        DeallocateInternal(currentAddress, headerAddress, header);
+        CheckDoubleFree(ptr);
+    }
+
+    template <typename T>
+    void DeallocateInternal(StackPtr<T>& ptr)
+    {
+        const void*   voidPtr        = ptr.GetPtr();
+        const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
+        DeallocateInternal(currentAddress, currentAddress, ptr.GetHeader());
+        CheckDoubleFree(ptr);
+    }
+
+    template <typename T>
+    Size DeallocateArrayInternal(T*& ptr, const Size objectSize)
+    {
+        const UIntPtr currentAddress = GetAddressFromPtr(ptr);
+        auto [header, headerAddress] = Internal::GetHeaderFromAddress<InplaceArrayHeader>(currentAddress);
+        DeallocateInternal(currentAddress, headerAddress,
+                           Header(header.startOffset,
+                                  Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize, BackGuardSize)));
+        CheckDoubleFree(ptr);
+        return header.count;
+    }
+
+    template <typename T>
+    Size DeallocateArrayInternal(StackArrayPtr<T>& ptr, const Size objectSize)
+    {
+        const void*   voidPtr        = ptr.GetPtr();
+        const UIntPtr currentAddress = GetAddressFromPtr(voidPtr);
+
+        const Internal::StackArrayHeader header = ptr.GetHeader();
+        DeallocateInternal(currentAddress, currentAddress,
+                           Header(header.startOffset,
+                                  Internal::GetArrayEndOffset(currentAddress, m_StartAddress, header.count, objectSize, BackGuardSize)));
+        CheckDoubleFree(ptr);
+        return header.count;
+    }
+
     template <Size HeaderSize = 0>
     std::tuple<void*, Offset, Offset> AllocateInternal(const Size size, const Alignment& alignment, const std::string& category = "",
                                                        const SourceLocation& sourceLocation = SourceLocation::current())
@@ -390,7 +408,7 @@ class StackAllocator : public Allocator
 
     UIntPtr GetAddressFromPtr(const void* ptr) const
     {
-        if constexpr (IsNullDeallocCheckEnabled)
+        if constexpr (NullDeallocCheckIsEnabled)
         {
             MEMARENA_ASSERT_RETURN(ptr, 0, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }
@@ -426,6 +444,33 @@ class StackAllocator : public Allocator
         if constexpr (UsageTrackingIsEnabled)
         {
             SetUsedSize(m_CurrentOffset);
+        }
+    }
+
+    template <typename T>
+    inline void CheckDoubleFree(T*& ptr)
+    {
+        if constexpr (DoubleFreePreventionIsEnabled)
+        {
+            ptr = nullptr;
+        }
+    }
+
+    template <typename T>
+    inline void CheckDoubleFree(StackPtr<T>& ptr)
+    {
+        if constexpr (DoubleFreePreventionIsEnabled)
+        {
+            ptr.Reset();
+        }
+    }
+
+    template <typename T>
+    inline void CheckDoubleFree(StackArrayPtr<T>& ptr)
+    {
+        if constexpr (DoubleFreePreventionIsEnabled)
+        {
+            ptr.Reset();
         }
     }
 

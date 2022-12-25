@@ -21,6 +21,7 @@ class Ptr
     inline auto     operator*() const -> std::add_lvalue_reference_t<T>
     requires(!std::is_void_v<T>) { return *m_Ptr; }
     inline explicit operator bool() const noexcept { return (m_Ptr != nullptr); }
+    inline bool     operator==(std::nullptr_t) const noexcept { return m_Ptr == nullptr; }
 
     void operator=(const Ptr&) = delete;
 

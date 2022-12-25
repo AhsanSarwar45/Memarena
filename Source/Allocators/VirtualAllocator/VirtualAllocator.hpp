@@ -37,7 +37,7 @@
 // {
 //   private:
 //     // static constexpr bool IsDoubleFreePreventionEnabled = PolicyContains(policy, VirtualAllocatorPolicy::DoubleFreePrevention);
-//     // static constexpr bool IsNullDeallocCheckEnabled =
+//     // static constexpr bool NullDeallocCheckIsEnabled =
 //     //     PolicyContains(policy, VirtualAllocatorPolicy::NullDeallocCheck) || IsDoubleFreePreventionEnabled;
 //     // static constexpr bool IsNullAllocCheckEnabled     = PolicyContains(policy, VirtualAllocatorPolicy::NullAllocCheck);
 //     // static constexpr bool AllocationTrackingIsEnabled = PolicyContains(policy, VirtualAllocatorPolicy::AllocationTracking);

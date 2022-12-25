@@ -44,7 +44,7 @@ gtest_dep = dependency('gtest')
 test_dependencies = [gtest_dep, memarena_dep]
 
 test_exe = executable('MemarenaTests', sources: test_sources , dependencies : test_dependencies)
-test('gtest tests', test_exe)
+test('MemarenaTests', test_exe)
 
 # ======== BENCHMARKS ========
 

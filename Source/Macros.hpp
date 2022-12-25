@@ -9,12 +9,16 @@
 #define NO_DISCARD [[nodiscard(NO_DISCARD_ALLOC_INFO)]]
 
 #define RETURN_IF_NULLPTR(ptr) \
-    if (ptr == nullptr)        \
     {                          \
-        return nullptr;        \
+        if (ptr == nullptr)    \
+        {                      \
+            return nullptr;    \
+        }                      \
     }
 #define RETURN_VAL_IF_NULLPTR(ptr, returnValue) \
-    if (ptr == nullptr)                         \
     {                                           \
-        return returnValue;                     \
+        if (ptr == nullptr)                     \
+        {                                       \
+            return returnValue;                 \
+        }                                       \
     }

@@ -73,7 +73,7 @@ class StackAllocator : public Allocator
   private:
     static constexpr bool StackCheckIsEnabled         = PolicyContains(policy, StackAllocatorPolicy::StackCheck);
     static constexpr bool BoundsCheckIsEnabled        = PolicyContains(policy, StackAllocatorPolicy::BoundsCheck);
-    static constexpr bool IsNullDeallocCheckEnabled   = PolicyContains(policy, StackAllocatorPolicy::NullDeallocCheck);
+    static constexpr bool NullDeallocCheckIsEnabled   = PolicyContains(policy, StackAllocatorPolicy::NullDeallocCheck);
     static constexpr bool SizeCheckIsEnabled          = PolicyContains(policy, StackAllocatorPolicy::SizeCheck);
     static constexpr bool OwnershipIsCheckEnabled     = PolicyContains(policy, StackAllocatorPolicy::OwnershipCheck);
     static constexpr bool UsageTrackingIsEnabled      = PolicyContains(policy, StackAllocatorPolicy::SizeTracking);
@@ -347,7 +347,7 @@ class StackAllocator : public Allocator
 
     UIntPtr GetAddressFromPtr(const void* ptr) const
     {
-        if constexpr (IsNullDeallocCheckEnabled)
+        if constexpr (NullDeallocCheckIsEnabled)
         {
             MEMARENA_ASSERT(ptr, "Error: Cannot deallocate nullptr in allocator '%s'!\n", GetDebugName().c_str());
         }

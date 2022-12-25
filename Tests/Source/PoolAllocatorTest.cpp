@@ -4,14 +4,12 @@
 #include <memory>
 #include <memory_resource>
 #include <thread>
+#include <vector>
 
 #include <Memarena/Memarena.hpp>
-#include <vector>
 
 #include "Macro.hpp"
 #include "MemoryTestObjects.hpp"
-#include "Source/MemoryTracker.hpp"
-#include "Source/Policies/Policies.hpp"
 
 using namespace Memarena;
 using namespace Memarena::SizeLiterals;
@@ -282,7 +280,7 @@ TEST_F(PoolAllocatorTest, MemoryTracker)
 
     PoolAllocator<settings> poolAllocator{sizeof(Int64), 1000};
 
-    Int64* num = static_cast<Int64*>(poolAllocator.Allocate("Testing/PoolAllocator").GetPtr());
+    Int64* num = static_cast<Int64*>(poolAllocator.Allocate("Testing/PoolAllocator"));
 
     const AllocatorVector allocators = MemoryTracker::GetAllocators();
 
@@ -308,6 +306,38 @@ ALLOCATOR_DEBUG_TEST(GetUsedSizeNew, {
     EXPECT_EQ(poolAllocator.GetUsedSize(), numObjects * (sizeof(TestObject)));
 })
 
+TEST_F(PoolAllocatorTest, DoubleFreePreventionDisabled)
+{
+    constexpr PoolAllocatorSettings settings = {.policy = PoolAllocatorPolicy::Default & ~PoolAllocatorPolicy::DoubleFreePrevention};
+
+    PoolAllocator<settings> poolAllocator{sizeof(TestObject), 10};
+    auto                    ptr  = poolAllocator.New<TestObject>();
+    auto                    ptr2 = poolAllocator.NewRaw<TestObject>();
+    auto                    ptr3 = poolAllocator.Allocate();
+    poolAllocator.Delete(ptr);
+    poolAllocator.Delete(ptr2);
+    poolAllocator.Deallocate(ptr3);
+    EXPECT_NE(ptr, nullptr);
+    EXPECT_NE(ptr2, nullptr);
+    EXPECT_NE(ptr3, nullptr);
+}
+
+TEST_F(PoolAllocatorTest, DoubleFreePrevention)
+{
+    constexpr PoolAllocatorSettings settings = {.policy = PoolAllocatorPolicy::DoubleFreePrevention};
+
+    PoolAllocator<settings> poolAllocator{sizeof(TestObject), 10};
+    auto                    ptr  = poolAllocator.New<TestObject>();
+    auto                    ptr2 = poolAllocator.NewRaw<TestObject>();
+    auto                    ptr3 = poolAllocator.Allocate();
+    poolAllocator.Delete(ptr);
+    poolAllocator.Delete(ptr2);
+    poolAllocator.Deallocate(ptr3);
+    EXPECT_EQ(ptr, nullptr);
+    EXPECT_EQ(ptr2, nullptr);
+    EXPECT_EQ(ptr3, nullptr);
+}
+
 #ifdef MEMARENA_ENABLE_ASSERTS
 
 class PoolAllocatorDeathTest : public ::testing::Test
@@ -315,8 +345,6 @@ class PoolAllocatorDeathTest : public ::testing::Test
   protected:
     void SetUp() override {}
     void TearDown() override {}
-
-    PoolAllocator<> poolAllocator = PoolAllocator(sizeof(TestObject), 1000);
 };
 
 // TEST_F(PoolAllocatorDeathTest, DeleteNullPointer)
@@ -349,6 +377,7 @@ TEST_F(PoolAllocatorDeathTest, NewOutOfMemory)
 
 TEST_F(PoolAllocatorDeathTest, NewWrongSizedObject)
 {
+    PoolAllocator<> poolAllocator = PoolAllocator(sizeof(TestObject), 10);
     // TODO Write proper exit messages
     ASSERT_DEATH({ PoolPtr<TestObject2> pointer = poolAllocator.New<TestObject2>(1, 1.5F, 'a', false, Pair{1, 2.5}); }, ".*");
 }
@@ -359,18 +388,6 @@ TEST_F(PoolAllocatorDeathTest, NewWrongSizedObject)
 
 //     // TODO Write proper exit messages
 //     ASSERT_DEATH({ poolAllocator.Delete(pointer); }, ".*");
-// }
-
-// TEST_F(MallocatorDeathTest, DoubleFree)
-// {
-//     constexpr PoolAllocatorPolicy policy = PoolAllocatorPolicy::DoubleFreePrevention;
-//     PoolAllocator<policy>      poolAllocator{};
-
-//     auto ptr = poolAllocator.Allocate(4);
-
-//     poolAllocator.Deallocate(ptr);
-//     // TODO Write proper exit messages
-//     ASSERT_DEATH({ poolAllocator.Deallocate(ptr); }, ".*");
 // }
 
 #endif

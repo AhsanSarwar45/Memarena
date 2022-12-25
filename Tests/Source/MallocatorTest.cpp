@@ -409,6 +409,24 @@ TEST_F(MallocatorTest, MemoryTracker)
     EXPECT_EQ(MemoryTracker::GetTotalAllocatedSize(), sizeof(int));
 }
 
+TEST_F(MallocatorTest, DoubleFree)
+{
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
+    Mallocator<settings>         mallocator{};
+    MallocPtr<int>               ptr = mallocator.New<int>(4);
+    mallocator.Delete(ptr);
+    EXPECT_EQ(ptr.GetPtr(), nullptr);
+}
+
+TEST_F(MallocatorTest, DoubleFreeRaw)
+{
+    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
+    Mallocator<settings>         mallocator{};
+    int*                         ptr = mallocator.NewRaw<int>(4);
+    mallocator.Delete(ptr);
+    EXPECT_EQ(ptr, nullptr);
+}
+
 #ifdef MEMARENA_ENABLE_ASSERTS
 
 class MallocatorDeathTest : public ::testing::Test
@@ -434,30 +452,6 @@ TEST_F(MallocatorDeathTest, DeleteNullPointerRaw)
     Mallocator<settings>         mallocator{};
     int*                         ptr = nullptr;
 
-    // TODO Write proper exit messages
-    ASSERT_DEATH({ mallocator.Delete(ptr); }, ".*");
-}
-
-TEST_F(MallocatorDeathTest, DoubleFree)
-{
-    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
-    Mallocator<settings>         mallocator{};
-
-    MallocPtr<int> ptr = mallocator.New<int>(4);
-
-    mallocator.Delete(ptr);
-    // TODO Write proper exit messages
-    ASSERT_DEATH({ mallocator.Delete(ptr); }, ".*");
-}
-
-TEST_F(MallocatorDeathTest, DoubleFreeRaw)
-{
-    constexpr MallocatorSettings settings = {.policy = MallocatorPolicy::DoubleFreePrevention};
-    Mallocator<settings>         mallocator{};
-
-    int* ptr = mallocator.NewRaw<int>(4);
-
-    mallocator.Delete(ptr);
     // TODO Write proper exit messages
     ASSERT_DEATH({ mallocator.Delete(ptr); }, ".*");
 }

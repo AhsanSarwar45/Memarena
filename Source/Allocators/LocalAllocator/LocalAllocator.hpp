@@ -21,7 +21,7 @@ class LocalAllocator : public Allocator
 {
   private:
     static constexpr bool IsDoubleFreePreventionEnabled = PolicyContains(policy, LocalAllocatorPolicy::DoubleFreePrevention);
-    static constexpr bool IsNullDeallocCheckEnabled =
+    static constexpr bool NullDeallocCheckIsEnabled =
         PolicyContains(policy, LocalAllocatorPolicy::NullDeallocCheck) || IsDoubleFreePreventionEnabled;
     static constexpr bool IsNullAllocCheckEnabled     = PolicyContains(policy, LocalAllocatorPolicy::NullAllocCheck);
     static constexpr bool AllocationTrackingIsEnabled = PolicyContains(policy, LocalAllocatorPolicy::AllocationTracking);

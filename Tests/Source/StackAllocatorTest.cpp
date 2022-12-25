@@ -473,6 +473,38 @@ TEST_F(StackAllocatorTest, CustomBaseAllocator)
     EXPECT_EQ(baseAllocator->GetTotalSize(), 1_MB);
 }
 
+TEST_F(StackAllocatorTest, DoubleFreePreventionDisabled)
+{
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::Default & ~StackAllocatorPolicy::DoubleFreePrevention};
+
+    StackAllocator<settings> stackAllocator{1_MB};
+    auto                     ptr  = stackAllocator.New<TestObject>();
+    auto                     ptr2 = stackAllocator.NewRaw<TestObject>();
+    auto                     ptr3 = stackAllocator.Allocate(8);
+    stackAllocator.Deallocate(ptr3);
+    stackAllocator.Delete(ptr2);
+    stackAllocator.Delete(ptr);
+    EXPECT_NE(ptr, nullptr);
+    EXPECT_NE(ptr2, nullptr);
+    EXPECT_NE(ptr3, nullptr);
+}
+
+TEST_F(StackAllocatorTest, DoubleFreePrevention)
+{
+    constexpr StackAllocatorSettings settings = {.policy = StackAllocatorPolicy::DoubleFreePrevention};
+
+    StackAllocator<settings> stackAllocator{1_MB};
+    auto                     ptr  = stackAllocator.New<TestObject>();
+    auto                     ptr2 = stackAllocator.NewRaw<TestObject>();
+    auto                     ptr3 = stackAllocator.Allocate(8);
+    stackAllocator.Deallocate(ptr3);
+    stackAllocator.Delete(ptr2);
+    stackAllocator.Delete(ptr);
+    EXPECT_EQ(ptr, nullptr);
+    EXPECT_EQ(ptr2, nullptr);
+    EXPECT_EQ(ptr3, nullptr);
+}
+
 #ifdef MEMARENA_ENABLE_ASSERTS
 
 class StackAllocatorDeathTest : public ::testing::Test

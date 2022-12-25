@@ -56,12 +56,12 @@ enum class StackAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
-    NullDeallocCheck = Bit(0), // Check if the pointer is null when deallocating
-    OwnershipCheck   = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
-    BoundsCheck      = Bit(2), // Check if an allocation overwrites another allocation
-    StackCheck       = Bit(3), // Check is deallocations are performed in LIFO order
-    Resizable        = Bit(4), // Allow the allocator to grow when memory is exhausted
-    // DoubleFreePrevention = Bit(4), // Set the ptr to null on free to prevent double frees
+    NullDeallocCheck     = Bit(0), // Check if the pointer is null when deallocating
+    OwnershipCheck       = Bit(1), // Check if the pointer is owned/allocated by the allocator that is deallocating it
+    BoundsCheck          = Bit(2), // Check if an allocation overwrites another allocation
+    StackCheck           = Bit(3), // Check is deallocations are performed in LIFO order
+    Resizable            = Bit(4), // Allow the allocator to grow when memory is exhausted
+    DoubleFreePrevention = Bit(5), // Set the ptr to null on free to prevent double frees
 
     Default = NullDeallocCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking,
     Release = Empty,
