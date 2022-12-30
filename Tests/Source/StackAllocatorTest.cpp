@@ -333,9 +333,9 @@ ALLOCATOR_TEST(Owns, {
     EXPECT_TRUE(stackAllocator.Owns(object1));
     EXPECT_TRUE(stackAllocator.Owns(arr1));
     EXPECT_TRUE(stackAllocator.Owns(object2));
-    stackAllocator.Delete(object1);
-    stackAllocator.DeleteArray(arr1);
     stackAllocator.Delete(object2);
+    stackAllocator.DeleteArray(arr1);
+    stackAllocator.Delete(object1);
 })
 
 ALLOCATOR_TEST(OwnsNot, {
