@@ -102,6 +102,19 @@ TEST_F(LinearAllocatorTest, Release)
     }
 }
 
+ALLOCATOR_TEST(Owns, {
+    TestObject* object1 = linearAllocator.NewRaw<TestObject>(1, 2.1F, 'a', false, 10.6F);
+    TestObject* arr1    = linearAllocator.NewArrayRaw<TestObject>(10, 1, 2.1F, 'a', false, 10.6F);
+    EXPECT_TRUE(linearAllocator.Owns(object1));
+    EXPECT_TRUE(linearAllocator.Owns(arr1));
+    linearAllocator.Release();
+})
+
+ALLOCATOR_TEST(OwnsNot, {
+    int* ptr = new int(1);
+    EXPECT_FALSE(linearAllocator.Owns(ptr));
+})
+
 template <LinearAllocatorSettings settings>
 void ThreadFunction(LinearAllocator<settings>& linearAllocator)
 {

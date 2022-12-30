@@ -26,7 +26,7 @@ struct IsPolicy
         SizeTracking  = Bit(28),             /* Track the amount of space used by this allocator */                    \
         Multithreaded = Bit(29)              /* Make allocations thread-safe. This will also make them blocking */
 
-#define ALLOCATOR_POLICIES BASE_ALLOCATOR_POLICIES, SizeCheck = Bit(30) /* Check if the allocator has sufficient space when allocating */
+#define ALLOCATOR_POLICIES BASE_ALLOCATOR_POLICIES
 
 template <typename Policy, typename Value>
 constexpr bool PolicyContains(Policy policy, Value value)
@@ -63,9 +63,9 @@ enum class StackAllocatorPolicy : UInt32
     Resizable            = Bit(4), // Allow the allocator to grow when memory is exhausted
     DoubleFreePrevention = Bit(5), // Set the ptr to null on free to prevent double frees
 
-    Default = NullDeallocCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking,
+    Default = NullDeallocCheck | OwnershipCheck | StackCheck | SizeTracking,
     Release = Empty,
-    Debug   = NullDeallocCheck | OwnershipCheck | SizeCheck | StackCheck | SizeTracking | AllocationTracking | BoundsCheck,
+    Debug   = NullDeallocCheck | OwnershipCheck | StackCheck | SizeTracking | AllocationTracking | BoundsCheck,
 };
 
 MARK_AS_POLICY(StackAllocatorPolicy);
@@ -80,9 +80,9 @@ enum class PoolAllocatorPolicy : UInt32
     Growable             = Bit(4), // Allow the allocator to grow when memory is exhausted
     AllocationSizeCheck  = Bit(5), // Check if the size of object being allocated or deallocated is equal to objectSize
 
-    Default = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | DoubleFreePrevention | AllocationSizeCheck,
+    Default = NullDeallocCheck | OwnershipCheck | SizeTracking | DoubleFreePrevention | AllocationSizeCheck,
     Release = Empty,
-    Debug = NullDeallocCheck | OwnershipCheck | SizeCheck | SizeTracking | AllocationTracking | DoubleFreePrevention | AllocationSizeCheck,
+    Debug   = NullDeallocCheck | OwnershipCheck | SizeTracking | AllocationTracking | DoubleFreePrevention | AllocationSizeCheck,
 };
 
 MARK_AS_POLICY(PoolAllocatorPolicy);
@@ -91,11 +91,12 @@ enum class LinearAllocatorPolicy : UInt32
 {
     ALLOCATOR_POLICIES,
 
-    Growable = Bit(0), // Allow the allocator to grow when memory is exhausted
+    Growable  = Bit(0), // Allow the allocator to grow when memory is exhausted
+    SizeCheck = Bit(1), // Check if the allocator has sufficient space when allocating //
 
-    Default = SizeCheck | SizeTracking,
+    Default = SizeTracking | SizeCheck,
     Release = Empty,
-    Debug   = SizeCheck | SizeTracking | AllocationTracking,
+    Debug   = SizeTracking | SizeCheck | AllocationTracking,
 };
 
 MARK_AS_POLICY(LinearAllocatorPolicy);

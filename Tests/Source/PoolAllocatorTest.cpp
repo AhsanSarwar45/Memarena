@@ -203,6 +203,23 @@ ALLOCATOR_TEST(NewDeleteMixed, {
     poolAllocator.DeleteArray(arr1);
 })
 
+ALLOCATOR_TEST(Owns, {
+    PoolPtr<TestObject>      object1 = poolAllocator.New<TestObject>(1, 2.1F, 'a', false, 10.6F);
+    PoolArrayPtr<TestObject> arr1    = poolAllocator.NewArray<TestObject>(10, 1, 2.1F, 'a', false, 10.6F);
+    TestObject*              object2 = poolAllocator.NewRaw<TestObject>(1, 2.1F, 'a', false, 10.6F);
+    EXPECT_TRUE(poolAllocator.Owns(object1));
+    EXPECT_TRUE(poolAllocator.Owns(arr1));
+    EXPECT_TRUE(poolAllocator.Owns(object2));
+    poolAllocator.Delete(object1);
+    poolAllocator.DeleteArray(arr1);
+    poolAllocator.Delete(object2);
+})
+
+ALLOCATOR_TEST(OwnsNot, {
+    int* ptr = new int(1);
+    EXPECT_FALSE(poolAllocator.Owns(ptr));
+})
+
 template <PoolAllocatorSettings settings>
 void ThreadFunction(PoolAllocator<settings>& poolAllocator)
 {

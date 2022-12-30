@@ -100,22 +100,6 @@ class Mallocator : public Allocator
         return objectPtr;
     }
 
-    template <Allocatable Object>
-    void Delete(MallocPtr<Object>& ptr)
-    {
-        DeallocateInternal(ptr, ptr.GetSize());
-        ptr->~Object();
-    }
-
-    template <Allocatable Object>
-    void Delete(Object*& ptr)
-    {
-        void* voidPtr = ptr;
-        Deallocate(voidPtr);
-        ptr = static_cast<Object*>(voidPtr);
-        ptr->~Object();
-    }
-
     template <Allocatable Object, typename... Args>
     NO_DISCARD MallocArrayPtr<Object> NewArray(const Size objectCount, Args&&... argList)
     {
@@ -135,6 +119,20 @@ class Mallocator : public Allocator
     }
 
     template <Allocatable Object>
+    void Delete(MallocPtr<Object>& ptr)
+    {
+        DeallocateInternal(ptr, ptr.GetSize());
+        ptr->~Object();
+    }
+
+    template <Allocatable Object>
+    void Delete(Object*& ptr)
+    {
+        DeallocateInternalWithHeader(ptr);
+        ptr->~Object();
+    }
+
+    template <Allocatable Object>
     void DeleteArray(MallocArrayPtr<Object>& ptr)
     {
         DeallocateInternal(ptr, ptr.GetSize());
@@ -144,9 +142,7 @@ class Mallocator : public Allocator
     template <Allocatable Object>
     void DeleteArray(Object*& ptr)
     {
-        void*      voidPtr = ptr;
-        const Size size    = DeallocateArray(voidPtr);
-        ptr                = static_cast<Object*>(voidPtr);
+        const Size size = DeallocateInternalWithHeader(ptr);
         std::destroy_n(ptr, size / sizeof(Object));
     }
 
@@ -238,7 +234,8 @@ class Mallocator : public Allocator
         }
     }
 
-    Size DeallocateInternalWithHeader(void*& ptr)
+    template <typename T>
+    Size DeallocateInternalWithHeader(T*& ptr)
     {
         if constexpr (NullDeallocCheckIsEnabled || DoubleFreePreventionIsEnabled)
         {

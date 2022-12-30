@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Source/PCH.hpp"
+#include <algorithm>
+#include <vector>
 
 #include "Source/Allocator.hpp"
 #include "Source/AllocatorData.hpp"
@@ -74,7 +75,6 @@ class PoolAllocator : public Allocator
     static constexpr bool NullDeallocCheckIsEnabled     = PolicyContains(Policy, PoolAllocatorPolicy::NullDeallocCheck);
     static constexpr bool DoubleFreePreventionIsEnabled = PolicyContains(Policy, PoolAllocatorPolicy::DoubleFreePrevention);
     static constexpr bool AllocationSizeCheckIsEnabled  = PolicyContains(Policy, PoolAllocatorPolicy::AllocationSizeCheck);
-    static constexpr bool SizeCheckIsEnabled            = PolicyContains(Policy, PoolAllocatorPolicy::SizeCheck);
     static constexpr bool OwnershipIsCheckEnabled       = PolicyContains(Policy, PoolAllocatorPolicy::OwnershipCheck);
     static constexpr bool UsageTrackingIsEnabled        = PolicyContains(Policy, PoolAllocatorPolicy::SizeTracking);
     static constexpr bool IsGrowable                    = PolicyContains(Policy, PoolAllocatorPolicy::Growable);
@@ -102,9 +102,9 @@ class PoolAllocator : public Allocator
         : Allocator(0, debugName), m_ObjectSize(objectSize), m_ObjectsPerBlock(objectsPerBlock), m_BlockSize(objectSize * objectsPerBlock),
           m_BaseAllocator(std::move(baseAllocator))
     {
-        MEMARENA_ASSERT(objectSize >= sizeof(Chunk), "Error: Object size must be >= to the pointer size (%u) for the allocator '%s'",
+        MEMARENA_ASSERT(objectSize >= sizeof(Chunk), "Error: Object size must be >= to the pointer size (%u) for the allocator '%s'\n",
                         sizeof(void*), GetDebugName().c_str());
-        MEMARENA_ASSERT(objectsPerBlock > 0, "Error: Objects per block must be greater than 0 for the allocator '%s'",
+        MEMARENA_ASSERT(objectsPerBlock > 0, "Error: Objects per block must be greater than 0 for the allocator '%s'\n",
                         GetDebugName().c_str());
         AllocateBlock();
     }
@@ -185,17 +185,19 @@ class PoolAllocator : public Allocator
 
     [[nodiscard]] bool Owns(UIntPtr address) const
     {
-        for (const auto& blockPtr : m_BlockPtrs)
-        {
+        return std::ranges::any_of(m_BlockPtrs, [&](void* blockPtr) {
             const UIntPtr startAddress = std::bit_cast<UIntPtr>(blockPtr);
             const UIntPtr endAddress   = startAddress + m_BlockSize;
-            if (address >= startAddress && address <= endAddress)
-            {
-                return true;
-            }
-        }
+            return address >= startAddress && address <= endAddress;
+        });
     }
     [[nodiscard]] bool Owns(void* ptr) const { return Owns(std::bit_cast<UIntPtr>(ptr)); }
+
+    template <typename Object>
+    [[nodiscard]] bool Owns(Ptr<Object> ptr) const
+    {
+        return Owns(ptr.GetPtr());
+    }
 
   private:
     template <typename T>
@@ -232,11 +234,8 @@ class PoolAllocator : public Allocator
                 AllocateBlock();
             }
         }
-        else if constexpr (SizeCheckIsEnabled)
-        {
-            MEMARENA_ASSERT_RETURN(m_CurrentPtr != nullptr, nullptr, "Error: The allocator '%s' is out of memory!\n",
-                                   GetDebugName().c_str());
-        }
+
+        MEMARENA_ASSERT_RETURN(m_CurrentPtr != nullptr, nullptr, "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
 
         void*  freePtr      = m_CurrentPtr;
         Chunk* currentChunk = std::bit_cast<Chunk*>(m_CurrentPtr);
@@ -258,12 +257,10 @@ class PoolAllocator : public Allocator
     NO_DISCARD void* AllocateArrayInternal(const Size objectCount, const std::string& category = "",
                                            const SourceLocation& sourceLocation = SourceLocation::current())
     {
-        if constexpr (SizeCheckIsEnabled)
-        {
-            MEMARENA_ASSERT_RETURN(objectCount <= m_ObjectsPerBlock, nullptr,
-                                   "Error: Allocation object count (%u) must be <= to objects per block (%u) for allocator '%s'!\n",
-                                   objectCount, m_BlockSize, GetDebugName().c_str());
-        }
+
+        MEMARENA_ASSERT_RETURN(objectCount <= m_ObjectsPerBlock, nullptr,
+                               "Error: Allocation object count (%u) must be <= to objects per block (%u) for allocator '%s'!\n",
+                               objectCount, m_BlockSize, GetDebugName().c_str());
 
         LockGuard<Mutex> guard(m_MultithreadedPolicy.m_Mutex);
 
@@ -286,11 +283,9 @@ class PoolAllocator : public Allocator
                     break;
                 }
             }
-            else if constexpr (SizeCheckIsEnabled)
-            {
-                MEMARENA_ASSERT_RETURN(m_CurrentPtr != nullptr, nullptr, "Error: The allocator '%s' is out of memory!\n",
-                                       GetDebugName().c_str());
-            }
+
+            MEMARENA_ASSERT_RETURN(m_CurrentPtr != nullptr, nullptr, "Error: The allocator '%s' is out of memory!\n",
+                                   GetDebugName().c_str());
 
             const UIntPtr nextChunkAddress       = std::bit_cast<UIntPtr>(currentChunk->nextChunk);
             const UIntPtr proceedingChunkAddress = std::bit_cast<UIntPtr>(currentChunk) + m_ObjectSize;

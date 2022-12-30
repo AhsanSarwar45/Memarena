@@ -106,7 +106,6 @@ class StackAllocator : public Allocator
     static constexpr bool StackCheckIsEnabled           = PolicyContains(Policy, StackAllocatorPolicy::StackCheck);
     static constexpr bool BoundsCheckIsEnabled          = PolicyContains(Policy, StackAllocatorPolicy::BoundsCheck);
     static constexpr bool NullDeallocCheckIsEnabled     = PolicyContains(Policy, StackAllocatorPolicy::NullDeallocCheck);
-    static constexpr bool SizeCheckIsEnabled            = PolicyContains(Policy, StackAllocatorPolicy::SizeCheck);
     static constexpr bool OwnershipIsCheckEnabled       = PolicyContains(Policy, StackAllocatorPolicy::OwnershipCheck);
     static constexpr bool UsageTrackingIsEnabled        = PolicyContains(Policy, StackAllocatorPolicy::SizeTracking);
     static constexpr bool IsMultithreaded               = PolicyContains(Policy, StackAllocatorPolicy::Multithreaded);
@@ -268,6 +267,11 @@ class StackAllocator : public Allocator
 
     [[nodiscard]] bool Owns(UIntPtr address) const { return address >= m_StartAddress && address <= m_EndAddress; }
     [[nodiscard]] bool Owns(void* ptr) const { return Owns(std::bit_cast<UIntPtr>(ptr)); }
+    template <typename Object>
+    [[nodiscard]] bool Owns(Ptr<Object> ptr) const
+    {
+        return Owns(ptr.GetPtr());
+    }
 
   private:
     template <typename T>
@@ -341,11 +345,8 @@ class StackAllocator : public Allocator
 
         Size totalSizeAfterAllocation = m_CurrentOffset + padding + size;
 
-        if constexpr (SizeCheckIsEnabled)
-        {
-            MEMARENA_ASSERT_RETURN(totalSizeAfterAllocation <= GetTotalSize(), (std::tuple(nullptr, 0, 0)),
-                                   "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
-        }
+        MEMARENA_ASSERT_RETURN(totalSizeAfterAllocation <= GetTotalSize(), (std::tuple(nullptr, 0, 0)),
+                               "Error: The allocator '%s' is out of memory!\n", GetDebugName().c_str());
 
         if constexpr (BoundsCheckIsEnabled)
         {

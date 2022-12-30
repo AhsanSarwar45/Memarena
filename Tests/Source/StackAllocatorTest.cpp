@@ -326,6 +326,23 @@ TEST_F(StackAllocatorTest, PMR)
     EXPECT_EQ(vec[2], 2);
 }
 
+ALLOCATOR_TEST(Owns, {
+    StackPtr<TestObject>      object1 = stackAllocator.New<TestObject>(1, 2.1F, 'a', false, 10.6F);
+    StackArrayPtr<TestObject> arr1    = stackAllocator.NewArray<TestObject>(10, 1, 2.1F, 'a', false, 10.6F);
+    TestObject*               object2 = stackAllocator.NewRaw<TestObject>(1, 2.1F, 'a', false, 10.6F);
+    EXPECT_TRUE(stackAllocator.Owns(object1));
+    EXPECT_TRUE(stackAllocator.Owns(arr1));
+    EXPECT_TRUE(stackAllocator.Owns(object2));
+    stackAllocator.Delete(object1);
+    stackAllocator.DeleteArray(arr1);
+    stackAllocator.Delete(object2);
+})
+
+ALLOCATOR_TEST(OwnsNot, {
+    int* ptr = new int(1);
+    EXPECT_FALSE(stackAllocator.Owns(ptr));
+})
+
 template <AllocatorSettings settings>
 void ThreadFunction(StackAllocator<settings>& stackAllocator)
 {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <bit>
 #include <utility>
 #include <vector>
@@ -121,7 +122,7 @@ class LinearAllocator : public Allocator
                     return Allocate(size, alignment, category, sourceLocation);
                 }
             }
-            else if constexpr (SizeCheckIsEnabled)
+            else
             {
                 MEMARENA_ASSERT_RETURN(totalSizeAfterAllocation <= m_BlockSize, nullptr, "Error: The allocator '%s' is out of memory!\n",
                                        GetDebugName().c_str());
@@ -169,17 +170,18 @@ class LinearAllocator : public Allocator
 
     [[nodiscard]] bool Owns(UIntPtr address) const
     {
-        for (const auto& blockPtr : m_BlockPtrs)
-        {
+        return std::ranges::any_of(m_BlockPtrs, [&](void* blockPtr) {
             const UIntPtr startAddress = std::bit_cast<UIntPtr>(blockPtr);
             const UIntPtr endAddress   = startAddress + m_BlockSize;
-            if (address >= startAddress && address <= endAddress)
-            {
-                return true;
-            }
-        }
+            return address >= startAddress && address <= endAddress;
+        });
     }
     [[nodiscard]] bool Owns(void* ptr) const { return Owns(std::bit_cast<UIntPtr>(ptr)); }
+    template <typename Object>
+    [[nodiscard]] bool Owns(Ptr<Object> ptr) const
+    {
+        return Owns(ptr.GetPtr());
+    }
 
     // NO_DISCARD BaseAllocatorPtr<void> AllocateBase(const Size size) final { return Allocate(size); }
 
