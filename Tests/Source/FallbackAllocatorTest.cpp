@@ -79,21 +79,36 @@ auto FallbackTest(T primaryAllocator, U secondaryAllocator) -> void
 }
 
 #ifdef MEMARENA_DEBUG
-constexpr Size stackAllocatorSize = 16;
+constexpr Size stackAllocatorPadding = 8;
 #else
-constexpr Size stackAllocatorSize = 8;
+constexpr Size stackAllocatorPadding = 0;
 #endif
 
 TEST_F(FallbackAllocatorTest, StackMalloc)
 {
     constexpr StackAllocatorSettings settings = {.breakOnFailureIsEnabled = false, .failureLoggingIsEnabled = false};
-    FallbackTest<int>(std::make_shared<StackAllocator<settings>>(stackAllocatorSize), std::make_shared<Mallocator<>>());
+    FallbackTest<int>(std::make_shared<StackAllocator<settings>>(alignof(int) + sizeof(int) + stackAllocatorPadding),
+                      std::make_shared<Mallocator<>>());
 }
 
 TEST_F(FallbackAllocatorTest, PoolMalloc)
 {
     constexpr PoolAllocatorSettings settings = {.breakOnFailureIsEnabled = false, .failureLoggingIsEnabled = false};
     FallbackTest<UInt64>(std::make_shared<PoolAllocator<settings>>(sizeof(UInt64), 1), std::make_shared<Mallocator<>>());
+}
+
+TEST_F(FallbackAllocatorTest, PoolPool)
+{
+    constexpr PoolAllocatorSettings settings = {.breakOnFailureIsEnabled = false, .failureLoggingIsEnabled = false};
+    FallbackTest<UInt64>(std::make_shared<PoolAllocator<settings>>(sizeof(UInt64), 1),
+                         std::make_shared<PoolAllocator<>>(sizeof(UInt64), 1));
+}
+
+TEST_F(FallbackAllocatorTest, StackPool)
+{
+    constexpr StackAllocatorSettings settings = {.breakOnFailureIsEnabled = false, .failureLoggingIsEnabled = false};
+    FallbackTest<UInt64>(std::make_shared<StackAllocator<settings>>(alignof(UInt64) + sizeof(UInt64) + stackAllocatorPadding),
+                         std::make_shared<PoolAllocator<>>(sizeof(UInt64), 1));
 }
 
 // TEST_F(FallbackAllocatorTest, PoolStack)
